@@ -1,0 +1,98 @@
+body {
+  background-color: #f9f9f9;
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  color: #333;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+textarea {
+  width: 100%;
+  max-width: 800px;
+  height: 400px;
+  padding: 10px;
+  font-size: 16px;
+  line-height: 1.5;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  resize: vertical;
+  background-color: #fff;
+  color: #000;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+button {
+  cursor: pointer;
+  background-color: transparent;
+  border: none;
+}
+
+/* Dark mode */
+.dark-mode {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+
+.dark-mode textarea {
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+}
+
+/* Theme toggle icon */
+#toggle-theme {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background-size: cover;
+  background-repeat: no-repeat;
+  border-radius: 50%;
+}
+
+#toggle-theme.sun {
+  background-image: url('001_Assets/sun.png');
+}
+
+#toggle-theme.moon {
+  background-image: url('001_Assets/moon.png');
+}
+
+/* Save icon button */
+#save-text.save-icon {
+  position: fixed;
+  bottom: 20px;
+  right: 70px;
+  width: 40px;
+  height: 40px;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-image: url('001_Assets/diskette.png');
+}
+
+/* Dark mode version */
+.dark-mode #save-text.save-icon {
+  background-image: url('001_Assets/diskette_dark.png');
+}
+
+#filename-input {
+  display: block;
+  margin-bottom: 10px;
+  padding: 8px;
+  font-size: 16px;
+  width: 300px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #000;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.dark-mode #filename-input {
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+}
+
