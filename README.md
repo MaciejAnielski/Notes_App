@@ -1,4 +1,4 @@
-# Notes_App
+# Notes App
 A personal notes app that works in the browser.
 
 ## Features
