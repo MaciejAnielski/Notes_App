@@ -19,22 +19,9 @@ toggleBtn.addEventListener('click', toggleTheme);
 const savedTheme = localStorage.getItem('theme') || 'light';
 applyTheme(savedTheme);
 
-// Save markdown file
-saveBtn.addEventListener('click', () => {
-  const text = textarea.value;
-  const blob = new Blob([text], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'note.md';
-  a.click();
-
-  URL.revokeObjectURL(url);
-});
-
 const filenameInput = document.getElementById('filename-input');
 
+// Save markdown file using the provided filename
 saveBtn.addEventListener('click', () => {
   const text = textarea.value;
   const filename = filenameInput.value.trim() || 'untitled';
