@@ -173,6 +173,29 @@ button {
   align-items: flex-start;
 }
 
+#layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#editor-section {
+  flex: 1;
+}
+
+@media (min-width: 900px) {
+  #layout-wrapper {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  #editor-section {
+    margin-right: 20px;
+  }
+  #lists-container {
+    width: 300px;
+  }
+}
+
 #todo-container ul {
   list-style: none;
   padding-left: 0;
