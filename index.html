@@ -33,10 +33,17 @@
     <textarea id="editor" placeholder="Start typing here..."></textarea>
     <div id="preview" style="display:none;"></div>
 
-    <h2>Saved Files</h2>
-    
-    <input type="text" id="searchBox" placeholder="Search notes...">
-    <ul id="fileList"></ul>
+    <div id="lists-container">
+      <div id="files-container">
+        <h2>Saved Files</h2>
+        <input type="text" id="searchBox" placeholder="Search notes...">
+        <ul id="fileList"></ul>
+      </div>
+      <div id="todo-container">
+        <h2>Todo Items</h2>
+        <ul id="todoList"></ul>
+      </div>
+    </div>
 
   <script src="script.js"></script>
 </body>
