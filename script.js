@@ -35,6 +35,12 @@ const importZipInput = document.getElementById('import-zip-input');
 const searchBox = document.getElementById('searchBox');
 const fileList = document.getElementById('fileList');
 const todoList = document.getElementById('todoList');
+const statusDiv = document.getElementById('status-message');
+
+function updateStatus(message, success) {
+  statusDiv.textContent = message;
+  statusDiv.style.color = success ? 'green' : 'red';
+}
 
 function getFormattedDate() {
   const date = new Date();
@@ -92,11 +98,11 @@ function saveNote() {
   const name = getNoteTitle();
   const content = textarea.value;
   if (!name) {
-    alert('The first line must start with # to provide a title.');
+    updateStatus('File not saved. The first line must start with # to provide a title.', false);
     return;
   }
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    alert('A file with this name already exists. Please choose a different name.');
+    updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
     return;
   }
   if (currentFileName && currentFileName !== name) {
@@ -105,6 +111,7 @@ function saveNote() {
   localStorage.setItem('md_' + name, content);
   currentFileName = name;
   updateFileList();
+  updateStatus('File saved successfully.', true);
 }
 
 function autoSaveNote() {
@@ -118,12 +125,14 @@ function autoSaveNote() {
 
   // If another note already exists with the new name, do not overwrite it.
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
+    updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
     return;
   }
 
   localStorage.setItem('md_' + name, textarea.value);
   currentFileName = name;
   updateFileList();
+  updateStatus('File saved successfully.', true);
 }
 
 function loadNote(name) {
@@ -155,6 +164,7 @@ function newNote() {
   clearTimeout(autoSaveTimer);
   currentFileName = null;
   updateFileList();
+  updateStatus('', true);
 }
 
 function deleteNote() {
