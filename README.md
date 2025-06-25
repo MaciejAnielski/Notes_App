@@ -4,7 +4,7 @@ A personal notes app that works in the browser.
 ## Features
 
 - Toggle between light and dark mode. Your choice is remembered between visits.
-- The first line of your note starting with `#` becomes its name and is pre-filled with today's date.
+- The first line of your note starting with `#` becomes its name and is pre-filled with today's date unless a note with today's date already exists.
 - Save notes to your browser using localStorage and load them later.
 - Search through saved notes and download them all as a zip archive.
 - Delete notes from local storage when you no longer need them.

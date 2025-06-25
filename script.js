@@ -142,7 +142,13 @@ function loadNote(name) {
 }
 
 function newNote() {
-  textarea.value = '# ' + getFormattedDate() + '\n\n';
+  const today = getFormattedDate();
+  const key = 'md_' + today;
+  if (localStorage.getItem(key) === null) {
+    textarea.value = '# ' + today + '\n\n';
+  } else {
+    textarea.value = '';
+  }
   if (isPreview) {
     toggleView();
   }
