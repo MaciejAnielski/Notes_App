@@ -11,6 +11,7 @@ textarea {
   max-width: 800px;
   height: 400px;
   padding: 10px;
+  margin-top: 10px;
   font-size: 16px;
   line-height: 1.5;
   border: 1px solid #ccc;
@@ -120,6 +121,7 @@ button {
 .storage-controls button {
   padding: 8px 12px;
   margin-right: 5px;
+  margin-bottom: 10px;
   background-color: #e0e0e0;
   border: 1px solid #ccc;
   border-radius: 4px;

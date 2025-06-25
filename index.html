@@ -1,30 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Notes App</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <meta charset="UTF-8">
+    <title>Notes App</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
 </head>
+
 <body>
-  <button id="toggle-theme" class="sun" aria-label="Toggle Dark Mode"></button>
-  <button id="save-text" aria-label="Save as Markdown" class="save-icon"></button>
-  <h1>Notes App</h1>
-  <input type="text" id="filename-input" placeholder="Enter filename (without .md)">
-  <textarea id="editor" placeholder="Start typing here..."></textarea>
-  <div id="preview" style="display:none;"></div>
-  <button id="toggle-view">Preview Markdown</button>
 
-  <div class="storage-controls">
-    <button id="save-storage">Save</button>
-    <button id="load-storage">Load</button>
-    <button id="download-all">Download All Notes</button>
-  </div>
+    <button id="toggle-theme" class="sun" aria-label="Toggle Dark Mode"></button>
+  
+    <h1>Notes App</h1>
+    
+    <input type="text" id="filename-input" placeholder="Enter filename (without .md)">
+  
+    <div class="storage-controls">
+    
+        <button id="save-storage">Save</button>
+        <button id="load-storage">Load</button>
+        <button id="download-all">Download All Notes</button>
+        <button id="toggle-view">Preview Markdown</button>
+        
+    </div>
+  
+    <textarea id="editor" placeholder="Start typing here..."></textarea>
+    <div id="preview" style="display:none;"></div>
 
-  <h2>Saved Files</h2>
-  <input type="text" id="searchBox" placeholder="Search notes...">
-  <ul id="fileList"></ul>
+    <h2>Saved Files</h2>
+    
+    <input type="text" id="searchBox" placeholder="Search notes...">
+    <ul id="fileList"></ul>
 
   <script src="script.js"></script>
 </body>
