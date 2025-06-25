@@ -14,3 +14,5 @@ A personal notes app that works in the browser.
 - Create a new note which clears the editor.
 - Notes are automatically saved while you type.
 - Prevent overwriting existing notes by warning when a filename is already in use.
+- View all unchecked tasks across notes in one list. Click a note title to open
+  it and click a task checkbox to mark it complete.
