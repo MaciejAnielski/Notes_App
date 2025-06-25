@@ -9,3 +9,5 @@ A personal notes app that works in the browser.
 - Search through saved notes and download them all as a zip archive.
 - Delete notes from local storage when you no longer need them.
 - Toggle between editing and previewing your markdown.
+- Create a new note which clears the editor.
+- Notes are automatically saved while you type.
