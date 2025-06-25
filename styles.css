@@ -167,3 +167,19 @@ button {
   text-decoration: underline;
 }
 
+#lists-container {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+#todo-container ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+#todo-container li {
+  margin-bottom: 4px;
+}
+
+

@@ -32,6 +32,7 @@ const downloadAllBtn = document.getElementById('download-all');
 const deleteBtn = document.getElementById('delete-note');
 const searchBox = document.getElementById('searchBox');
 const fileList = document.getElementById('fileList');
+const todoList = document.getElementById('todoList');
 
 function getFormattedDate() {
   const date = new Date();
@@ -177,6 +178,38 @@ function updateFileList() {
           loadNote();
         };
         fileList.appendChild(li);
+      }
+    }
+  }
+
+  updateTodoList();
+}
+
+function updateTodoList() {
+  todoList.innerHTML = '';
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('md_')) {
+      const fileName = key.slice(3);
+      const lines = localStorage.getItem(key).split(/\n/);
+      const todos = lines.filter(line => line.trim().startsWith('- [ ]'));
+
+      if (todos.length > 0) {
+        const noteLi = document.createElement('li');
+        const title = document.createElement('strong');
+        title.textContent = fileName;
+        noteLi.appendChild(title);
+
+        const innerUl = document.createElement('ul');
+        todos.forEach(t => {
+          const todoLi = document.createElement('li');
+          todoLi.textContent = t.trim();
+          innerUl.appendChild(todoLi);
+        });
+
+        noteLi.appendChild(innerUl);
+        todoList.appendChild(noteLi);
       }
     }
   }
