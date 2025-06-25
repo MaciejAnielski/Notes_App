@@ -158,6 +158,15 @@ button {
   margin-bottom: 4px;
 }
 
+#fileList li.active-file {
+  font-weight: bold;
+  background-color: #d0e0ff;
+}
+
+.dark-mode #fileList li.active-file {
+  background-color: #444;
+}
+
 #fileList li:hover {
   text-decoration: underline;
 }

@@ -264,6 +264,8 @@ function updateFileList() {
   fileList.innerHTML = '';
   const search = searchBox.value.toLowerCase();
 
+  const items = [];
+
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key.startsWith('md_')) {
@@ -277,10 +279,17 @@ function updateFileList() {
         li.onclick = () => {
           loadNote(fileName);
         };
-        fileList.appendChild(li);
+        if (fileName === currentFileName) {
+          li.classList.add('active-file');
+          items.unshift(li);
+        } else {
+          items.push(li);
+        }
       }
     }
   }
+
+  items.forEach(li => fileList.appendChild(li));
 
   updateTodoList();
 }
