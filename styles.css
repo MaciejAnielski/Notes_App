@@ -174,6 +174,11 @@ button {
   align-items: flex-start;
 }
 
+#files-container,
+#todo-container {
+  width: 100%;
+}
+
 #layout-wrapper {
   display: flex;
   flex-direction: column;
@@ -184,16 +189,13 @@ button {
   flex: 1;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1120px) {
   #layout-wrapper {
     flex-direction: row;
     align-items: flex-start;
   }
   #editor-section {
     margin-right: 20px;
-  }
-  #lists-container {
-    width: 300px;
   }
 }
 
@@ -204,6 +206,17 @@ button {
 
 #todo-container li {
   margin-bottom: 4px;
+}
+
+@media (min-width: 650px) {
+  #lists-container {
+    flex-direction: row;
+  }
+  #files-container,
+  #todo-container {
+    flex: 1;
+    max-width: 300px;
+  }
 }
 
 
