@@ -215,11 +215,6 @@ button {
   margin-top: 10px;
 }
 
-/* Remove bullet before task checkboxes in preview */
-#preview li.task-list-item {
-  list-style: none;
-}
-
 @media (min-width: 650px) {
   #lists-container {
     flex-direction: row;

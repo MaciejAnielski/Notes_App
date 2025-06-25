@@ -240,12 +240,7 @@ function updateTodoList() {
         const innerUl = document.createElement('ul');
         todos.forEach(t => {
           const todoLi = document.createElement('li');
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.disabled = true;
-          todoLi.appendChild(checkbox);
-          const todoText = t.trim().replace(/^- \[ \]\s*/, '');
-          todoLi.appendChild(document.createTextNode(todoText));
+          todoLi.textContent = t.trim();
           innerUl.appendChild(todoLi);
         });
 
