@@ -242,12 +242,19 @@ function updateTodoList() {
     if (key.startsWith('md_')) {
       const fileName = key.slice(3);
       const lines = localStorage.getItem(key).split(/\n/);
-      const todos = lines.filter(line => line.trim().startsWith('- [ ]'));
+      const todos = lines
+        .map((line, idx) => ({ line, idx }))
+        .filter(obj => obj.line.trim().startsWith('- [ ]'));
 
       if (todos.length > 0) {
         const noteLi = document.createElement('li');
         const title = document.createElement('strong');
         title.textContent = fileName;
+        title.style.cursor = 'pointer';
+        title.onclick = () => {
+          filenameInput.value = fileName;
+          loadNote();
+        };
         noteLi.appendChild(title);
 
         const innerUl = document.createElement('ul');
@@ -255,8 +262,10 @@ function updateTodoList() {
           const todoLi = document.createElement('li');
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          checkbox.disabled = true;
-          const text = t.trim().replace(/^- \[ \]/, '').trim();
+          const text = t.line.trim().replace(/^- \[ \]/, '').trim();
+          checkbox.addEventListener('change', () => {
+            toggleTaskStatus(fileName, t.idx);
+          });
           todoLi.appendChild(checkbox);
           todoLi.appendChild(document.createTextNode(' ' + text));
           innerUl.appendChild(todoLi);
@@ -267,6 +276,24 @@ function updateTodoList() {
       }
     }
   }
+}
+
+function toggleTaskStatus(fileName, lineIndex) {
+  const key = 'md_' + fileName;
+  const content = localStorage.getItem(key);
+  if (!content) return;
+  const lines = content.split(/\n/);
+  if (lineIndex >= 0 && lineIndex < lines.length) {
+    lines[lineIndex] = lines[lineIndex].replace(/- \[ \]/, '- [x]');
+    localStorage.setItem(key, lines.join('\n'));
+    if (currentFileName === fileName) {
+      textarea.value = lines.join('\n');
+      if (isPreview) {
+        previewDiv.innerHTML = marked.parse(textarea.value);
+      }
+    }
+  }
+  updateTodoList();
 }
 
 function filterNotes() {
