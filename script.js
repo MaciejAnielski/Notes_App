@@ -30,6 +30,9 @@ const loadStorageBtn = document.getElementById('load-storage');
 const newNoteBtn = document.getElementById('new-note');
 const downloadAllBtn = document.getElementById('download-all');
 const deleteBtn = document.getElementById('delete-note');
+const deleteAllBtn = document.getElementById('delete-all');
+const importZipBtn = document.getElementById('import-zip');
+const importZipInput = document.getElementById('import-zip-input');
 const searchBox = document.getElementById('searchBox');
 const fileList = document.getElementById('fileList');
 const todoList = document.getElementById('todoList');
@@ -131,6 +134,19 @@ function deleteNote() {
   updateFileList();
 }
 
+function deleteAllNotes() {
+  if (!confirm('Delete all notes?')) return;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('md_')) keys.push(key);
+  }
+  keys.forEach(k => localStorage.removeItem(k));
+  textarea.value = '';
+  currentFileName = null;
+  updateFileList();
+}
+
 function downloadAllNotes() {
   const zip = new JSZip();
   let count = 0;
@@ -156,6 +172,26 @@ function downloadAllNotes() {
     link.download = 'all_notes.zip';
     link.click();
     URL.revokeObjectURL(link.href);
+  });
+}
+
+function importNotesFromZip(file) {
+  JSZip.loadAsync(file).then(zip => {
+    const promises = [];
+    zip.forEach((relativePath, zipEntry) => {
+      if (!zipEntry.dir && relativePath.endsWith('.md')) {
+        const name = relativePath.replace(/\.md$/, '');
+        promises.push(zipEntry.async('string').then(content => {
+          localStorage.setItem('md_' + name, content);
+        }));
+      }
+    });
+    return Promise.all(promises);
+  }).then(() => {
+    updateFileList();
+    importZipInput.value = '';
+  }).catch(err => {
+    alert('Error importing zip: ' + err.message);
   });
 }
 
@@ -224,6 +260,13 @@ loadStorageBtn.addEventListener('click', loadNote);
 newNoteBtn.addEventListener('click', newNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
 deleteBtn.addEventListener('click', deleteNote);
+deleteAllBtn.addEventListener('click', deleteAllNotes);
+importZipBtn.addEventListener('click', () => importZipInput.click());
+importZipInput.addEventListener('change', e => {
+  if (e.target.files.length > 0) {
+    importNotesFromZip(e.target.files[0]);
+  }
+});
 searchBox.addEventListener('input', filterNotes);
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
