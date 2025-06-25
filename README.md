@@ -11,3 +11,4 @@ A personal notes app that works in the browser.
 - Toggle between editing and previewing your markdown.
 - Create a new note which clears the editor.
 - Notes are automatically saved while you type.
+- Prevent overwriting existing notes by warning when a filename is already in use.
