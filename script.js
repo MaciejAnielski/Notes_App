@@ -26,6 +26,7 @@ const filenameInput = document.getElementById('filename-input');
 const saveStorageBtn = document.getElementById('save-storage');
 const loadStorageBtn = document.getElementById('load-storage');
 const downloadAllBtn = document.getElementById('download-all');
+const deleteBtn = document.getElementById('delete-note');
 const searchBox = document.getElementById('searchBox');
 const fileList = document.getElementById('fileList');
 
@@ -79,6 +80,24 @@ function loadNote() {
     return;
   }
   textarea.value = content;
+}
+
+function deleteNote() {
+  const name = filenameInput.value.trim();
+  if (!name) {
+    alert('Enter a filename.');
+    return;
+  }
+  if (localStorage.getItem('md_' + name) === null) {
+    alert('File not found.');
+    return;
+  }
+  if (!confirm('Delete this note?')) {
+    return;
+  }
+  localStorage.removeItem('md_' + name);
+  textarea.value = '';
+  updateFileList();
 }
 
 function downloadAllNotes() {
@@ -140,6 +159,7 @@ function filterNotes() {
 saveStorageBtn.addEventListener('click', saveNote);
 loadStorageBtn.addEventListener('click', loadNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
+deleteBtn.addEventListener('click', deleteNote);
 searchBox.addEventListener('input', filterNotes);
 
 updateFileList();
