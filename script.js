@@ -163,6 +163,7 @@ function loadNote(name) {
     styleTaskListItems();
     setupPreviewTaskCheckboxes();
   }
+  updateFileList();
 }
 
 function newNote() {
