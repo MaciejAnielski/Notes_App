@@ -1,5 +1,5 @@
 body {
-  background-color: #ffe6f2; /* pastel pink */
+  background-color: #d0a8dc; /* pastel pink */
   font-family: Arial, sans-serif;
   padding: 20px;
   color: #333;
@@ -14,11 +14,11 @@ textarea {
   margin-top: 10px;
   font-size: 16px;
   line-height: 1.5;
-  border: 1px solid #f5c0d6;
+  border: 1px solid #a272b0;
   border-radius: 4px;
   box-sizing: border-box;
   resize: vertical;
-  background-color: #fff5fa;
+  background-color: #d8bbdf;
   color: #000;
   transition: background-color 0.3s, color 0.3s;
 }
@@ -30,10 +30,10 @@ textarea {
   padding: 10px;
   font-size: 16px;
   line-height: 1.5;
-  border: 1px solid #f5c0d6;
+  border: 1px solid #a272b0;
   border-radius: 4px;
   box-sizing: border-box;
-  background-color: #fff5fa;
+  background-color: #d8bbdf;
   color: #000;
   overflow-y: auto;
   transition: background-color 0.3s, color 0.3s;
@@ -62,8 +62,8 @@ button {
 #toggle-view {
   padding: 8px 12px;
   margin-top: 10px;
-  background-color: #ffd6e7;
-  border: 1px solid #f5c0d6;
+  background-color: #d8bbdf;
+  border: 1px solid #a272b0;
   border-radius: 4px;
   color: inherit;
 }
@@ -112,8 +112,8 @@ button {
   padding: 8px 12px;
   margin-right: 5px;
   margin-bottom: 10px;
-  background-color: #ffd6e7;
-  border: 1px solid #f5c0d6;
+  background-color: #d8bbdf;
+  border: 1px solid #a272b0;
   border-radius: 4px;
   color: inherit;
 }
@@ -135,9 +135,9 @@ button {
   padding: 8px;
   font-size: 16px;
   width: 300px;
-  border: 1px solid #f5c0d6;
+  border: 1px solid #a272b0;
   border-radius: 4px;
-  background-color: #fff5fa;
+  background-color: #d8bbdf;
   color: #000;
   transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 }
@@ -160,12 +160,12 @@ button {
 
 #fileList li.active-file {
   font-weight: bold;
-  color: #d16d9b;
+  color: #510e63;
 }
 
 .dark-mode #fileList li.active-file {
   font-weight: bold;
-  color: #d8a70d;
+  color: #d8bbdf;
 }
 
 #fileList li:hover {
