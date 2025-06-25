@@ -14,20 +14,18 @@
 <body>
 
     <button id="toggle-theme" class="sun" aria-label="Toggle Dark Mode"></button>
-  
-    <h1>Notes App</h1>
     
     <input type="text" id="filename-input" placeholder="Enter filename (without .md)">
   
     <div class="storage-controls">
-
+    
+        <button id="new-note">New Note</button>
         <button id="save-storage">Save</button>
         <button id="load-storage">Load</button>
-        <button id="new-note">New Note</button>
         <button id="delete-note">Delete</button>
         <button id="delete-all">Delete All</button>
         <button id="download-all">Download All Notes</button>
-        <button id="import-zip">Import Zip</button>
+        <button id="import-zip">Import Notes</button>
         <input type="file" id="import-zip-input" accept=".zip" style="display:none;">
         <button id="toggle-view">Preview Markdown</button>
 
@@ -46,7 +44,7 @@
           <ul id="fileList"></ul>
         </div>
         <div id="todo-container">
-          <h2>Todo Items</h2>
+          <h2>Tasks</h2>
           <ul id="todoList"></ul>
         </div>
       </div>
