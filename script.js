@@ -3,6 +3,7 @@ const textarea = document.getElementById('editor');
 const previewDiv = document.getElementById('preview');
 const toggleViewBtn = document.getElementById('toggle-view');
 let isPreview = false;
+let autoSaveTimer = null;
 
 function applyTheme(theme) {
   document.body.classList.toggle('dark-mode', theme === 'dark');
@@ -25,6 +26,7 @@ const filenameInput = document.getElementById('filename-input');
 
 const saveStorageBtn = document.getElementById('save-storage');
 const loadStorageBtn = document.getElementById('load-storage');
+const newNoteBtn = document.getElementById('new-note');
 const downloadAllBtn = document.getElementById('download-all');
 const deleteBtn = document.getElementById('delete-note');
 const searchBox = document.getElementById('searchBox');
@@ -72,6 +74,13 @@ function saveNote() {
   updateFileList();
 }
 
+function autoSaveNote() {
+  const name = filenameInput.value.trim();
+  if (!name) return;
+  localStorage.setItem('md_' + name, textarea.value);
+  updateFileList();
+}
+
 function loadNote() {
   const name = filenameInput.value.trim();
   const content = localStorage.getItem('md_' + name);
@@ -80,6 +89,16 @@ function loadNote() {
     return;
   }
   textarea.value = content;
+}
+
+function newNote() {
+  textarea.value = '';
+  filenameInput.value = getFormattedDate();
+  if (isPreview) {
+    toggleView();
+  }
+  clearTimeout(autoSaveTimer);
+  updateFileList();
 }
 
 function deleteNote() {
@@ -156,8 +175,13 @@ function filterNotes() {
 
 saveStorageBtn.addEventListener('click', saveNote);
 loadStorageBtn.addEventListener('click', loadNote);
+newNoteBtn.addEventListener('click', newNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
 deleteBtn.addEventListener('click', deleteNote);
 searchBox.addEventListener('input', filterNotes);
+textarea.addEventListener('input', () => {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(autoSaveNote, 1000);
+});
 
 updateFileList();
