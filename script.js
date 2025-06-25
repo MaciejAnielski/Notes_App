@@ -104,6 +104,9 @@ function loadNote() {
   }
   textarea.value = content;
   currentFileName = name;
+  if (isPreview) {
+    previewDiv.innerHTML = marked.parse(textarea.value);
+  }
 }
 
 function newNote() {
