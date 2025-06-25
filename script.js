@@ -1,5 +1,8 @@
 const toggleBtn = document.getElementById('toggle-theme');
 const textarea = document.getElementById('editor');
+const previewDiv = document.getElementById('preview');
+const toggleViewBtn = document.getElementById('toggle-view');
+let isPreview = false;
 
 function applyTheme(theme) {
   document.body.classList.toggle('dark-mode', theme === 'dark');
@@ -25,6 +28,37 @@ const loadStorageBtn = document.getElementById('load-storage');
 const downloadAllBtn = document.getElementById('download-all');
 const searchBox = document.getElementById('searchBox');
 const fileList = document.getElementById('fileList');
+
+function getFormattedDate() {
+  const date = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const day = date.getDate();
+  const suffix = (day % 10 === 1 && day !== 11) ? 'st'
+                : (day % 10 === 2 && day !== 12) ? 'nd'
+                : (day % 10 === 3 && day !== 13) ? 'rd'
+                : 'th';
+  return `${days[date.getDay()]} ${day}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+filenameInput.value = getFormattedDate();
+
+function toggleView() {
+  if (isPreview) {
+    previewDiv.style.display = 'none';
+    textarea.style.display = 'block';
+    toggleViewBtn.textContent = 'Preview Markdown';
+    isPreview = false;
+  } else {
+    previewDiv.innerHTML = marked.parse(textarea.value);
+    previewDiv.style.display = 'block';
+    textarea.style.display = 'none';
+    toggleViewBtn.textContent = 'Edit Markdown';
+    isPreview = true;
+  }
+}
+
+toggleViewBtn.addEventListener('click', toggleView);
 
 function saveNote() {
   const name = filenameInput.value.trim();

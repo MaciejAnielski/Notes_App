@@ -22,10 +22,47 @@ textarea {
   transition: background-color 0.3s, color 0.3s;
 }
 
+#preview {
+  width: 100%;
+  max-width: 800px;
+  min-height: 400px;
+  padding: 10px;
+  font-size: 16px;
+  line-height: 1.5;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background-color: #fff;
+  color: #000;
+  overflow-y: auto;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.dark-mode #preview {
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+}
+
 button {
   cursor: pointer;
   background-color: transparent;
   border: none;
+}
+
+#toggle-view {
+  padding: 8px 12px;
+  margin-top: 10px;
+  background-color: #e0e0e0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: inherit;
+}
+
+.dark-mode #toggle-view {
+  background-color: #3a3a3a;
+  border: 1px solid #555;
+  color: #f0f0f0;
 }
 
 /* Dark mode */
