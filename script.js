@@ -166,11 +166,15 @@ function loadNote(name) {
 
 function newNote() {
 <<<<<<< HEAD
+<<<<<<< HEAD
   const today = getFormattedDate();
   clearTimeout(autoSaveTimer);
   currentFileName = null;
   const unique = ensureUniqueTitle(today);
   textarea.value = '# ' + unique + '\n\n';
+=======
+  textarea.value = '# ' + getFormattedDate() + '\n\n';
+>>>>>>> parent of 3ef6ca1 (Stop date autofill after first note)
 =======
   textarea.value = '# ' + getFormattedDate() + '\n\n';
 >>>>>>> parent of 3ef6ca1 (Stop date autofill after first note)
