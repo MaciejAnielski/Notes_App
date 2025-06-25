@@ -4,6 +4,7 @@ const previewDiv = document.getElementById('preview');
 const toggleViewBtn = document.getElementById('toggle-view');
 let isPreview = false;
 let autoSaveTimer = null;
+let currentFileName = null;
 
 function applyTheme(theme) {
   document.body.classList.toggle('dark-mode', theme === 'dark');
@@ -70,14 +71,23 @@ function saveNote() {
     alert('Enter a filename.');
     return;
   }
+  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
+    alert('A file with this name already exists. Please choose a different name.');
+    return;
+  }
   localStorage.setItem('md_' + name, content);
+  currentFileName = name;
   updateFileList();
 }
 
 function autoSaveNote() {
   const name = filenameInput.value.trim();
   if (!name) return;
+  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
+    return;
+  }
   localStorage.setItem('md_' + name, textarea.value);
+  currentFileName = name;
   updateFileList();
 }
 
@@ -89,6 +99,7 @@ function loadNote() {
     return;
   }
   textarea.value = content;
+  currentFileName = name;
 }
 
 function newNote() {
@@ -98,6 +109,7 @@ function newNote() {
     toggleView();
   }
   clearTimeout(autoSaveTimer);
+  currentFileName = null;
   updateFileList();
 }
 
@@ -114,6 +126,7 @@ function deleteNote() {
   
   localStorage.removeItem('md_' + name);
   textarea.value = '';
+  currentFileName = null;
   updateFileList();
 }
 
