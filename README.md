@@ -4,7 +4,7 @@ A personal notes app that works in the browser.
 ## Features
 
 - Toggle between light and dark mode. Your choice is remembered between visits.
-- The first line of your note starting with `#` becomes its name and is pre-filled with today's date unless a note with today's date already exists.
+- The first line of your note starting with `#` becomes its name and is pre-filled with today's date. If a note with that date already exists, a number is added automatically.
 - Save notes to your browser using localStorage and load them later.
 - Search through saved notes and download them all as a zip archive.
 - Delete notes from local storage when you no longer need them.
@@ -14,6 +14,6 @@ A personal notes app that works in the browser.
 - Check off tasks directly from preview mode.
 - Create a new note which clears the editor.
 - Notes are automatically saved while you type.
-- Prevent overwriting existing notes by warning when a note title is already in use.
+- Notes with duplicate titles are automatically given a numbered suffix so existing notes aren't overwritten.
 - View all unchecked tasks across notes in one list. Click a note title to open
   it and click a task checkbox to mark it complete.
