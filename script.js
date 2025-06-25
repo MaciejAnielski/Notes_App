@@ -51,6 +51,18 @@ function getFormattedDate() {
 
 filenameInput.value = getFormattedDate();
 
+function styleTaskListItems() {
+  previewDiv.querySelectorAll('li').forEach(li => {
+    const checkbox = li.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+      li.style.listStyleType = 'none';
+      if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
+        checkbox.insertAdjacentText('afterend', ' ');
+      }
+    }
+  });
+}
+
 function toggleView() {
   if (isPreview) {
     previewDiv.style.display = 'none';
@@ -59,16 +71,7 @@ function toggleView() {
     isPreview = false;
   } else {
     previewDiv.innerHTML = marked.parse(textarea.value);
-    // Remove list bullets from todo items and add spacing after checkboxes
-    previewDiv.querySelectorAll('li').forEach(li => {
-      const checkbox = li.querySelector('input[type="checkbox"]');
-      if (checkbox) {
-        li.style.listStyleType = 'none';
-        if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
-          checkbox.insertAdjacentText('afterend', ' ');
-        }
-      }
-    });
+    styleTaskListItems();
     setupPreviewTaskCheckboxes();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
@@ -117,6 +120,7 @@ function loadNote() {
   currentFileName = name;
   if (isPreview) {
     previewDiv.innerHTML = marked.parse(textarea.value);
+    styleTaskListItems();
     setupPreviewTaskCheckboxes();
   }
 }
@@ -303,16 +307,7 @@ function setupPreviewTaskCheckboxes() {
           localStorage.setItem('md_' + currentFileName, textarea.value);
         }
         previewDiv.innerHTML = marked.parse(textarea.value);
-        // Remove list bullets and add spacing again after re-rendering
-        previewDiv.querySelectorAll('li').forEach(li => {
-          const box = li.querySelector('input[type="checkbox"]');
-          if (box) {
-            li.style.listStyleType = 'none';
-            if (!box.nextSibling || box.nextSibling.nodeValue !== ' ') {
-              box.insertAdjacentText('afterend', ' ');
-            }
-          }
-        });
+        styleTaskListItems();
         setupPreviewTaskCheckboxes();
         updateTodoList();
       }
@@ -332,6 +327,7 @@ function toggleTaskStatus(fileName, lineIndex) {
       textarea.value = lines.join('\n');
       if (isPreview) {
         previewDiv.innerHTML = marked.parse(textarea.value);
+        styleTaskListItems();
         setupPreviewTaskCheckboxes();
       }
     }
