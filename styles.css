@@ -1,5 +1,5 @@
 body {
-  background-color: #f9f9f9;
+  background-color: #e5f6ff; /* light baby blue */
   font-family: Arial, sans-serif;
   padding: 20px;
   color: #333;
@@ -14,11 +14,11 @@ textarea {
   margin-top: 10px;
   font-size: 16px;
   line-height: 1.5;
-  border: 1px solid #ccc;
+  border: 1px solid #a3d4ff;
   border-radius: 4px;
   box-sizing: border-box;
   resize: vertical;
-  background-color: #fff;
+  background-color: #f8fbff;
   color: #000;
   transition: background-color 0.3s, color 0.3s;
 }
@@ -30,10 +30,10 @@ textarea {
   padding: 10px;
   font-size: 16px;
   line-height: 1.5;
-  border: 1px solid #ccc;
+  border: 1px solid #a3d4ff;
   border-radius: 4px;
   box-sizing: border-box;
-  background-color: #fff;
+  background-color: #f8fbff;
   color: #000;
   overflow-y: auto;
   transition: background-color 0.3s, color 0.3s;
@@ -62,8 +62,8 @@ button {
 #toggle-view {
   padding: 8px 12px;
   margin-top: 10px;
-  background-color: #e0e0e0;
-  border: 1px solid #ccc;
+  background-color: #cfe8ff;
+  border: 1px solid #a3d4ff;
   border-radius: 4px;
   color: inherit;
 }
@@ -112,8 +112,8 @@ button {
   padding: 8px 12px;
   margin-right: 5px;
   margin-bottom: 10px;
-  background-color: #e0e0e0;
-  border: 1px solid #ccc;
+  background-color: #cfe8ff;
+  border: 1px solid #a3d4ff;
   border-radius: 4px;
   color: inherit;
 }
@@ -135,9 +135,9 @@ button {
   padding: 8px;
   font-size: 16px;
   width: 300px;
-  border: 1px solid #ccc;
+  border: 1px solid #a3d4ff;
   border-radius: 4px;
-  background-color: #fff;
+  background-color: #f8fbff;
   color: #000;
   transition: background-color 0.3s, color 0.3s, border-color 0.3s;
 }
