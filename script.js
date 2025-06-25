@@ -110,13 +110,17 @@ function saveNote() {
 function autoSaveNote() {
   const name = getNoteTitle();
   if (!name) return;
-  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    if (currentFileName && currentFileName !== name) {
-      localStorage.removeItem('md_' + currentFileName);
-    } else {
-      return;
-    }
+  if (currentFileName && currentFileName !== name) {
+    // Remove the old entry when the note title changes to avoid leaving
+    // partially typed titles in storage.
+    localStorage.removeItem('md_' + currentFileName);
   }
+
+  // If another note already exists with the new name, do not overwrite it.
+  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
+    return;
+  }
+
   localStorage.setItem('md_' + name, textarea.value);
   currentFileName = name;
   updateFileList();
