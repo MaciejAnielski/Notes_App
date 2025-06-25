@@ -1,5 +1,4 @@
 const toggleBtn = document.getElementById('toggle-theme');
-const saveBtn = document.getElementById('save-text');
 const textarea = document.getElementById('editor');
 
 function applyTheme(theme) {
@@ -26,21 +25,6 @@ const loadStorageBtn = document.getElementById('load-storage');
 const downloadAllBtn = document.getElementById('download-all');
 const searchBox = document.getElementById('searchBox');
 const fileList = document.getElementById('fileList');
-
-// Save the contents of the textarea as a markdown file
-saveBtn.addEventListener('click', () => {
-  const text = textarea.value;
-  const filename = filenameInput.value.trim() || 'untitled';
-  const blob = new Blob([text], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}.md`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-});
 
 function saveNote() {
   const name = filenameInput.value.trim();

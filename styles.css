@@ -60,23 +60,6 @@ button {
   background-image: url('001_Assets/moon.png');
 }
 
-/* Save icon button */
-#save-text.save-icon {
-  position: fixed;
-  bottom: 20px;
-  right: 70px;
-  width: 40px;
-  height: 40px;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-image: url('001_Assets/diskette.png');
-}
-
-/* Dark mode version */
-.dark-mode #save-text.save-icon {
-  background-image: url('001_Assets/diskette_dark.png');
-}
-
 #filename-input {
   display: block;
   margin-bottom: 10px;
