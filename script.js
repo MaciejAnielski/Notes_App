@@ -62,6 +62,11 @@ function getNoteTitle() {
   return null;
 }
 
+function isNoteBodyEmpty() {
+  const lines = textarea.value.split(/\n/);
+  return lines.slice(1).join('\n').trim() === '';
+}
+
 
 function styleTaskListItems() {
   previewDiv.querySelectorAll('li').forEach(li => {
@@ -102,7 +107,12 @@ function saveNote() {
     return;
   }
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
+    if (isNoteBodyEmpty()) {
+      loadNote(name);
+      updateStatus(`Opened existing note "${name}".`, true);
+    } else {
+      updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
+    }
     return;
   }
   if (currentFileName && currentFileName !== name) {
@@ -125,7 +135,12 @@ function autoSaveNote() {
 
   // If another note already exists with the new name, do not overwrite it.
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
+    if (isNoteBodyEmpty()) {
+      loadNote(name);
+      updateStatus(`Opened existing note "${name}".`, true);
+    } else {
+      updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
+    }
     return;
   }
 
