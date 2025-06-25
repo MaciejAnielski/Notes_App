@@ -169,7 +169,7 @@ button {
 
 #lists-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 20px;
   align-items: flex-start;
 }
@@ -189,13 +189,14 @@ button {
   flex: 1;
 }
 
-@media (min-width: 1120px) {
+@media (min-width: 1500px) {
   #layout-wrapper {
     flex-direction: row;
     align-items: flex-start;
   }
   #editor-section {
     margin-right: 20px;
+    min-width: 700px;
   }
 }
 
@@ -208,14 +209,25 @@ button {
   margin-bottom: 4px;
 }
 
+#todo-container strong {
+  display:block;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
+
 @media (min-width: 650px) {
   #lists-container {
     flex-direction: row;
+    margin-right: 40px;
   }
   #files-container,
   #todo-container {
     flex: 1;
     max-width: 300px;
+  }
+  
+  #todo-container {
+      margin-left: 40px;
   }
 }
 
