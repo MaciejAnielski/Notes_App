@@ -69,6 +69,7 @@ function toggleView() {
         }
       }
     });
+    setupPreviewTaskCheckboxes();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
     toggleViewBtn.textContent = 'Edit Markdown';
@@ -116,6 +117,7 @@ function loadNote() {
   currentFileName = name;
   if (isPreview) {
     previewDiv.innerHTML = marked.parse(textarea.value);
+    setupPreviewTaskCheckboxes();
   }
 }
 
@@ -278,6 +280,46 @@ function updateTodoList() {
   }
 }
 
+function setupPreviewTaskCheckboxes() {
+  const checkboxes = previewDiv.querySelectorAll('input[type="checkbox"]');
+  const lines = textarea.value.split(/\n/);
+  const taskIndices = [];
+  lines.forEach((line, idx) => {
+    if (line.trim().startsWith('- [ ]') || line.trim().startsWith('- [x]')) {
+      taskIndices.push(idx);
+    }
+  });
+
+  checkboxes.forEach((cb, i) => {
+    cb.disabled = false;
+    cb.dataset.lineIndex = taskIndices[i];
+    cb.onchange = () => {
+      const lineIdx = parseInt(cb.dataset.lineIndex, 10);
+      const currentLines = textarea.value.split(/\n/);
+      if (lineIdx >= 0 && lineIdx < currentLines.length) {
+        currentLines[lineIdx] = currentLines[lineIdx].replace(/- \[[ xX]\]/, cb.checked ? '- [x]' : '- [ ]');
+        textarea.value = currentLines.join('\n');
+        if (currentFileName) {
+          localStorage.setItem('md_' + currentFileName, textarea.value);
+        }
+        previewDiv.innerHTML = marked.parse(textarea.value);
+        // Remove list bullets and add spacing again after re-rendering
+        previewDiv.querySelectorAll('li').forEach(li => {
+          const box = li.querySelector('input[type="checkbox"]');
+          if (box) {
+            li.style.listStyleType = 'none';
+            if (!box.nextSibling || box.nextSibling.nodeValue !== ' ') {
+              box.insertAdjacentText('afterend', ' ');
+            }
+          }
+        });
+        setupPreviewTaskCheckboxes();
+        updateTodoList();
+      }
+    };
+  });
+}
+
 function toggleTaskStatus(fileName, lineIndex) {
   const key = 'md_' + fileName;
   const content = localStorage.getItem(key);
@@ -290,6 +332,7 @@ function toggleTaskStatus(fileName, lineIndex) {
       textarea.value = lines.join('\n');
       if (isPreview) {
         previewDiv.innerHTML = marked.parse(textarea.value);
+        setupPreviewTaskCheckboxes();
       }
     }
   }
