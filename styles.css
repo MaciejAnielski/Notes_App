@@ -160,11 +160,12 @@ button {
 
 #fileList li.active-file {
   font-weight: bold;
-  background-color: #d0e0ff;
+  color: #8a5a00 ;
 }
 
 .dark-mode #fileList li.active-file {
-  background-color: #444;
+  font-weight: bold;
+  color: #d8a70d;
 }
 
 #fileList li:hover {
