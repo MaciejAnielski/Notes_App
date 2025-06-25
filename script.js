@@ -92,9 +92,7 @@ function deleteNote() {
     alert('File not found.');
     return;
   }
-  if (!confirm('Delete this note?')) {
-    return;
-  }
+  
   localStorage.removeItem('md_' + name);
   textarea.value = '';
   updateFileList();
