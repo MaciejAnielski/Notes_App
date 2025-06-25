@@ -56,6 +56,16 @@ function getNoteTitle() {
   return null;
 }
 
+function ensureUniqueTitle(baseName) {
+  let name = baseName;
+  let counter = 1;
+  while (localStorage.getItem('md_' + name) !== null && name !== currentFileName) {
+    name = `${baseName} ${counter}`;
+    counter++;
+  }
+  return name;
+}
+
 
 function styleTaskListItems() {
   previewDiv.querySelectorAll('li').forEach(li => {
@@ -89,39 +99,52 @@ function toggleView() {
 toggleViewBtn.addEventListener('click', toggleView);
 
 function saveNote() {
-  const name = getNoteTitle();
-  const content = textarea.value;
+  let name = getNoteTitle();
   if (!name) {
     alert('The first line must start with # to provide a title.');
     return;
   }
-  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    alert('A file with this name already exists. Please choose a different name.');
-    return;
+
+  let content = textarea.value;
+  const unique = ensureUniqueTitle(name);
+  if (unique !== name) {
+    const lines = content.split(/\n/);
+    lines[0] = '# ' + unique;
+    content = lines.join('\n');
+    textarea.value = content;
+    name = unique;
   }
+
   if (currentFileName && currentFileName !== name) {
     localStorage.removeItem('md_' + currentFileName);
   }
+
   localStorage.setItem('md_' + name, content);
   currentFileName = name;
   updateFileList();
 }
 
 function autoSaveNote() {
-  const name = getNoteTitle();
+  let name = getNoteTitle();
   if (!name) return;
+
   if (currentFileName && currentFileName !== name) {
     // Remove the old entry when the note title changes to avoid leaving
     // partially typed titles in storage.
     localStorage.removeItem('md_' + currentFileName);
   }
 
-  // If another note already exists with the new name, do not overwrite it.
-  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    return;
+  let content = textarea.value;
+  const unique = ensureUniqueTitle(name);
+  if (unique !== name) {
+    const lines = content.split(/\n/);
+    lines[0] = '# ' + unique;
+    content = lines.join('\n');
+    textarea.value = content;
+    name = unique;
   }
 
-  localStorage.setItem('md_' + name, textarea.value);
+  localStorage.setItem('md_' + name, content);
   currentFileName = name;
   updateFileList();
 }
@@ -143,17 +166,13 @@ function loadNote(name) {
 
 function newNote() {
   const today = getFormattedDate();
-  const key = 'md_' + today;
-  if (localStorage.getItem(key) === null) {
-    textarea.value = '# ' + today + '\n\n';
-  } else {
-    textarea.value = '';
-  }
+  clearTimeout(autoSaveTimer);
+  currentFileName = null;
+  const unique = ensureUniqueTitle(today);
+  textarea.value = '# ' + unique + '\n\n';
   if (isPreview) {
     toggleView();
   }
-  clearTimeout(autoSaveTimer);
-  currentFileName = null;
   updateFileList();
 }
 
