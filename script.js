@@ -23,7 +23,6 @@ toggleBtn.addEventListener('click', toggleTheme);
 const savedTheme = localStorage.getItem('theme') || 'light';
 applyTheme(savedTheme);
 
-const filenameInput = document.getElementById('filename-input');
 
 const saveStorageBtn = document.getElementById('save-storage');
 const loadStorageBtn = document.getElementById('load-storage');
@@ -49,7 +48,14 @@ function getFormattedDate() {
   return `${days[date.getDay()]} ${day}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-filenameInput.value = getFormattedDate();
+function getNoteTitle() {
+  const firstLine = textarea.value.split(/\n/)[0].trim();
+  if (firstLine.startsWith('#')) {
+    return firstLine.replace(/^#+\s*/, '').trim();
+  }
+  return null;
+}
+
 
 function styleTaskListItems() {
   previewDiv.querySelectorAll('li').forEach(li => {
@@ -83,15 +89,18 @@ function toggleView() {
 toggleViewBtn.addEventListener('click', toggleView);
 
 function saveNote() {
-  const name = filenameInput.value.trim();
+  const name = getNoteTitle();
   const content = textarea.value;
   if (!name) {
-    alert('Enter a filename.');
+    alert('The first line must start with # to provide a title.');
     return;
   }
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
     alert('A file with this name already exists. Please choose a different name.');
     return;
+  }
+  if (currentFileName && currentFileName !== name) {
+    localStorage.removeItem('md_' + currentFileName);
   }
   localStorage.setItem('md_' + name, content);
   currentFileName = name;
@@ -99,18 +108,21 @@ function saveNote() {
 }
 
 function autoSaveNote() {
-  const name = filenameInput.value.trim();
+  const name = getNoteTitle();
   if (!name) return;
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    return;
+    if (currentFileName && currentFileName !== name) {
+      localStorage.removeItem('md_' + currentFileName);
+    } else {
+      return;
+    }
   }
   localStorage.setItem('md_' + name, textarea.value);
   currentFileName = name;
   updateFileList();
 }
 
-function loadNote() {
-  const name = filenameInput.value.trim();
+function loadNote(name) {
   const content = localStorage.getItem('md_' + name);
   if (content === null) {
     alert('File not found.');
@@ -126,8 +138,7 @@ function loadNote() {
 }
 
 function newNote() {
-  textarea.value = '';
-  filenameInput.value = getFormattedDate();
+  textarea.value = '# ' + getFormattedDate() + '\n\n';
   if (isPreview) {
     toggleView();
   }
@@ -137,16 +148,16 @@ function newNote() {
 }
 
 function deleteNote() {
-  const name = filenameInput.value.trim();
+  const name = currentFileName || getNoteTitle();
   if (!name) {
-    alert('Enter a filename.');
+    alert('No note selected.');
     return;
   }
   if (localStorage.getItem('md_' + name) === null) {
     alert('File not found.');
     return;
   }
-  
+
   localStorage.removeItem('md_' + name);
   textarea.value = '';
   currentFileName = null;
@@ -229,8 +240,7 @@ function updateFileList() {
         li.textContent = fileName;
         li.style.cursor = 'pointer';
         li.onclick = () => {
-          filenameInput.value = fileName;
-          loadNote();
+          loadNote(fileName);
         };
         fileList.appendChild(li);
       }
@@ -258,8 +268,7 @@ function updateTodoList() {
         title.textContent = fileName;
         title.style.cursor = 'pointer';
         title.onclick = () => {
-          filenameInput.value = fileName;
-          loadNote();
+          loadNote(fileName);
         };
         noteLi.appendChild(title);
 
@@ -340,7 +349,14 @@ function filterNotes() {
 }
 
 saveStorageBtn.addEventListener('click', saveNote);
-loadStorageBtn.addEventListener('click', loadNote);
+loadStorageBtn.addEventListener('click', () => {
+  const name = currentFileName || getNoteTitle();
+  if (!name) {
+    alert('No note title found.');
+    return;
+  }
+  loadNote(name);
+});
 newNoteBtn.addEventListener('click', newNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
 deleteBtn.addEventListener('click', deleteNote);
@@ -357,4 +373,4 @@ textarea.addEventListener('input', () => {
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
 });
 
-updateFileList();
+newNote();
