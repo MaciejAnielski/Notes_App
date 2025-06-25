@@ -59,6 +59,16 @@ function toggleView() {
     isPreview = false;
   } else {
     previewDiv.innerHTML = marked.parse(textarea.value);
+    // Remove list bullets from todo items and add spacing after checkboxes
+    previewDiv.querySelectorAll('li').forEach(li => {
+      const checkbox = li.querySelector('input[type="checkbox"]');
+      if (checkbox) {
+        li.style.listStyleType = 'none';
+        if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
+          checkbox.insertAdjacentText('afterend', ' ');
+        }
+      }
+    });
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
     toggleViewBtn.textContent = 'Edit Markdown';
@@ -243,7 +253,12 @@ function updateTodoList() {
         const innerUl = document.createElement('ul');
         todos.forEach(t => {
           const todoLi = document.createElement('li');
-          todoLi.textContent = t.trim();
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.disabled = true;
+          const text = t.trim().replace(/^- \[ \]/, '').trim();
+          todoLi.appendChild(checkbox);
+          todoLi.appendChild(document.createTextNode(' ' + text));
           innerUl.appendChild(todoLi);
         });
 
