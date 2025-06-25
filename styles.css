@@ -96,3 +96,52 @@ button {
   border: 1px solid #555;
 }
 
+/* Storage controls */
+.storage-controls button {
+  padding: 8px 12px;
+  margin-right: 5px;
+  background-color: #e0e0e0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: inherit;
+}
+
+.dark-mode .storage-controls button {
+  background-color: #3a3a3a;
+  border: 1px solid #555;
+  color: #f0f0f0;
+}
+
+#searchBox {
+  display: block;
+  margin: 10px 0;
+  padding: 8px;
+  font-size: 16px;
+  width: 300px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #000;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.dark-mode #searchBox {
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+}
+
+#fileList {
+  list-style: none;
+  padding-left: 0;
+}
+
+#fileList li {
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+#fileList li:hover {
+  text-decoration: underline;
+}
+
