@@ -11,6 +11,7 @@ A personal notes app that works in the browser.
 - Delete all stored notes with a single click.
 - Import notes from a zip archive containing Markdown files.
 - Toggle between editing and previewing your markdown.
+- Check off tasks directly from preview mode.
 - Create a new note which clears the editor.
 - Notes are automatically saved while you type.
 - Prevent overwriting existing notes by warning when a filename is already in use.
