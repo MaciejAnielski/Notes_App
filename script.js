@@ -68,8 +68,8 @@ function isNoteBodyEmpty() {
 }
 
 
-function styleTaskListItems() {
-  previewDiv.querySelectorAll('li').forEach(li => {
+function styleTaskListItems(container = previewDiv) {
+  container.querySelectorAll('li').forEach(li => {
     const checkbox = li.querySelector('input[type="checkbox"]');
     if (checkbox) {
       li.style.listStyleType = 'none';
@@ -88,7 +88,7 @@ function toggleView() {
     isPreview = false;
   } else {
     previewDiv.innerHTML = marked.parse(textarea.value);
-    styleTaskListItems();
+    styleTaskListItems(previewDiv);
     setupPreviewTaskCheckboxes();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
@@ -160,7 +160,7 @@ function loadNote(name) {
   currentFileName = name;
   if (isPreview) {
     previewDiv.innerHTML = marked.parse(textarea.value);
-    styleTaskListItems();
+    styleTaskListItems(previewDiv);
     setupPreviewTaskCheckboxes();
   }
   updateFileList();
@@ -322,12 +322,15 @@ function updateTodoList() {
           const todoLi = document.createElement('li');
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          const text = t.line.trim().replace(/^- \[ \]/, '').trim();
+          const text = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').trim();
           checkbox.addEventListener('change', () => {
             toggleTaskStatus(fileName, t.idx);
           });
           todoLi.appendChild(checkbox);
-          todoLi.appendChild(document.createTextNode(' ' + text));
+          todoLi.appendChild(document.createTextNode(' '));
+          const span = document.createElement('span');
+          span.innerHTML = marked.parseInline(text);
+          todoLi.appendChild(span);
           innerUl.appendChild(todoLi);
         });
 
@@ -336,6 +339,7 @@ function updateTodoList() {
       }
     }
   }
+  styleTaskListItems(todoList);
 }
 
 function setupPreviewTaskCheckboxes() {
@@ -361,7 +365,7 @@ function setupPreviewTaskCheckboxes() {
           localStorage.setItem('md_' + currentFileName, textarea.value);
         }
         previewDiv.innerHTML = marked.parse(textarea.value);
-        styleTaskListItems();
+        styleTaskListItems(previewDiv);
         setupPreviewTaskCheckboxes();
         updateTodoList();
       }
@@ -381,7 +385,7 @@ function toggleTaskStatus(fileName, lineIndex) {
       textarea.value = lines.join('\n');
       if (isPreview) {
         previewDiv.innerHTML = marked.parse(textarea.value);
-        styleTaskListItems();
+        styleTaskListItems(previewDiv);
         setupPreviewTaskCheckboxes();
       }
     }
