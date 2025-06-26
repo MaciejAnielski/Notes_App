@@ -23,9 +23,10 @@ toggleBtn.addEventListener('click', toggleTheme);
 const savedTheme = localStorage.getItem('theme') || 'dark';
 applyTheme(savedTheme);
 
+const savedPreview = localStorage.getItem('is_preview') === 'true';
+const lastFile = localStorage.getItem('current_file');
 
-const saveStorageBtn = document.getElementById('save-storage');
-const loadStorageBtn = document.getElementById('load-storage');
+
 const newNoteBtn = document.getElementById('new-note');
 const downloadAllBtn = document.getElementById('download-all');
 const deleteBtn = document.getElementById('delete-note');
@@ -93,6 +94,7 @@ function toggleView() {
     textarea.style.display = 'block';
     toggleViewBtn.textContent = 'Preview Markdown';
     isPreview = false;
+    localStorage.setItem('is_preview', 'false');
   } else {
     previewDiv.innerHTML = marked.parse(textarea.value);
     styleTaskListItems(previewDiv);
@@ -101,35 +103,12 @@ function toggleView() {
     textarea.style.display = 'none';
     toggleViewBtn.textContent = 'Edit Markdown';
     isPreview = true;
+    localStorage.setItem('is_preview', 'true');
   }
 }
 
 toggleViewBtn.addEventListener('click', toggleView);
 
-function saveNote() {
-  const name = getNoteTitle();
-  const content = textarea.value;
-  if (!name) {
-    updateStatus('File not saved. The first line must start with # to provide a title.', false);
-    return;
-  }
-  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
-    if (isNoteBodyEmpty()) {
-      loadNote(name);
-      updateStatus(`Opened existing note "${name}".`, true);
-    } else {
-      updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
-    }
-    return;
-  }
-  if (currentFileName && currentFileName !== name) {
-    localStorage.removeItem('md_' + currentFileName);
-  }
-  localStorage.setItem('md_' + name, content);
-  currentFileName = name;
-  updateFileList();
-  updateStatus('File saved successfully.', true);
-}
 
 function autoSaveNote() {
   const name = getNoteTitle();
@@ -153,6 +132,7 @@ function autoSaveNote() {
 
   localStorage.setItem('md_' + name, textarea.value);
   currentFileName = name;
+  localStorage.setItem('current_file', name);
   updateFileList();
   updateStatus('File saved successfully.', true);
 }
@@ -165,6 +145,7 @@ function loadNote(name) {
   }
   textarea.value = content;
   currentFileName = name;
+  localStorage.setItem('current_file', name);
   if (isPreview) {
     previewDiv.innerHTML = marked.parse(textarea.value);
     styleTaskListItems(previewDiv);
@@ -186,6 +167,7 @@ function newNote() {
   }
   clearTimeout(autoSaveTimer);
   currentFileName = null;
+  localStorage.removeItem('current_file');
   updateFileList();
   updateStatus('', true);
 }
@@ -204,6 +186,7 @@ function deleteNote() {
   localStorage.removeItem('md_' + name);
   textarea.value = '';
   currentFileName = null;
+  localStorage.removeItem('current_file');
   updateFileList();
 }
 
@@ -217,6 +200,7 @@ function deleteAllNotes() {
   keys.forEach(k => localStorage.removeItem(k));
   textarea.value = '';
   currentFileName = null;
+  localStorage.removeItem('current_file');
   updateFileList();
 }
 
@@ -405,15 +389,6 @@ function filterNotes() {
   updateFileList();
 }
 
-saveStorageBtn.addEventListener('click', saveNote);
-loadStorageBtn.addEventListener('click', () => {
-  const name = currentFileName || getNoteTitle();
-  if (!name) {
-    alert('No note title found.');
-    return;
-  }
-  loadNote(name);
-});
 newNoteBtn.addEventListener('click', newNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
 deleteBtn.addEventListener('click', deleteNote);
@@ -430,4 +405,12 @@ textarea.addEventListener('input', () => {
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
 });
 
-newNote();
+if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {
+  loadNote(lastFile);
+} else {
+  newNote();
+}
+
+if (savedPreview && !isPreview) {
+  toggleView();
+}
