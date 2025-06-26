@@ -218,6 +218,18 @@ button {
   display:block;
   margin-bottom: 10px;
   margin-top: 10px;
+  text-decoration: underline;
+}
+
+/* Increase spacing and add separator between task groups */
+#todoList > li {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #a272b0;
+}
+
+#todoList > li:last-child {
+  border-bottom: none;
 }
 
 @media (min-width: 650px) {
