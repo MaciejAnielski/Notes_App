@@ -250,6 +250,14 @@ button {
   border-top: 1px solid #a272b0;
 }
 
+/* Add spacing between checklist and bullet items within the same list */
+#preview li.task-item + li.bullet-item,
+#preview li.bullet-item + li.task-item,
+#todoList li.task-item + li.bullet-item,
+#todoList li.bullet-item + li.task-item {
+  margin-top: 8px;
+}
+
 @media (min-width: 650px) {
   #lists-container {
     flex-direction: row;
