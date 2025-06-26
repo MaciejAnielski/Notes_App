@@ -228,10 +228,6 @@ button {
   border-top: 1px solid #a272b0;
 }
 
-#todoList > li:last-child {
-  border-top: none;
-}
-
 @media (min-width: 650px) {
   #lists-container {
     flex-direction: row;
