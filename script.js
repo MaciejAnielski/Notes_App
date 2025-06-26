@@ -70,21 +70,36 @@ function isNoteBodyEmpty() {
 
 
 function styleTaskListItems(container = previewDiv) {
-  container.querySelectorAll('li').forEach(li => {
-    const firstChild = li.firstElementChild;
-    if (firstChild && firstChild.tagName === 'INPUT' && firstChild.type === 'checkbox') {
-      li.style.listStyleType = 'none';
-      li.style.marginLeft = '0';
-      li.style.paddingLeft = '0';
-      const parent = li.parentElement;
-      if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL')) {
-        parent.style.marginLeft = '0';
-        parent.style.paddingLeft = '0';
+  const lists = container.querySelectorAll('ul, ol');
+  lists.forEach(list => {
+    const liInfo = Array.from(list.querySelectorAll(':scope > li')).map(li => {
+      const checkbox = li.querySelector(':scope > input[type="checkbox"], :scope > p:first-child > input[type="checkbox"]');
+
+      if (checkbox && checkbox.parentElement !== li) {
+        const parent = checkbox.parentElement;
+        parent.style.margin = '0';
+        parent.style.display = 'inline';
       }
-      if (!firstChild.nextSibling || firstChild.nextSibling.nodeValue !== ' ') {
-        firstChild.insertAdjacentText('afterend', ' ');
-      }
+
+      return { li, checkbox };
+    });
+
+    const allTasks = liInfo.every(info => info.checkbox);
+    if (allTasks) {
+      list.style.marginLeft = '0';
+      list.style.paddingLeft = '0';
     }
+
+    liInfo.forEach(({ li, checkbox }) => {
+      if (checkbox) {
+        li.style.listStyleType = 'none';
+        li.style.marginLeft = '0';
+        li.style.paddingLeft = '0';
+        if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
+          checkbox.insertAdjacentText('afterend', ' ');
+        }
+      }
+    });
   });
 }
 
