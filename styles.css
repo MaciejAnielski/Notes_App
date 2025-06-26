@@ -44,6 +44,9 @@ textarea {
   color: #f0f0f0;
   border: 1px solid #555;
 }
+#preview li p:first-child:last-child {
+  margin: 0;
+}
 #preview a {
   color: #0645ad;
 }
