@@ -86,6 +86,12 @@ function styleTaskListItems(container = previewDiv) {
       checkbox = firstChild.firstElementChild;
       firstChild.style.margin = '0';
       firstChild.style.display = 'inline';
+    } else if (
+      firstChild &&
+      firstChild.tagName === 'P' &&
+      li.childElementCount === 1
+    ) {
+      firstChild.style.margin = '0';
     }
 
     if (checkbox) {
