@@ -71,6 +71,9 @@ function isNoteBodyEmpty() {
 
 function styleTaskListItems(container = previewDiv) {
   container.querySelectorAll('li').forEach(li => {
+    li.classList.remove('task-item', 'bullet-item');
+    li.style.marginTop = '';
+
     const firstChild = li.firstElementChild;
     let checkbox = null;
 
@@ -97,6 +100,8 @@ function styleTaskListItems(container = previewDiv) {
     if (checkbox) {
       li.style.listStyleType = 'none';
 
+      li.classList.add('task-item');
+
       // remove the indentation applied by the parent list while keeping
       // the indentation for non-checkbox items intact
       const parent = li.parentElement;
@@ -117,6 +122,8 @@ function styleTaskListItems(container = previewDiv) {
       if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
         checkbox.insertAdjacentText('afterend', ' ');
       }
+    } else {
+      li.classList.add('bullet-item');
     }
   });
 }
