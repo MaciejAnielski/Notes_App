@@ -317,6 +317,7 @@ function updateTodoList() {
       if (todos.length > 0) {
         const noteLi = document.createElement('li');
         const title = document.createElement('strong');
+        title.classList.add('todo-note-title');
         title.textContent = fileName;
         title.style.cursor = 'pointer';
         title.onclick = () => {
