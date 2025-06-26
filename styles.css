@@ -214,6 +214,17 @@ button {
   margin-top: 4px;
 }
 
+/* Align multi-line tasks with their text rather than the checkbox */
+#todoList li li {
+  display: flex;
+  align-items: flex-start;
+}
+
+#todoList li li input[type="checkbox"] {
+  margin-right: 6px;
+  margin-top: 2px;
+}
+
 #todo-container strong {
   display:block;
   margin-bottom: 10px;
