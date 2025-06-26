@@ -20,7 +20,7 @@ function toggleTheme() {
 
 toggleBtn.addEventListener('click', toggleTheme);
 
-const savedTheme = localStorage.getItem('theme') || 'light';
+const savedTheme = localStorage.getItem('theme') || 'dark';
 applyTheme(savedTheme);
 
 
