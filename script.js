@@ -73,6 +73,13 @@ function styleTaskListItems(container = previewDiv) {
     const checkbox = li.querySelector('input[type="checkbox"]');
     if (checkbox) {
       li.style.listStyleType = 'none';
+      li.style.marginLeft = '0';
+      li.style.paddingLeft = '0';
+      const parent = li.parentElement;
+      if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL')) {
+        parent.style.marginLeft = '0';
+        parent.style.paddingLeft = '0';
+      }
       if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
         checkbox.insertAdjacentText('afterend', ' ');
       }
