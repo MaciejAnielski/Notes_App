@@ -71,8 +71,8 @@ function isNoteBodyEmpty() {
 
 function styleTaskListItems(container = previewDiv) {
   container.querySelectorAll('li').forEach(li => {
-    const checkbox = li.querySelector('input[type="checkbox"]');
-    if (checkbox) {
+    const firstChild = li.firstElementChild;
+    if (firstChild && firstChild.tagName === 'INPUT' && firstChild.type === 'checkbox') {
       li.style.listStyleType = 'none';
       li.style.marginLeft = '0';
       li.style.paddingLeft = '0';
@@ -81,8 +81,8 @@ function styleTaskListItems(container = previewDiv) {
         parent.style.marginLeft = '0';
         parent.style.paddingLeft = '0';
       }
-      if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
-        checkbox.insertAdjacentText('afterend', ' ');
+      if (!firstChild.nextSibling || firstChild.nextSibling.nodeValue !== ' ') {
+        firstChild.insertAdjacentText('afterend', ' ');
       }
     }
   });
