@@ -90,13 +90,24 @@ function styleTaskListItems(container = previewDiv) {
 
     if (checkbox) {
       li.style.listStyleType = 'none';
-      li.style.marginLeft = '0';
-      li.style.paddingLeft = '0';
+
+      // remove the indentation applied by the parent list while keeping
+      // the indentation for non-checkbox items intact
       const parent = li.parentElement;
       if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL')) {
-        parent.style.marginLeft = '0';
-        parent.style.paddingLeft = '0';
+        const computed = window.getComputedStyle(parent);
+        const indent = parseFloat(computed.paddingLeft || 0);
+        if (!isNaN(indent) && indent > 0) {
+          li.style.marginLeft = `-${indent}px`;
+        } else {
+          li.style.marginLeft = '0';
+        }
+      } else {
+        li.style.marginLeft = '0';
       }
+
+      li.style.paddingLeft = '0';
+
       if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
         checkbox.insertAdjacentText('afterend', ' ');
       }
