@@ -52,6 +52,14 @@ textarea {
   color: #9cdcfe;
 }
 
+#todo-container a {
+  color: #0645ad;
+}
+
+.dark-mode #todo-container a {
+  color: #9cdcfe;
+}
+
 
 button {
   cursor: pointer;
@@ -225,7 +233,7 @@ button {
   margin-top: 2px;
 }
 
-#todo-container strong {
+#todo-container .todo-note-title {
   display:block;
   margin-bottom: 10px;
   margin-top: 10px;
