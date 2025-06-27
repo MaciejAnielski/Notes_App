@@ -611,13 +611,45 @@ function filterNotes() {
   updateFileList();
 }
 
-newNoteBtn.addEventListener('click', newNote);
+function setupMobileButtonGroup(button, action) {
+  const group = button.parentElement;
+  const sub = group ? group.querySelector('.sub-button') : null;
+  if (!group) {
+    button.addEventListener('click', action);
+    return;
+  }
+
+  if (!sub) {
+    button.addEventListener('click', action);
+    return;
+  }
+
+  button.addEventListener('click', e => {
+    const isTouch = window.matchMedia('(hover: none)').matches;
+    if (isTouch && !group.classList.contains('active')) {
+      e.preventDefault();
+      group.classList.add('active');
+      const hide = evt => {
+        if (!group.contains(evt.target)) {
+          group.classList.remove('active');
+          document.removeEventListener('click', hide);
+        }
+      };
+      document.addEventListener('click', hide);
+      return;
+    }
+    group.classList.remove('active');
+    action(e);
+  });
+}
+
+setupMobileButtonGroup(newNoteBtn, newNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
-exportNoteBtn.addEventListener('click', exportNote);
+setupMobileButtonGroup(exportNoteBtn, exportNote);
 exportAllHtmlBtn.addEventListener('click', exportAllNotes);
-deleteBtn.addEventListener('click', deleteNote);
+setupMobileButtonGroup(deleteBtn, deleteNote);
 deleteAllBtn.addEventListener('click', deleteAllNotes);
-importZipBtn.addEventListener('click', () => importZipInput.click());
+setupMobileButtonGroup(importZipBtn, () => importZipInput.click());
 importZipInput.addEventListener('change', e => {
   if (e.target.files.length > 0) {
     importNotesFromZip(e.target.files[0]);
