@@ -141,7 +141,9 @@ function setupNoteLinks(container = previewDiv) {
       e.preventDefault();
       if (localStorage.getItem('md_' + noteName) !== null) {
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
-          linkedNoteChain.push(currentFileName);
+          // Add the previously viewed note to the top of the chain so the
+          // history is ordered from most recent to oldest.
+          linkedNoteChain.unshift(currentFileName);
         }
         loadNote(noteName, true);
       } else {
