@@ -309,6 +309,7 @@ button {
   }
   #editor-section {
     margin-right: 0;
+    flex: 0;
   }
   #lists-container {
     margin-left: 40px;
