@@ -303,4 +303,17 @@ button {
   }
 }
 
+@media (min-width: 1500px) {
+  #layout-wrapper {
+    gap: 0;
+  }
+  #editor-section {
+    margin-right: 0;
+  }
+  #lists-container {
+    margin-left: 40px;
+    margin-right: 0;
+  }
+}
+
 
