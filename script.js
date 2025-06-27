@@ -89,8 +89,10 @@ function createSearchPredicate(query) {
 
   function parseTerm() {
     let left = parseFactor();
-    while (tokens[index] && tokens[index].toUpperCase() === 'AND') {
-      index++;
+    while (tokens[index] && tokens[index].toUpperCase() !== 'OR') {
+      if (tokens[index].toUpperCase() === 'AND') {
+        index++;
+      }
       const right = parseFactor();
       const prev = left;
       left = (n, c) => prev(n, c) && right(n, c);
