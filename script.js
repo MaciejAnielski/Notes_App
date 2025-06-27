@@ -360,6 +360,10 @@ function generateHtmlContent(title, markdown) {
   const container = document.createElement('div');
   container.innerHTML = marked.parse(markdown);
   styleTaskListItems(container);
+  const isDark = document.body.classList.contains('dark-mode');
+  const bgColor = isDark ? '#2e2e2e' : '#d8bbdf';
+  const textColor = isDark ? '#f0f0f0' : '#000';
+  const linkColor = isDark ? '#9cdcfe' : '#0645ad';
   const style = `
     body {
       width: 100%;
@@ -369,14 +373,13 @@ function generateHtmlContent(title, markdown) {
       font-family: Arial, sans-serif;
       font-size: 16px;
       line-height: 1.5;
-      border: 1px solid #a272b0;
       border-radius: 4px;
       box-sizing: border-box;
-      background-color: #d8bbdf;
-      color: #000;
+      background-color: ${bgColor};
+      color: ${textColor};
       margin: 20px auto;
     }
-    a { color: #0645ad; }
+    a { color: ${linkColor}; }
     li p:first-child:last-child { margin: 0; }
     li.task-item + li.bullet-item,
     li.bullet-item + li.task-item { margin-top: 8px; }
