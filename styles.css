@@ -154,7 +154,7 @@ button {
   left: 0;
   top: 100%;
   margin-top: 0;
-  padding-top: 2px;
+  padding-top: 8px;
   white-space: nowrap;
   z-index: 10;
 }
