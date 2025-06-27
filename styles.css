@@ -142,46 +142,23 @@ button {
 /* Button groups for condensed controls */
 .storage-controls .button-group {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  flex-direction: column;
   margin-right: 5px;
   margin-bottom: 10px;
 }
 
 .storage-controls .button-group .sub-button {
   display: none;
-  position: absolute;
-  left: 0;
-  top: 100%;
-  margin-top: 0;
-  white-space: nowrap;
-  z-index: 10;
+  margin-top: 5px;
 }
 
-.storage-controls .button-group:hover .sub-button {
-  display: block;
-}
-
+.storage-controls .button-group:hover .sub-button,
 .storage-controls .button-group.active .sub-button {
-  display: block;
+  display: inline-block;
 }
 
 .dark-mode .storage-controls .button-group .sub-button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-.list-controls button {
-  padding: 8px 12px;
-  margin-right: 5px;
-  margin-bottom: 10px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
-}
-
-.dark-mode .list-controls button {
   background-color: #3a3a3a;
   border: 1px solid #555;
   color: #f0f0f0;

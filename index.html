@@ -35,14 +35,17 @@
         </div>
         <div class="button-group">
             <button id="delete-note">Delete Note</button>
+            <button id="delete-selected" class="sub-button">Delete Selected Notes</button>
             <button id="delete-all" class="sub-button">Delete All Notes</button>
         </div>
         <div class="button-group">
             <button id="export-note">Export Note</button>
+            <button id="export-selected" class="sub-button">Export Selected Notes</button>
             <button id="export-all-html" class="sub-button">Export All Notes</button>
         </div>
         <div class="button-group">
             <button id="import-zip">Import Notes</button>
+            <button id="backup-selected" class="sub-button">Backup Selected Notes</button>
             <button id="download-all" class="sub-button">Backup Notes</button>
         </div>
         <input type="file" id="import-zip-input" accept=".zip" style="display:none;">
@@ -62,11 +65,6 @@
         <div id="files-container">
           <h2>Saved Notes</h2>
           <input type="text" id="searchBox" placeholder="Search Notes...">
-          <div class="list-controls">
-            <button id="delete-selected">Delete Selected Notes</button>
-            <button id="export-selected">Export Selected Notes</button>
-            <button id="backup-selected">Backup Selected Notes</button>
-          </div>
           <ul id="fileList"></ul>
         </div>
         <div id="todo-container">
