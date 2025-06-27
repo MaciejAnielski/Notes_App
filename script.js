@@ -69,6 +69,48 @@ function isNoteBodyEmpty() {
   return lines.slice(1).join('\n').trim() === '';
 }
 
+// Build a predicate from a search query supporting AND, OR and NOT operators.
+function createSearchPredicate(query) {
+  if (!query) return () => true;
+
+  const tokens = query.split(/\s+/).filter(Boolean);
+  let index = 0;
+
+  function parseExpression() {
+    let left = parseTerm();
+    while (tokens[index] && tokens[index].toUpperCase() === 'OR') {
+      index++;
+      const right = parseTerm();
+      const prev = left;
+      left = (n, c) => prev(n, c) || right(n, c);
+    }
+    return left;
+  }
+
+  function parseTerm() {
+    let left = parseFactor();
+    while (tokens[index] && tokens[index].toUpperCase() === 'AND') {
+      index++;
+      const right = parseFactor();
+      const prev = left;
+      left = (n, c) => prev(n, c) && right(n, c);
+    }
+    return left;
+  }
+
+  function parseFactor() {
+    if (tokens[index] && tokens[index].toUpperCase() === 'NOT') {
+      index++;
+      const next = parseFactor();
+      return (n, c) => !next(n, c);
+    }
+    const term = tokens[index++] || '';
+    return (n, c) => n.includes(term) || c.includes(term);
+  }
+
+  return parseExpression();
+}
+
 
 function styleTaskListItems(container = previewDiv) {
   container.querySelectorAll('li').forEach(li => {
@@ -327,7 +369,8 @@ function importNotesFromZip(file) {
 
 function updateFileList() {
   fileList.innerHTML = '';
-  const search = searchBox.value.toLowerCase();
+  const query = searchBox.value.trim().toLowerCase();
+  const matches = createSearchPredicate(query);
 
   const noteMap = {};
 
@@ -337,7 +380,7 @@ function updateFileList() {
       const fileName = key.slice(3);
       const content = localStorage.getItem(key).toLowerCase();
 
-      if (fileName.toLowerCase().includes(search) || content.includes(search)) {
+      if (matches(fileName.toLowerCase(), content)) {
         const li = document.createElement('li');
         li.textContent = fileName;
         li.style.cursor = 'pointer';
