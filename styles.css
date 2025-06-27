@@ -151,11 +151,12 @@ button {
 .storage-controls .button-group .sub-button {
   display: none;
   margin-top: 5px;
+  width: 100%;
 }
 
 .storage-controls .button-group:hover .sub-button,
 .storage-controls .button-group.active .sub-button {
-  display: inline-block;
+  display: block;
 }
 
 .dark-mode .storage-controls .button-group .sub-button {
