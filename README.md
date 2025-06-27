@@ -20,3 +20,4 @@ A personal notes app that works in the browser.
 - View all unchecked tasks across notes in one list. Click a note title to open
   it and click a task checkbox to mark it complete.
 - Link to other notes using standard Markdown link syntax, e.g. `[Note](My Note)`.
+  Links also work for note names containing spaces.

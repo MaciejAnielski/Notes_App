@@ -134,7 +134,7 @@ function setupNoteLinks(container = previewDiv) {
     if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) {
       return;
     }
-    const noteName = decodeURIComponent(href);
+    const noteName = decodeURIComponent(href).replace(/\+/g, ' ').trim();
     a.href = '#';
     a.addEventListener('click', e => {
       e.preventDefault();
