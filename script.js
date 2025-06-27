@@ -37,6 +37,7 @@ const deleteAllBtn = document.getElementById('delete-all');
 const importZipBtn = document.getElementById('import-zip');
 const importZipInput = document.getElementById('import-zip-input');
 const searchBox = document.getElementById('searchBox');
+const searchTasksBox = document.getElementById('searchTasksBox');
 const fileList = document.getElementById('fileList');
 const todoList = document.getElementById('todoList');
 const statusDiv = document.getElementById('status-message');
@@ -483,6 +484,9 @@ function updateFileList() {
 function updateTodoList() {
   todoList.innerHTML = '';
 
+  const query = searchTasksBox.value.trim().toLowerCase();
+  const matches = createSearchPredicate(query);
+
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key.startsWith('md_')) {
@@ -490,7 +494,8 @@ function updateTodoList() {
       const lines = localStorage.getItem(key).split(/\n/);
       const todos = lines
         .map((line, idx) => ({ line, idx }))
-        .filter(obj => obj.line.trim().startsWith('- [ ]'));
+        .filter(obj => obj.line.trim().startsWith('- [ ]'))
+        .filter(obj => matches(fileName.toLowerCase(), obj.line.toLowerCase()));
 
       if (todos.length > 0) {
         const noteLi = document.createElement('li');
@@ -596,6 +601,7 @@ importZipInput.addEventListener('change', e => {
   }
 });
 searchBox.addEventListener('input', filterNotes);
+searchTasksBox.addEventListener('input', updateTodoList);
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
