@@ -142,20 +142,28 @@ button {
 /* Button groups for condensed controls */
 .storage-controls .button-group {
   position: relative;
-  display: inline-flex;
-  flex-direction: column;
+  display: inline-block;
   margin-right: 5px;
   margin-bottom: 10px;
 }
 
-.storage-controls .button-group .sub-button {
+.storage-controls .button-group .sub-buttons {
+  position: absolute;
+  top: 100%;
+  left: 0;
   display: none;
-  margin-top: 5px;
+  z-index: 1;
   width: 100%;
 }
 
-.storage-controls .button-group:hover .sub-button,
-.storage-controls .button-group.active .sub-button {
+.storage-controls .button-group .sub-buttons .sub-button {
+  display: block;
+  margin-top: 0;
+  width: 100%;
+}
+
+.storage-controls .button-group:hover .sub-buttons,
+.storage-controls .button-group.active .sub-buttons {
   display: block;
 }
 
