@@ -144,9 +144,6 @@ button {
 .storage-controls .button-group {
   position: relative;
   display: inline-block;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
   margin-right: 5px;
   margin-bottom: 10px;
 }
@@ -156,7 +153,8 @@ button {
   position: absolute;
   left: 0;
   top: 100%;
-  margin-top: 2px;
+  margin-top: 0;
+  padding-top: 2px;
   white-space: nowrap;
   z-index: 10;
 }
@@ -167,11 +165,6 @@ button {
 
 .storage-controls .button-group.active .sub-button {
   display: block;
-}
-
-.dark-mode .storage-controls .button-group {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
 }
 
 .dark-mode .storage-controls .button-group .sub-button {
