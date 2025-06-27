@@ -327,7 +327,7 @@ function updateFileList() {
   fileList.innerHTML = '';
   const search = searchBox.value.toLowerCase();
 
-  const items = [];
+  const noteMap = {};
 
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -342,18 +342,32 @@ function updateFileList() {
         li.onclick = () => {
           loadNote(fileName);
         };
-        if (fileName === currentFileName) {
-          li.classList.add('active-file');
-          items.unshift(li);
-        } else if (linkedNoteChain.includes(fileName)) {
-          li.classList.add('linked-file');
-          items.unshift(li);
-        } else {
-          items.push(li);
-        }
+        noteMap[fileName] = li;
       }
     }
   }
+
+  const items = [];
+
+  if (currentFileName && noteMap[currentFileName]) {
+    noteMap[currentFileName].classList.add('active-file');
+    items.push(noteMap[currentFileName]);
+    delete noteMap[currentFileName];
+  }
+
+  linkedNoteChain.forEach(name => {
+    if (noteMap[name]) {
+      noteMap[name].classList.add('linked-file');
+      items.push(noteMap[name]);
+      delete noteMap[name];
+    }
+  });
+
+  Object.keys(noteMap)
+    .sort()
+    .forEach(name => {
+      items.push(noteMap[name]);
+    });
 
   items.forEach(li => fileList.appendChild(li));
 
