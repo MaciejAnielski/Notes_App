@@ -22,3 +22,5 @@ A personal notes app that works in the browser.
   it and click a task checkbox to mark it complete.
 - Link to other notes using standard Markdown link syntax, e.g. `[Note](My Note)`.
   Links also work for note names containing spaces.
+- Render mathematical expressions with MathJax. Use `$math$` for inline math and
+  `$$math$$` for display equations.
