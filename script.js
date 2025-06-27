@@ -197,6 +197,16 @@ function setupNoteLinks(container = previewDiv) {
   });
 }
 
+function renderPreview() {
+  previewDiv.innerHTML = marked.parse(textarea.value);
+  styleTaskListItems(previewDiv);
+  setupNoteLinks(previewDiv);
+  setupPreviewTaskCheckboxes();
+  if (window.MathJax) {
+    MathJax.typesetPromise([previewDiv]);
+  }
+}
+
 function toggleView() {
   if (isPreview) {
     previewDiv.style.display = 'none';
@@ -205,10 +215,7 @@ function toggleView() {
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
   } else {
-    previewDiv.innerHTML = marked.parse(textarea.value);
-    styleTaskListItems(previewDiv);
-    setupNoteLinks(previewDiv);
-    setupPreviewTaskCheckboxes();
+    renderPreview();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
     toggleViewBtn.textContent = 'Edit Markdown';
@@ -262,10 +269,7 @@ function loadNote(name, fromLink = false) {
   currentFileName = name;
   localStorage.setItem('current_file', name);
   if (isPreview) {
-    previewDiv.innerHTML = marked.parse(textarea.value);
-    styleTaskListItems(previewDiv);
-    setupNoteLinks(previewDiv);
-    setupPreviewTaskCheckboxes();
+    renderPreview();
   }
   updateFileList();
 }
@@ -468,6 +472,9 @@ function updateTodoList() {
   }
   styleTaskListItems(todoList);
   setupNoteLinks(todoList);
+  if (window.MathJax) {
+    MathJax.typesetPromise([todoList]);
+  }
 }
 
 function setupPreviewTaskCheckboxes() {
@@ -492,10 +499,7 @@ function setupPreviewTaskCheckboxes() {
         if (currentFileName) {
           localStorage.setItem('md_' + currentFileName, textarea.value);
         }
-        previewDiv.innerHTML = marked.parse(textarea.value);
-        styleTaskListItems(previewDiv);
-        setupNoteLinks(previewDiv);
-        setupPreviewTaskCheckboxes();
+        renderPreview();
         updateTodoList();
       }
     };
@@ -513,10 +517,7 @@ function toggleTaskStatus(fileName, lineIndex) {
     if (currentFileName === fileName) {
       textarea.value = lines.join('\n');
       if (isPreview) {
-        previewDiv.innerHTML = marked.parse(textarea.value);
-        styleTaskListItems(previewDiv);
-        setupNoteLinks(previewDiv);
-        setupPreviewTaskCheckboxes();
+        renderPreview();
       }
     }
   }
