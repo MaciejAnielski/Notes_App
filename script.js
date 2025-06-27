@@ -30,6 +30,8 @@ const lastFile = localStorage.getItem('current_file');
 
 const newNoteBtn = document.getElementById('new-note');
 const downloadAllBtn = document.getElementById('download-all');
+const exportNoteBtn = document.getElementById('export-note');
+const exportAllHtmlBtn = document.getElementById('export-all-html');
 const deleteBtn = document.getElementById('delete-note');
 const deleteAllBtn = document.getElementById('delete-all');
 const importZipBtn = document.getElementById('import-zip');
@@ -353,6 +355,59 @@ function downloadAllNotes() {
   });
 }
 
+function generateHtmlContent(title, markdown) {
+  const container = document.createElement('div');
+  container.innerHTML = marked.parse(markdown);
+  styleTaskListItems(container);
+  const style = `body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.5; color: #333; } a { color: #0645ad; }`;
+  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
+}
+
+function exportNote() {
+  const name = currentFileName || getNoteTitle();
+  if (!name) {
+    alert('No note selected.');
+    return;
+  }
+  const markdown = textarea.value;
+  const html = generateHtmlContent(name, markdown);
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = name + '.html';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function exportAllNotes() {
+  const zip = new JSZip();
+  let count = 0;
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('md_')) {
+      const fileName = key.slice(3);
+      const content = localStorage.getItem(key);
+      const html = generateHtmlContent(fileName, content);
+      zip.file(fileName + '.html', html);
+      count++;
+    }
+  }
+
+  if (count === 0) {
+    alert('No notes found.');
+    return;
+  }
+
+  zip.generateAsync({ type: 'blob' }).then(function(content) {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = 'all_notes_html.zip';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+}
+
 function importNotesFromZip(file) {
   JSZip.loadAsync(file).then(zip => {
     const promises = [];
@@ -530,6 +585,8 @@ function filterNotes() {
 
 newNoteBtn.addEventListener('click', newNote);
 downloadAllBtn.addEventListener('click', downloadAllNotes);
+exportNoteBtn.addEventListener('click', exportNote);
+exportAllHtmlBtn.addEventListener('click', exportAllNotes);
 deleteBtn.addEventListener('click', deleteNote);
 deleteAllBtn.addEventListener('click', deleteAllNotes);
 importZipBtn.addEventListener('click', () => importZipInput.click());
