@@ -614,31 +614,33 @@ function filterNotes() {
 function setupMobileButtonGroup(button, action) {
   const group = button.parentElement;
   const sub = group ? group.querySelector('.sub-button') : null;
-  if (!group) {
+  if (!group || !sub) {
     button.addEventListener('click', action);
     return;
   }
 
-  if (!sub) {
-    button.addEventListener('click', action);
-    return;
-  }
+  let expanded = false;
 
   button.addEventListener('click', e => {
     const isMobileTouch = window.matchMedia('(hover: none) and (max-width: 650px)').matches;
-    if (isMobileTouch && !group.classList.contains('active')) {
-      e.preventDefault();
-      group.classList.add('active');
-      const hide = evt => {
-        if (!group.contains(evt.target)) {
-          group.classList.remove('active');
-          document.removeEventListener('click', hide);
-        }
-      };
-      document.addEventListener('click', hide);
-      return;
+    if (isMobileTouch) {
+      if (!expanded) {
+        e.preventDefault();
+        expanded = true;
+        group.classList.add('active');
+        const hide = evt => {
+          if (!group.contains(evt.target)) {
+            group.classList.remove('active');
+            expanded = false;
+            document.removeEventListener('click', hide);
+          }
+        };
+        document.addEventListener('click', hide);
+        return;
+      }
+      group.classList.remove('active');
+      expanded = false;
     }
-    group.classList.remove('active');
     action(e);
   });
 }
