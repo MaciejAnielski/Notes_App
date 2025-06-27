@@ -232,7 +232,10 @@ toggleViewBtn.addEventListener('click', toggleView);
 
 function autoSaveNote() {
   const name = getNoteTitle();
-  if (!name) return;
+  if (!name) {
+    updateStatus('File not saved. Please add a title starting with "#".', false);
+    return;
+  }
   if (currentFileName && currentFileName !== name) {
     // Remove the old entry when the note title changes to avoid leaving
     // partially typed titles in storage.
