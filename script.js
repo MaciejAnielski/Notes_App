@@ -625,8 +625,8 @@ function setupMobileButtonGroup(button, action) {
   }
 
   button.addEventListener('click', e => {
-    const isTouch = window.matchMedia('(hover: none)').matches;
-    if (isTouch && !group.classList.contains('active')) {
+    const isMobileTouch = window.matchMedia('(hover: none) and (max-width: 650px)').matches;
+    if (isMobileTouch && !group.classList.contains('active')) {
       e.preventDefault();
       group.classList.add('active');
       const hide = evt => {
