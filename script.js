@@ -41,6 +41,11 @@ const searchTasksBox = document.getElementById('searchTasksBox');
 const fileList = document.getElementById('fileList');
 const todoList = document.getElementById('todoList');
 const statusDiv = document.getElementById('status-message');
+const deleteSelectedBtn = document.getElementById('delete-selected');
+const exportSelectedBtn = document.getElementById('export-selected');
+const backupSelectedBtn = document.getElementById('backup-selected');
+
+let selectedNotes = new Set();
 
 function updateStatus(message, success) {
   statusDiv.textContent = message;
@@ -314,6 +319,7 @@ function deleteNote() {
   textarea.value = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
+  selectedNotes.delete(name);
   updateFileList();
 }
 
@@ -328,6 +334,7 @@ function deleteAllNotes() {
   textarea.value = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
+  selectedNotes.clear();
   updateFileList();
 }
 
@@ -435,6 +442,70 @@ function exportAllNotes() {
   });
 }
 
+function deleteSelectedNotes() {
+  const notes = Array.from(selectedNotes);
+  if (notes.length === 0) {
+    alert('No notes selected.');
+    return;
+  }
+  if (!confirm('Delete selected notes?')) return;
+  notes.forEach(name => {
+    localStorage.removeItem('md_' + name);
+    if (currentFileName === name) {
+      textarea.value = '';
+      currentFileName = null;
+      localStorage.removeItem('current_file');
+    }
+  });
+  selectedNotes.clear();
+  updateFileList();
+}
+
+function backupSelectedNotes() {
+  const notes = Array.from(selectedNotes);
+  if (notes.length === 0) {
+    alert('No notes selected.');
+    return;
+  }
+  const zip = new JSZip();
+  notes.forEach(name => {
+    const content = localStorage.getItem('md_' + name);
+    if (content !== null) {
+      zip.file(name + '.md', content);
+    }
+  });
+  zip.generateAsync({ type: 'blob' }).then(content => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = 'selected_notes.zip';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+}
+
+function exportSelectedNotes() {
+  const notes = Array.from(selectedNotes);
+  if (notes.length === 0) {
+    alert('No notes selected.');
+    return;
+  }
+  const zip = new JSZip();
+  notes.forEach(name => {
+    const content = localStorage.getItem('md_' + name);
+    if (content !== null) {
+      const html = generateHtmlContent(name, content);
+      zip.file(name + '.html', html);
+    }
+  });
+  zip.generateAsync({ type: 'blob' }).then(content => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = 'selected_notes_html.zip';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+}
+
 function importNotesFromZip(file) {
   JSZip.loadAsync(file).then(zip => {
     const promises = [];
@@ -470,11 +541,27 @@ function updateFileList() {
 
       if (matches(fileName.toLowerCase(), content)) {
         const li = document.createElement('li');
-        li.textContent = fileName;
-        li.style.cursor = 'pointer';
-        li.onclick = () => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'select-note';
+        checkbox.checked = selectedNotes.has(fileName);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            selectedNotes.add(fileName);
+          } else {
+            selectedNotes.delete(fileName);
+          }
+        });
+
+        const span = document.createElement('span');
+        span.textContent = fileName;
+        span.style.cursor = 'pointer';
+        span.onclick = () => {
           loadNote(fileName);
         };
+
+        li.appendChild(checkbox);
+        li.appendChild(span);
         noteMap[fileName] = li;
       }
     }
@@ -654,6 +741,9 @@ setupMobileButtonGroup(exportNoteBtn, exportNote);
 exportAllHtmlBtn.addEventListener('click', exportAllNotes);
 setupMobileButtonGroup(deleteBtn, deleteNote);
 deleteAllBtn.addEventListener('click', deleteAllNotes);
+deleteSelectedBtn.addEventListener('click', deleteSelectedNotes);
+exportSelectedBtn.addEventListener('click', exportSelectedNotes);
+backupSelectedBtn.addEventListener('click', backupSelectedNotes);
 setupMobileButtonGroup(importZipBtn, () => importZipInput.click());
 importZipInput.addEventListener('change', e => {
   if (e.target.files.length > 0) {

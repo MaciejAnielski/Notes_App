@@ -171,6 +171,26 @@ button {
   color: #f0f0f0;
 }
 
+.list-controls button {
+  padding: 8px 12px;
+  margin-right: 5px;
+  margin-bottom: 10px;
+  background-color: #d8bbdf;
+  border: 1px solid #a272b0;
+  border-radius: 4px;
+  color: inherit;
+}
+
+.dark-mode .list-controls button {
+  background-color: #3a3a3a;
+  border: 1px solid #555;
+  color: #f0f0f0;
+}
+
+#fileList li input[type="checkbox"] {
+  margin-right: 6px;
+}
+
 #searchBox {
   display: block;
   margin: 10px 0;
@@ -217,11 +237,15 @@ button {
 #fileList li {
   cursor: pointer;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
+}
+
+#fileList li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #fileList li.active-file {
