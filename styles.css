@@ -179,6 +179,16 @@ button {
   color: #d8bbdf;
 }
 
+#fileList li.linked-file {
+  font-weight: bold;
+  color: #510e63;
+}
+
+.dark-mode #fileList li.linked-file {
+  font-weight: bold;
+  color: #d8bbdf;
+}
+
 #fileList li:hover {
   text-decoration: underline;
 }

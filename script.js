@@ -5,6 +5,7 @@ const toggleViewBtn = document.getElementById('toggle-view');
 let isPreview = false;
 let autoSaveTimer = null;
 let currentFileName = null;
+let linkedNoteName = null;
 
 function applyTheme(theme) {
   document.body.classList.toggle('dark-mode', theme === 'dark');
@@ -139,7 +140,8 @@ function setupNoteLinks(container = previewDiv) {
     a.addEventListener('click', e => {
       e.preventDefault();
       if (localStorage.getItem('md_' + noteName) !== null) {
-        loadNote(noteName);
+        linkedNoteName = currentFileName;
+        loadNote(noteName, true);
       } else {
         alert(`Note "${noteName}" not found.`);
       }
@@ -197,7 +199,12 @@ function autoSaveNote() {
   updateStatus('File saved successfully.', true);
 }
 
-function loadNote(name) {
+function loadNote(name, fromLink = false) {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+  if (!fromLink) {
+    linkedNoteName = null;
+  }
   const content = localStorage.getItem('md_' + name);
   if (content === null) {
     alert('File not found.');
@@ -227,6 +234,7 @@ function newNote() {
     toggleView();
   }
   clearTimeout(autoSaveTimer);
+  linkedNoteName = null;
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
@@ -334,6 +342,9 @@ function updateFileList() {
         };
         if (fileName === currentFileName) {
           li.classList.add('active-file');
+          items.unshift(li);
+        } else if (fileName === linkedNoteName) {
+          li.classList.add('linked-file');
           items.unshift(li);
         } else {
           items.push(li);
