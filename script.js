@@ -360,7 +360,27 @@ function generateHtmlContent(title, markdown) {
   const container = document.createElement('div');
   container.innerHTML = marked.parse(markdown);
   styleTaskListItems(container);
-  const style = `body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.5; color: #333; } a { color: #0645ad; }`;
+  const style = `
+    body {
+      width: 100%;
+      max-width: 800px;
+      min-height: 400px;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      border: 1px solid #a272b0;
+      border-radius: 4px;
+      box-sizing: border-box;
+      background-color: #d8bbdf;
+      color: #000;
+      margin: 20px auto;
+    }
+    a { color: #0645ad; }
+    li p:first-child:last-child { margin: 0; }
+    li.task-item + li.bullet-item,
+    li.bullet-item + li.task-item { margin-top: 8px; }
+  `;
   return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
 
