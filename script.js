@@ -128,6 +128,25 @@ function styleTaskListItems(container = previewDiv) {
   });
 }
 
+function setupNoteLinks(container = previewDiv) {
+  container.querySelectorAll('a').forEach(a => {
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) {
+      return;
+    }
+    const noteName = decodeURIComponent(href);
+    a.href = '#';
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      if (localStorage.getItem('md_' + noteName) !== null) {
+        loadNote(noteName);
+      } else {
+        alert(`Note "${noteName}" not found.`);
+      }
+    });
+  });
+}
+
 function toggleView() {
   if (isPreview) {
     previewDiv.style.display = 'none';
@@ -138,6 +157,7 @@ function toggleView() {
   } else {
     previewDiv.innerHTML = marked.parse(textarea.value);
     styleTaskListItems(previewDiv);
+    setupNoteLinks(previewDiv);
     setupPreviewTaskCheckboxes();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
@@ -189,6 +209,7 @@ function loadNote(name) {
   if (isPreview) {
     previewDiv.innerHTML = marked.parse(textarea.value);
     styleTaskListItems(previewDiv);
+    setupNoteLinks(previewDiv);
     setupPreviewTaskCheckboxes();
   }
   updateFileList();
@@ -372,6 +393,7 @@ function updateTodoList() {
     }
   }
   styleTaskListItems(todoList);
+  setupNoteLinks(todoList);
 }
 
 function setupPreviewTaskCheckboxes() {
@@ -398,6 +420,7 @@ function setupPreviewTaskCheckboxes() {
         }
         previewDiv.innerHTML = marked.parse(textarea.value);
         styleTaskListItems(previewDiv);
+        setupNoteLinks(previewDiv);
         setupPreviewTaskCheckboxes();
         updateTodoList();
       }
@@ -418,6 +441,7 @@ function toggleTaskStatus(fileName, lineIndex) {
       if (isPreview) {
         previewDiv.innerHTML = marked.parse(textarea.value);
         styleTaskListItems(previewDiv);
+        setupNoteLinks(previewDiv);
         setupPreviewTaskCheckboxes();
       }
     }
