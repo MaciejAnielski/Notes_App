@@ -140,6 +140,32 @@ button {
   color: #f0f0f0;
 }
 
+/* Button groups for condensed controls */
+.storage-controls .button-group {
+  position: relative;
+  display: inline-block;
+}
+
+.storage-controls .button-group .sub-button {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 2px;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.storage-controls .button-group:hover .sub-button {
+  display: block;
+}
+
+.dark-mode .storage-controls .button-group .sub-button {
+  background-color: #3a3a3a;
+  border: 1px solid #555;
+  color: #f0f0f0;
+}
+
 #searchBox {
   display: block;
   margin: 10px 0;
