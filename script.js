@@ -45,7 +45,22 @@ const deleteSelectedBtn = document.getElementById('delete-selected');
 const exportSelectedBtn = document.getElementById('export-selected');
 const backupSelectedBtn = document.getElementById('backup-selected');
 
-let selectedNotes = new Set();
+function getVisibleNotes() {
+  const query = searchBox.value.trim().toLowerCase();
+  const matches = createSearchPredicate(query);
+  const notes = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('md_')) {
+      const name = key.slice(3);
+      const content = localStorage.getItem(key).toLowerCase();
+      if (matches(name.toLowerCase(), content)) {
+        notes.push(name);
+      }
+    }
+  }
+  return notes;
+}
 
 function updateStatus(message, success) {
   statusDiv.textContent = message;
@@ -319,7 +334,6 @@ function deleteNote() {
   textarea.value = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  selectedNotes.delete(name);
   updateFileList();
 }
 
@@ -334,7 +348,6 @@ function deleteAllNotes() {
   textarea.value = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  selectedNotes.clear();
   updateFileList();
 }
 
@@ -443,12 +456,12 @@ function exportAllNotes() {
 }
 
 function deleteSelectedNotes() {
-  const notes = Array.from(selectedNotes);
+  const notes = getVisibleNotes();
   if (notes.length === 0) {
-    alert('No notes selected.');
+    alert('No notes match the filter.');
     return;
   }
-  if (!confirm('Delete selected notes?')) return;
+  if (!confirm('Delete visible notes?')) return;
   notes.forEach(name => {
     localStorage.removeItem('md_' + name);
     if (currentFileName === name) {
@@ -457,14 +470,13 @@ function deleteSelectedNotes() {
       localStorage.removeItem('current_file');
     }
   });
-  selectedNotes.clear();
   updateFileList();
 }
 
 function backupSelectedNotes() {
-  const notes = Array.from(selectedNotes);
+  const notes = getVisibleNotes();
   if (notes.length === 0) {
-    alert('No notes selected.');
+    alert('No notes match the filter.');
     return;
   }
   const zip = new JSZip();
@@ -484,9 +496,9 @@ function backupSelectedNotes() {
 }
 
 function exportSelectedNotes() {
-  const notes = Array.from(selectedNotes);
+  const notes = getVisibleNotes();
   if (notes.length === 0) {
-    alert('No notes selected.');
+    alert('No notes match the filter.');
     return;
   }
   const zip = new JSZip();
@@ -541,26 +553,12 @@ function updateFileList() {
 
       if (matches(fileName.toLowerCase(), content)) {
         const li = document.createElement('li');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'select-note';
-        checkbox.checked = selectedNotes.has(fileName);
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            selectedNotes.add(fileName);
-          } else {
-            selectedNotes.delete(fileName);
-          }
-        });
-
         const span = document.createElement('span');
         span.textContent = fileName;
         span.style.cursor = 'pointer';
         span.onclick = () => {
           loadNote(fileName);
         };
-
-        li.appendChild(checkbox);
         li.appendChild(span);
         noteMap[fileName] = li;
       }

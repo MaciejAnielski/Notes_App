@@ -173,9 +173,6 @@ button {
   color: #f0f0f0;
 }
 
-#fileList li input[type="checkbox"] {
-  margin-right: 6px;
-}
 
 #searchBox {
   display: block;
