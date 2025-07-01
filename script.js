@@ -46,8 +46,12 @@ const exportSelectedBtn = document.getElementById('export-selected');
 const backupSelectedBtn = document.getElementById('backup-selected');
 
 function getVisibleNotes() {
-  const query = searchBox.value.trim().toLowerCase();
-  const matches = createSearchPredicate(query);
+  let raw = searchBox.value.trim().toLowerCase();
+  const namesOnly = raw.startsWith('"') && raw.endsWith('"');
+  if (namesOnly) {
+    raw = raw.slice(1, -1);
+  }
+  const matches = createSearchPredicate(raw, namesOnly);
   const notes = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -93,7 +97,7 @@ function isNoteBodyEmpty() {
 }
 
 // Build a predicate from a search query supporting AND, OR and NOT operators.
-function createSearchPredicate(query) {
+function createSearchPredicate(query, namesOnly = false) {
   if (!query) return () => true;
 
   const tokens = query.split(/\s+/).filter(Boolean);
@@ -130,7 +134,9 @@ function createSearchPredicate(query) {
       return (n, c) => !next(n, c);
     }
     const term = tokens[index++] || '';
-    return (n, c) => n.includes(term) || c.includes(term);
+    return namesOnly ?
+      (n, c) => n.includes(term) :
+      (n, c) => n.includes(term) || c.includes(term);
   }
 
   return parseExpression();
@@ -540,8 +546,12 @@ function importNotesFromZip(file) {
 
 function updateFileList() {
   fileList.innerHTML = '';
-  const query = searchBox.value.trim().toLowerCase();
-  const matches = createSearchPredicate(query);
+  let raw = searchBox.value.trim().toLowerCase();
+  const namesOnly = raw.startsWith('"') && raw.endsWith('"');
+  if (namesOnly) {
+    raw = raw.slice(1, -1);
+  }
+  const matches = createSearchPredicate(raw, namesOnly);
 
   const noteMap = {};
 
