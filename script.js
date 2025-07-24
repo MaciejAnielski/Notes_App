@@ -263,6 +263,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function extractProjects(text) {
+        const lines = text.split('\n');
+        const projects = [];
+        let currentLines = [];
+        let completed = false;
+        let inProject = false;
+
+        function pushCurrent() {
+            if (inProject) {
+                projects.push({ text: currentLines.join("\n").trim(), completed: completed });
+            }
+        }
+
+        lines.forEach(line => {
+            if (/^#\s+/.test(line)) {
+                pushCurrent();
+                currentLines = [line];
+                completed = false;
+                inProject = true;
+            } else if (inProject) {
+                currentLines.push(line);
+                const m = line.match(/Completed:\s*(True|False)/i);
+                if (m) completed = m[1].toLowerCase() === 'true';
+            }
+        });
+
+        pushCurrent();
+        return projects;
+    }
+
+    function filterProjectsByCompletion(text, done) {
+        return extractProjects(text)
+            .filter(p => p.completed === done)
+            .map(p => p.text)
+            .filter(t => t.length)
+            .join('\n\n');
+    }
+
     function projectIsCompleted(content) {
         const m = content.match(/Completed:\s*(True|False)/i);
         return m ? m[1].toLowerCase() === 'true' : false;
@@ -284,14 +322,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateCompletedProjectsDisplay() {
-        const names = getVisibleProjects().filter(n => {
-            const txt = localStorage.getItem('project_' + n) || '';
-            return projectIsCompleted(txt);
-        });
+        const names = getVisibleProjects();
         let combined = '';
         names.forEach(name => {
             const txt = localStorage.getItem('project_' + name) || '';
-            combined += txt + '\n\n';
+            const part = filterProjectsByCompletion(txt, true);
+            if (part) combined += part + '\n\n';
         });
         combined = combined.trim();
         editor.value = combined;
@@ -302,14 +338,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateIncompleteProjectsDisplay() {
-        const names = getVisibleProjects().filter(n => {
-            const txt = localStorage.getItem('project_' + n) || '';
-            return !projectIsCompleted(txt);
-        });
+        const names = getVisibleProjects();
         let combined = '';
         names.forEach(name => {
             const txt = localStorage.getItem('project_' + name) || '';
-            combined += txt + '\n\n';
+            const part = filterProjectsByCompletion(txt, false);
+            if (part) combined += part + '\n\n';
         });
         combined = combined.trim();
         editor.value = combined;
