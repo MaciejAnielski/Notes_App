@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('editor');
     const calendar = document.getElementById('calendar');
+    const newFileBtn = document.getElementById('new-file');
+    const projectList = document.getElementById('saved-projects-list');
+    const projectSearch = document.getElementById('project-search');
+
+    let currentProject = null;
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const today = new Date();
 
@@ -48,6 +53,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!i.colour) i.colour = randomColour();
                 return i;
             });
+    }
+
+    function loadProject(name) {
+        const content = localStorage.getItem('project_' + name) || '';
+        currentProject = name;
+        editor.value = content;
+        localStorage.setItem('currentProject', name);
+        renderCalendar(parseProjects(content));
+        updateProjectList();
+    }
+
+    function saveProject() {
+        if (!currentProject) return;
+        localStorage.setItem('project_' + currentProject, editor.value);
+    }
+
+    function updateProjectList() {
+        if (!projectList) return;
+        projectList.innerHTML = '';
+        const filter = projectSearch.value.trim().toLowerCase();
+        const projects = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('project_')) {
+                const name = key.slice(8);
+                if (!filter || name.toLowerCase().includes(filter)) {
+                    projects.push(name);
+                }
+            }
+        }
+        projects.sort().forEach(name => {
+            const li = document.createElement('li');
+            li.textContent = name;
+            if (name === currentProject) li.classList.add('active-file');
+            li.addEventListener('click', () => loadProject(name));
+            projectList.appendChild(li);
+        });
     }
 
 
@@ -150,9 +192,21 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         }
     }
 
-    const saved = localStorage.getItem('projectsText');
-    if (saved) editor.value = saved;
-    renderCalendar(parseProjects(editor.value));
+    updateProjectList();
+
+    const saved = localStorage.getItem('currentProject');
+    if (saved && localStorage.getItem('project_' + saved) !== null) {
+        loadProject(saved);
+    } else {
+        const anyKey = Object.keys(localStorage).find(k => k.startsWith('project_'));
+        if (anyKey) {
+            loadProject(anyKey.slice(8));
+        } else {
+            currentProject = null;
+            editor.value = '';
+            renderCalendar([]);
+        }
+    }
 
     editor.addEventListener('keydown', e => {
         if (e.key !== 'Enter') return;
@@ -171,13 +225,26 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         const newPos = pos + 1 + lineInsert.length + 1;
         editor.selectionStart = editor.selectionEnd = newPos;
 
-        localStorage.setItem('projectsText', newText);
+        saveProject();
         renderCalendar(parseProjects(newText));
     });
 
     editor.addEventListener('input', () => {
         const txt = editor.value;
-        localStorage.setItem('projectsText', txt);
+        saveProject();
         renderCalendar(parseProjects(txt));
     });
+
+    newFileBtn.addEventListener('click', () => {
+        const name = prompt('Project name:');
+        if (!name) return;
+        if (localStorage.getItem('project_' + name) !== null) {
+            alert('Project already exists');
+            return;
+        }
+        localStorage.setItem('project_' + name, '');
+        loadProject(name);
+    });
+
+    projectSearch.addEventListener('input', updateProjectList);
 });
