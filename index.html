@@ -1,86 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+
+<html lang = "en">
 
 <head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notes App</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="001_Assets/favicon.ico" type="image/x-icon">
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-      window.MathJax = {
-        tex: {
-          inlineMath: [['$', '$'], ['\\(', '\\)']],
-          displayMath: [['$$', '$$'], ['\\[', '\\]']]
-        }
-      };
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
+<meta charset = "UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects App</title>
+<link rel = "stylesheet" href = "styles.css">
+<link rel = "icon" href = "001_Assets/favicon.ico" type="image/x-icon">
+<script src = "script.js"></script>
 </head>
 
-<body class="dark-mode">
+<body>
 
-    <button id="toggle-theme" class="moon" aria-label="Toggle Dark Mode"></button>
-    
-    <div id="status-message"></div>    
-  
-    <div class="storage-controls">
+<div id="status-message"></div> 
 
-        <div class="button-group">
-            <button id="new-note">New Note</button>
-        </div>
-        <div class="button-group">
-            <button id="delete-note">Delete Note</button>
-            <div class="sub-buttons">
-                <button id="delete-selected" class="sub-button">Delete Visible Notes</button>
-                <button id="delete-all" class="sub-button">Delete All Notes</button>
-            </div>
-        </div>
-        <div class="button-group">
-            <button id="export-note">Export Note</button>
-            <div class="sub-buttons">
-                <button id="export-selected" class="sub-button">Export Visible Notes</button>
-                <button id="export-all-html" class="sub-button">Export All Notes</button>
-            </div>
-        </div>
-        <div class="button-group">
-            <button id="import-zip">Import Notes</button>
-            <div class="sub-buttons">
-                <button id="backup-selected" class="sub-button">Backup Visible Notes</button>
-                <button id="download-all" class="sub-button">Backup Notes</button>
-            </div>
-        </div>
-        <input type="file" id="import-zip-input" accept=".zip" style="display:none;">
-        <div class="button-group">
-            <button id="toggle-view">Preview Markdown</button>
-        </div>
+<div id = "button-container">
 
-    </div>
+<div class = "button-group">
+<button id = "new-file">New Project</button>
+</div>
 
-    <div id="layout-wrapper">
-      <div id="editor-section">
-        <textarea id="editor" placeholder="Start typing here..."></textarea>
-        <div id="preview" style="display:none;"></div>
-      </div>
+<div class = "button-group">
+<button id = "delete-files">Delete Projects</button>
 
-      <div id="lists-container">
-        <div id="files-container">
-          <h2>Saved Notes</h2>
-          <input type="text" id="searchBox" placeholder="Search Notes...">
-          <ul id="fileList"></ul>
-        </div>
-        <div id="todo-container">
-          <h2>Tasks</h2>
-          <input type="text" id="searchTasksBox" placeholder="Search Tasks...">
-          <ul id="todoList"></ul>
-        </div>
-      </div>
-    </div>
+<div class = "sub-button">
+<button id = "delete-current-file">Delete Current Project</button>
+<button id = "delete-all-files">Delete All Projects</button>
+<button id = "delete-visible-files">Delete Visible Projects</button>
+</div>
+</div>
 
-  <script src="script.js"></script>
+<div class = "button-group">
+<button id = "export-files">Export Projects</button>
+
+<div class = "sub-button">
+<button id = "export-all-files">Export All Projects</button>
+<button id = "export-visible-files">Export Visible Projects</button>
+<button id = "backup-all-files">Backup All Projects</button>
+<button id = "backup-visible-files">Backup Visible Projects</button>
+
+</div>
+</div>
+
+<div class = "button-group">
+<button id = "import-note">Import Projects</button>
+</div>
+
+<div class = "button-group">
+<button id = "preview-markdown">Preview Markdown</button>
+</div>
+
+</div>
+
+<div id = "layout-wrapper">
+
+<textarea id = "editor" placeholder = "Start Typing Here..."></textarea>
+
+<div id = widget-container>
+
+<div id="calendar"></div>
+
+<div id = "project-container">
+
+<h2>Projects</h2>
+
+<input type = "text" id = "project-search" placeholder = "Search Projects...">
+
+</div>
+
+</div>
+
+</div>
+
 </body>
+
 </html>

@@ -1,131 +1,47 @@
 body {
-  background-color: #d0a8dc; /* pastel pink */
-  font-family: Arial, sans-serif;
-  padding: 20px;
-  color: #333;
-  transition: background-color 0.3s, color 0.3s;
+
+background-color: #1e1e1e;
+color: #f0f0f0;
+
+font-family: Arial, sans-serif;
 }
 
-textarea {
-  width: 100%;
-  max-width: 800px;
-  height: 400px;
-  padding: 10px;
-  margin-top: 10px;
-  font-size: 16px;
-  line-height: 1.5;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  box-sizing: border-box;
-  resize: vertical;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s;
+@media (max-width: 1500px){
+
+#layout-wrapper {
+
+flex-direction: column;
+
 }
 
-#preview {
-  width: 100%;
-  max-width: 800px;
-  min-height: 400px;
-  padding: 10px;
-  font-size: 16px;
-  line-height: 1.5;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  box-sizing: border-box;
-  background-color: #d8bbdf;
-  color: #000;
-  overflow-y: auto;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-.dark-mode #preview {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-#preview li p:first-child:last-child {
-  margin: 0;
-}
-#preview a {
-  color: #0645ad;
-}
-
-.dark-mode #preview a {
-  color: #9cdcfe;
-}
-
-#todo-container a {
-  color: #0645ad;
-}
-
-.dark-mode #todo-container a {
-  color: #9cdcfe;
 }
 
 
-button {
+@media (max-width: 650px){
+
+#widget-container {
+
+flex-direction: column-reverse;
+
+}
+
+}
+
+#saved-projects-list {
+
+  list-style: none;
+  margin-left: 5px; 
+  padding: 0; 
+  
+}
+
+#saved-projects-list li {
+  margin-bottom: 5px;
   cursor: pointer;
-  background-color: transparent;
-  border: none;
 }
 
-#toggle-view {
-  padding: 8px 12px;
-  margin-top: 10px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
-}
-
-.dark-mode #toggle-view {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-/* Dark mode */
-.dark-mode {
-  background-color: #1e1e1e;
-  color: #f0f0f0;
-}
-
-.dark-mode textarea {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-
-/* Theme toggle icon */
-#toggle-theme {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background-size: cover;
-  background-repeat: no-repeat;
-  border-radius: 50%;
-}
-
-#toggle-theme.sun {
-  background-image: url('001_Assets/sun.png');
-}
-
-#toggle-theme.moon {
-  background-image: url('001_Assets/moon.png');
-}
-
-
-/* Storage controls */
-.storage-controls button {
-  padding: 8px 12px;
-  margin-right: 5px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
+#saved-projects-list li:hover{
+  text-decoration: underline;
 }
 
 #status-message {
@@ -133,231 +49,199 @@ button {
   font-weight: bold;
 }
 
-.dark-mode .storage-controls button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-/* Button groups for condensed controls */
-.storage-controls .button-group {
-  position: relative;
-  display: inline-block;
-  margin-right: 5px;
-  margin-bottom: 10px;
-}
-
-.storage-controls .button-group .sub-buttons {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  display: none;
-  z-index: 1;
-  width: 100%;
-}
-
-.storage-controls .button-group .sub-buttons .sub-button {
-  display: block;
-  margin-top: 0;
-  width: 100%;
-}
-
-.storage-controls .button-group:hover .sub-buttons,
-.storage-controls .button-group.active .sub-buttons {
-  display: block;
-}
-
-.dark-mode .storage-controls .button-group .sub-button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-
-#searchBox {
-  display: block;
-  margin: 10px 0;
-  padding: 8px;
-  font-size: 16px;
-  width: 300px;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.dark-mode #searchBox {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-
-#searchTasksBox {
-  display: block;
-  margin: 10px 0;
-  padding: 8px;
-  font-size: 16px;
-  width: 300px;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.dark-mode #searchTasksBox {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-
-#fileList {
-  list-style: none;
-  padding-left: 0;
-}
-
-#fileList li {
-  cursor: pointer;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-}
-
-#fileList li span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#fileList li.active-file {
-  font-weight: bold;
-  color: #510e63;
-}
-
-.dark-mode #fileList li.active-file {
-  font-weight: bold;
-  color: #d8bbdf;
-}
-
-#fileList li.linked-file {
-  font-weight: bold;
-  color: #510e63;
-}
-
-.dark-mode #fileList li.linked-file {
-  font-weight: bold;
-  color: #d8bbdf;
-}
-
-#fileList li:hover {
-  text-decoration: underline;
-}
-
-#lists-container {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-#files-container,
-#todo-container {
-  width: 100%;
-}
-
 #layout-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+width: 100%;
+display: flex;
+gap: 20px;
+padding-right: 20px;
+box-sizing: border-box;
+
 }
 
-#editor-section {
-  flex: 1;
+#widget-container{
+
+display:flex;
+
 }
 
-@media (min-width: 1500px) {
-  #layout-wrapper {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  #editor-section {
-    margin-right: 20px;
-    min-width: 700px;
-  }
+#project-container {
+
+margin: 20px;
+
 }
 
-#todo-container ul {
-  list-style: none;
-  padding-left: 0;
+#button-container {
+
+margin-top: 20px;
+margin-left: 10px;
+margin-right: 5px;
+
+display: flex;
+
 }
 
-#todo-container li {
-  margin-top: 4px;
+input {
+
+display: block;
+
+background-color: #2e2e2e;
+color: #f0f0f0;
+border: 1px solid #555;
+border-radius: 4px;
+
+width: 100%;
+max-width: 400px;
+
+padding: 5px;
+margin: 10px;
+margin-left: 0px;
+margin-top: 20px;
+
+font-size: 16px;
+font-family: Arial, sans-serif;
+
 }
 
-/* Align multi-line tasks with their text rather than the checkbox */
-#todoList li li {
-  display: flex;
-  align-items: flex-start;
+button {
+
+background-color: #2e2e2e;
+color: #f0f0f0;
+border: 1px solid #555;
+border-radius: 4px;
+
+padding: 8px 12px;
+margin-right: 5px;
+
+font-size: 14px;
+font-family: Arial, sans-serif;
+
+cursor: pointer;
+
 }
 
-#todoList li li input[type="checkbox"] {
-  margin-right: 6px;
-  margin-top: 2px;
+.button-group {
+
+position: relative;
+display: inline-block;
+
 }
 
-#todo-container .todo-note-title {
-  display:block;
-  margin-bottom: 10px;
-  margin-top: 10px;
-  text-decoration: underline;
+.button-group:hover .sub-button {
+
+display: block;
+
 }
 
-/* Increase spacing and add separator between task groups */
-#todoList > li {
-  margin-top: 20px;
-  padding-top: 10px;
-  border-top: 1px solid #a272b0;
-}
+.sub-button {
 
-/* Add spacing between checklist and bullet items within the same list */
-#preview li.task-item + li.bullet-item,
-#preview li.bullet-item + li.task-item,
-#todoList li.task-item + li.bullet-item,
-#todoList li.bullet-item + li.task-item {
-  margin-top: 8px;
-}
+display: none;
+position: absolute;
+top: 100%;   
+left: 0;
 
-@media (min-width: 650px) {
-  #lists-container {
-    flex-direction: row;
-    margin-right: 40px;
-  }
-  #files-container,
-  #todo-container {
-    flex: 1;
-    max-width: 300px;
-  }
-  
-  #todo-container {
-      margin-left: 40px;
-  }
-}
-
-@media (min-width: 1500px) {
-  #layout-wrapper {
-    gap: 0;
-  }
-  #editor-section {
-    margin-right: 0;
-    flex: 0;
-  }
-  #lists-container {
-    margin-left: 40px;
-    margin-right: 0;
-  }
 }
 
 
+textarea {
+
+background-color: #2e2e2e;
+color: #f0f0f0;
+border: 1px solid #555;
+border-radius: 4px;
+
+width: 100%;
+max-width: 800px;
+box-sizing: border-box;
+height: 400px;
+resize: vertical;
+padding: 10px;
+margin: 10px;
+
+font-size: 16px;
+font-family: Arial, sans-serif;
+
+}
+
+/* Calendar CSS Here */
+
+#calendar {
+margin: 20px;
+margin-left: 10px;
+padding: 10px;
+overflow: auto;
+background-color: #1e1e1e;
+width: 500px;
+}
+
+.year-block h1 {
+margin: 0 0 10px;
+color: #eee;
+font-size: 1.5em;
+}
+
+.month {
+margin-bottom: 20px;
+}
+
+.month h2 {
+margin: 0 0 15px;
+color: #eee;
+font-size: 1.2em;
+}
+
+.weekdays {
+display: grid;
+grid-template-columns: repeat(7, 1fr);
+text-align: center;
+margin-bottom: 2px;
+font-size: 12px;
+color: #ccc;
+}
+
+.weekdays div {
+padding: 2px 0;
+}
+
+.days {
+display: grid;
+grid-template-columns: repeat(7, 1fr);
+gap: 2px;
+}
+
+.day {
+border: 1px solid #333;
+height: 60px;
+position: relative;
+background-color: #2a2a2a;
+box-sizing: border-box;
+}
+
+.day.today {
+border: 3px solid #fff;
+
+}
+
+.day-number {
+position: absolute;
+top: 2px;
+left: 4px;
+font-size: 12px;
+color: #bbb;
+z-index: 2;
+}
+
+.bars {
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+display: flex;
+flex-direction: column;
+z-index: 1;
+}
+
+.bar {
+flex: 1;
+cursor: default;
+}
