@@ -8,6 +8,8 @@
 <title>Projects App</title>
 <link rel = "stylesheet" href = "styles.css">
 <link rel = "icon" href = "001_Assets/favicon.ico" type="image/x-icon">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src = "script.js"></script>
 </head>
 
@@ -45,6 +47,7 @@
 
 <div class = "button-group">
 <button id = "import-note">Import Projects</button>
+<input type="file" id="import-file" style="display:none" accept="application/json">
 </div>
 
 <div class = "button-group">

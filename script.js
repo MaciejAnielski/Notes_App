@@ -6,6 +6,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const projectList = document.getElementById('saved-projects-list');
     const projectSearch = document.getElementById('project-search');
     const statusDiv = document.getElementById('status-message');
+    const deleteCurrentBtn = document.getElementById('delete-current-file');
+    const deleteAllBtn = document.getElementById('delete-all-files');
+    const deleteVisibleBtn = document.getElementById('delete-visible-files');
+    const exportAllBtn = document.getElementById('export-all-files');
+    const exportVisibleBtn = document.getElementById('export-visible-files');
+    const backupAllBtn = document.getElementById('backup-all-files');
+    const backupVisibleBtn = document.getElementById('backup-visible-files');
+    const importBtn = document.getElementById('import-note');
+    const importInput = document.getElementById('import-file');
+    const previewBtn = document.getElementById('preview-markdown');
 
     const ALL_PROJECTS_NAME = 'All Projects';
     let currentProject = null;
@@ -150,9 +160,161 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function getAllProjects() {
+        const names = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('project_')) names.push(key.slice(8));
+        }
+        return names.sort();
+    }
 
-    function renderCalendar(projects) {
-        calendar.innerHTML = '';
+    function getVisibleProjects() {
+        const filter = projectSearch.value.trim().toLowerCase();
+        return getAllProjects().filter(n => !filter || n.toLowerCase().includes(filter));
+    }
+
+    function deleteCurrentProject() {
+        if (!currentProject) {
+            updateStatus('No project selected.', false);
+            return;
+        }
+        localStorage.removeItem('project_' + currentProject);
+        currentProject = null;
+        editor.readOnly = false;
+        editor.value = '';
+        localStorage.removeItem('currentProject');
+        renderCalendar([]);
+        updateProjectList();
+        updateStatus('Project deleted.', true);
+    }
+
+    function deleteAllProjects() {
+        if (!confirm('Delete all projects?')) return;
+        getAllProjects().forEach(n => localStorage.removeItem('project_' + n));
+        currentProject = null;
+        editor.readOnly = false;
+        editor.value = '';
+        localStorage.removeItem('currentProject');
+        renderCalendar([]);
+        updateProjectList();
+        updateStatus('All projects deleted.', true);
+    }
+
+    function deleteVisibleProjects() {
+        const names = getVisibleProjects();
+        if (names.length === 0) {
+            updateStatus('No visible projects to delete.', false);
+            return;
+        }
+        if (!confirm('Delete visible projects?')) return;
+        names.forEach(n => localStorage.removeItem('project_' + n));
+        if (names.includes(currentProject)) {
+            currentProject = null;
+            editor.readOnly = false;
+            editor.value = '';
+            localStorage.removeItem('currentProject');
+            renderCalendar([]);
+        } else {
+            renderCalendar(parseProjects(editor.value));
+        }
+        updateProjectList();
+        updateStatus('Visible projects deleted.', true);
+    }
+
+    function buildProjectHTML(title, text) {
+        const projects = parseProjects(text);
+        const calHTML = getCalendarHTML(projects);
+        const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(title)}</title><link rel="stylesheet" href="styles.css"></head><body><pre>${esc(text)}</pre><div id="calendar">${calHTML}</div></body></html>`;
+    }
+
+    function exportProjects(names, fileName) {
+        if (!names.length) {
+            updateStatus('No projects to export.', false);
+            return;
+        }
+        if (typeof JSZip === 'undefined') {
+            updateStatus('Export failed: JSZip not loaded.', false);
+            return;
+        }
+        const zip = new JSZip();
+        let combined = '';
+        names.forEach(n => {
+            const text = localStorage.getItem('project_' + n) || '';
+            zip.file(n + '.html', buildProjectHTML(n, text));
+            combined += text + '\n\n';
+        });
+        const allText = combined.trim();
+        zip.file(ALL_PROJECTS_NAME + '.html', buildProjectHTML(ALL_PROJECTS_NAME, allText));
+        zip.generateAsync({ type: 'blob' }).then(content => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            updateStatus('Projects exported.', true);
+        });
+    }
+
+    function backupProjects(names, fileName) {
+        if (!names.length) {
+            updateStatus('No projects to backup.', false);
+            return;
+        }
+        if (typeof JSZip === 'undefined') {
+            updateStatus('Backup failed: JSZip not loaded.', false);
+            return;
+        }
+        const zip = new JSZip();
+        names.forEach(n => {
+            const content = localStorage.getItem('project_' + n) || '';
+            zip.file(n + '.txt', content);
+        });
+        zip.generateAsync({ type: 'blob' }).then(content => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            updateStatus('Projects backed up.', true);
+        });
+    }
+
+    function importProjects(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const data = JSON.parse(reader.result);
+                Object.keys(data).forEach(n => {
+                    localStorage.setItem('project_' + n, data[n]);
+                });
+                updateProjectList();
+                updateStatus('Projects imported.', true);
+            } catch (e) {
+                updateStatus('Import failed.', false);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function previewMarkdown() {
+        const text = editor.value;
+        let html = '';
+        if (typeof marked !== 'undefined') {
+            html = marked.parse(text);
+        } else {
+            html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+        }
+        const win = window.open('', '_blank');
+        win.document.write(html);
+        win.document.close();
+    }
+
+
+    function renderCalendar(projects, target = calendar) {
+        target.innerHTML = '';
         if (!projects.length) return;
 
         const years = projects.flatMap(p => [p.start.getFullYear(), p.end.getFullYear()]);
@@ -246,8 +408,14 @@ new Date(year, m).toLocaleString('default',{month:'long'})
                 yBlock.appendChild(monthDiv);
             });
 
-            calendar.appendChild(yBlock);
+            target.appendChild(yBlock);
         }
+    }
+
+    function getCalendarHTML(projects) {
+        const temp = document.createElement('div');
+        renderCalendar(projects, temp);
+        return temp.innerHTML;
     }
 
     updateProjectList();
@@ -305,6 +473,20 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         updateProjectList();
         updateStatus('Enter project title on the first line starting with "#".', false);
     });
+
+    deleteCurrentBtn.addEventListener('click', deleteCurrentProject);
+    deleteAllBtn.addEventListener('click', deleteAllProjects);
+    deleteVisibleBtn.addEventListener('click', deleteVisibleProjects);
+    exportAllBtn.addEventListener('click', () => exportProjects(getAllProjects(), 'all_projects_html.zip'));
+    exportVisibleBtn.addEventListener('click', () => exportProjects(getVisibleProjects(), 'visible_projects_html.zip'));
+    backupAllBtn.addEventListener('click', () => backupProjects(getAllProjects(), 'all_projects.zip'));
+    backupVisibleBtn.addEventListener('click', () => backupProjects(getVisibleProjects(), 'visible_projects.zip'));
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', e => {
+        if (e.target.files.length) importProjects(e.target.files[0]);
+        importInput.value = '';
+    });
+    previewBtn.addEventListener('click', previewMarkdown);
 
     projectSearch.addEventListener('input', updateProjectList);
 });
