@@ -139,21 +139,74 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus('Project saved.', true);
     }
 
+    function createSearchPredicate(query) {
+        if (!query) return () => true;
+
+        const tokens = query.match(/"[^"]+"|\S+/g) || [];
+        let index = 0;
+
+        function parseExpression() {
+            let left = parseTerm();
+            while (tokens[index] && tokens[index].toUpperCase() === 'OR') {
+                index++;
+                const right = parseTerm();
+                const prev = left;
+                left = (n, c) => prev(n, c) || right(n, c);
+            }
+            return left;
+        }
+
+        function parseTerm() {
+            let left = parseFactor();
+            while (tokens[index] && tokens[index].toUpperCase() !== 'OR') {
+                if (tokens[index].toUpperCase() === 'AND') {
+                    index++;
+                }
+                const right = parseFactor();
+                const prev = left;
+                left = (n, c) => prev(n, c) && right(n, c);
+            }
+            return left;
+        }
+
+        function parseFactor() {
+            if (tokens[index] && tokens[index].toUpperCase() === 'NOT') {
+                index++;
+                const next = parseFactor();
+                return (n, c) => !next(n, c);
+            }
+            const termToken = tokens[index++] || '';
+            let term = termToken;
+            let namesOnly = false;
+            if (term.startsWith('"') && term.endsWith('"')) {
+                namesOnly = true;
+                term = term.slice(1, -1);
+            }
+            return namesOnly
+                ? (n, c) => n.includes(term)
+                : (n, c) => n.includes(term) || c.includes(term);
+        }
+
+        return parseExpression();
+    }
+
     function updateProjectList() {
         if (!projectList) return;
         projectList.innerHTML = '';
-        const filter = projectSearch.value.trim().toLowerCase();
+        const raw = projectSearch.value.trim().toLowerCase();
+        const matches = createSearchPredicate(raw);
         const projects = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key.startsWith('project_')) {
                 const name = key.slice(8);
-                if (!filter || name.toLowerCase().includes(filter)) {
+                const content = (localStorage.getItem(key) || '').toLowerCase();
+                if (matches(name.toLowerCase(), content)) {
                     projects.push(name);
                 }
             }
         }
-        if (!filter || ALL_PROJECTS_NAME.toLowerCase().includes(filter)) {
+        if (matches(ALL_PROJECTS_NAME.toLowerCase(), '')) {
             const allLi = document.createElement('li');
             allLi.textContent = ALL_PROJECTS_NAME;
             if (currentProject === ALL_PROJECTS_NAME) allLi.classList.add('active-file');
@@ -180,8 +233,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getVisibleProjects() {
-        const filter = projectSearch.value.trim().toLowerCase();
-        return getAllProjects().filter(n => !filter || n.toLowerCase().includes(filter));
+        const raw = projectSearch.value.trim().toLowerCase();
+        const matches = createSearchPredicate(raw);
+        return getAllProjects().filter(n => {
+            const content = (localStorage.getItem('project_' + n) || '').toLowerCase();
+            return matches(n.toLowerCase(), content);
+        });
     }
 
     function deleteCurrentProject() {
