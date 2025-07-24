@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const ALL_PROJECTS_NAME = 'All Projects';
+    const COMPLETED_PROJECTS_NAME = 'Completed Projects';
+    const INCOMPLETE_PROJECTS_NAME = 'Incomplete Projects';
     let currentProject = null;
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const today = new Date();
@@ -52,7 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     title: m[1].trim(),
                     start: null,
                     end: null,
-                    colour: null
+                    colour: null,
+                    completed: false
                 };
 
             } else if (current) {
@@ -65,6 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (m = line.match(/Colour:\s*(.+)/))
                     current.colour = m[1].trim();
+
+                if (m = line.match(/Completed:\s*(True|False)/i))
+                    current.completed = m[1].toLowerCase() === 'true';
             }
         });
 
@@ -100,6 +106,24 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus('Viewing all projects. Editing disabled.', true);
     }
 
+    function loadCompletedProjects() {
+        currentProject = COMPLETED_PROJECTS_NAME;
+        editor.readOnly = true;
+        localStorage.removeItem('currentProject');
+        updateCompletedProjectsDisplay();
+        updateProjectList();
+        updateStatus('Viewing completed projects. Editing disabled.', true);
+    }
+
+    function loadIncompleteProjects() {
+        currentProject = INCOMPLETE_PROJECTS_NAME;
+        editor.readOnly = true;
+        localStorage.removeItem('currentProject');
+        updateIncompleteProjectsDisplay();
+        updateProjectList();
+        updateStatus('Viewing incomplete projects. Editing disabled.', true);
+    }
+
     function saveProject() {
         if (editor.readOnly) return;
         const firstLine = editor.value.split('\n')[0] || '';
@@ -109,8 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const name = m[1].trim();
-        if (name === ALL_PROJECTS_NAME) {
-            updateStatus('The name "All Projects" is reserved.', false);
+        if (name === ALL_PROJECTS_NAME || name === COMPLETED_PROJECTS_NAME || name === INCOMPLETE_PROJECTS_NAME) {
+            updateStatus('The selected name is reserved.', false);
             return;
         }
         if (currentProject && currentProject !== name) {
@@ -197,6 +221,20 @@ document.addEventListener('DOMContentLoaded', () => {
             allLi.addEventListener('click', loadAllProjects);
             projectList.appendChild(allLi);
         }
+        if (matches(COMPLETED_PROJECTS_NAME.toLowerCase(), '')) {
+            const compLi = document.createElement('li');
+            compLi.textContent = COMPLETED_PROJECTS_NAME;
+            if (currentProject === COMPLETED_PROJECTS_NAME) compLi.classList.add('active-file');
+            compLi.addEventListener('click', loadCompletedProjects);
+            projectList.appendChild(compLi);
+        }
+        if (matches(INCOMPLETE_PROJECTS_NAME.toLowerCase(), '')) {
+            const incompLi = document.createElement('li');
+            incompLi.textContent = INCOMPLETE_PROJECTS_NAME;
+            if (currentProject === INCOMPLETE_PROJECTS_NAME) incompLi.classList.add('active-file');
+            incompLi.addEventListener('click', loadIncompleteProjects);
+            projectList.appendChild(incompLi);
+        }
 
         projects.sort().forEach(name => {
             const li = document.createElement('li');
@@ -225,8 +263,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function projectIsCompleted(content) {
+        const m = content.match(/Completed:\s*(True|False)/i);
+        return m ? m[1].toLowerCase() === 'true' : false;
+    }
+
     function updateAllProjectsDisplay() {
         const names = getVisibleProjects();
+        let combined = '';
+        names.forEach(name => {
+            const txt = localStorage.getItem('project_' + name) || '';
+            combined += txt + '\n\n';
+        });
+        combined = combined.trim();
+        editor.value = combined;
+        renderCalendar(parseProjects(combined));
+        if (previewActive) {
+            renderPreview();
+        }
+    }
+
+    function updateCompletedProjectsDisplay() {
+        const names = getVisibleProjects().filter(n => {
+            const txt = localStorage.getItem('project_' + n) || '';
+            return projectIsCompleted(txt);
+        });
+        let combined = '';
+        names.forEach(name => {
+            const txt = localStorage.getItem('project_' + name) || '';
+            combined += txt + '\n\n';
+        });
+        combined = combined.trim();
+        editor.value = combined;
+        renderCalendar(parseProjects(combined));
+        if (previewActive) {
+            renderPreview();
+        }
+    }
+
+    function updateIncompleteProjectsDisplay() {
+        const names = getVisibleProjects().filter(n => {
+            const txt = localStorage.getItem('project_' + n) || '';
+            return !projectIsCompleted(txt);
+        });
         let combined = '';
         names.forEach(name => {
             const txt = localStorage.getItem('project_' + name) || '';
@@ -288,7 +367,13 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem('currentProject');
             renderCalendar([]);
         } else {
-            renderCalendar(parseProjects(editor.value));
+            if (currentProject === COMPLETED_PROJECTS_NAME) {
+                updateCompletedProjectsDisplay();
+            } else if (currentProject === INCOMPLETE_PROJECTS_NAME) {
+                updateIncompleteProjectsDisplay();
+            } else {
+                renderCalendar(parseProjects(editor.value));
+            }
         }
         updateProjectList();
         updateStatus('Visible projects deleted.', true);
@@ -348,23 +433,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const line = lines[i];
 
             // Skip attribute lines entirely
-            if (/^(Start|End|Colour):/.test(line)) continue;
+            if (/^(Start|End|Colour|Completed):/i.test(line)) continue;
 
             const heading = line.match(/^#\s+(.+)/);
             if (heading) {
-                // Look ahead for a colour attribute before the next heading
+                // Look ahead for attributes before the next heading
                 let colour = null;
+                let completed = false;
                 for (let j = i + 1; j < lines.length; j++) {
                     const next = lines[j];
                     if (/^#\s+/.test(next)) break;
-                    const m = next.match(/^Colour:\s*(.+)/);
-                    if (m) { colour = m[1].trim(); break; }
+                    let m = next.match(/^Colour:\s*(.+)/);
+                    if (m) { colour = m[1].trim(); }
+                    m = next.match(/^Completed:\s*(True|False)/i);
+                    if (m) { completed = m[1].toLowerCase() === 'true'; }
                     if (!next.trim()) break;
                 }
-                if (colour) {
-                    out.push('# <span style="color:' + colour + '">' + heading[1].trim() + '</span>');
-                    continue;
+                let title = heading[1].trim();
+                if (completed) {
+                    title = '<del>' + title + '</del>';
                 }
+                if (colour) {
+                    title = '<span style="color:' + colour + '">' + title + '</span>';
+                }
+                out.push('# ' + title);
+                continue;
             }
 
             out.push(line);
@@ -587,6 +680,10 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         updateProjectList();
         if (currentProject === ALL_PROJECTS_NAME) {
             updateAllProjectsDisplay();
+        } else if (currentProject === COMPLETED_PROJECTS_NAME) {
+            updateCompletedProjectsDisplay();
+        } else if (currentProject === INCOMPLETE_PROJECTS_NAME) {
+            updateIncompleteProjectsDisplay();
         }
     });
 });
