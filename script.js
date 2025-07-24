@@ -399,6 +399,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function disablePreview() {
+        if (previewActive) {
+            previewDiv.style.display = 'none';
+            editor.style.display = 'block';
+            previewBtn.textContent = 'Preview Markdown';
+            previewActive = false;
+        }
+    }
+
 
     function renderCalendar(projects, target = calendar) {
         target.innerHTML = '';
@@ -559,9 +568,7 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         renderCalendar([]);
         updateProjectList();
         updateStatus('Enter project title on the first line starting with "#".', false);
-        if (previewActive) {
-            renderPreview();
-        }
+        disablePreview();
     });
 
     deleteCurrentBtn.addEventListener('click', deleteCurrentProject);
