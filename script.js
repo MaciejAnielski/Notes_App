@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const newFileBtn = document.getElementById('new-file');
     const projectList = document.getElementById('saved-projects-list');
     const projectSearch = document.getElementById('project-search');
+    const statusDiv = document.getElementById('status-message');
 
     let currentProject = null;
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -14,6 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const s = 60;
         const l = 85;
         return `hsl(${h},${s}%,${l}%)`;
+    }
+
+    function updateStatus(message, success) {
+        statusDiv.textContent = message;
+        statusDiv.style.color = success ? 'green' : 'red';
     }
 
     function parseProjects(text) {
@@ -62,11 +68,25 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('currentProject', name);
         renderCalendar(parseProjects(content));
         updateProjectList();
+        updateStatus('', true);
     }
 
     function saveProject() {
-        if (!currentProject) return;
-        localStorage.setItem('project_' + currentProject, editor.value);
+        const firstLine = editor.value.split('\n')[0] || '';
+        const m = firstLine.match(/^#\s+(.+)/);
+        if (!m) {
+            updateStatus('Project not saved. Please add a title starting with "#".', false);
+            return;
+        }
+        const name = m[1].trim();
+        if (currentProject && currentProject !== name) {
+            localStorage.removeItem('project_' + currentProject);
+        }
+        currentProject = name;
+        localStorage.setItem('project_' + name, editor.value);
+        localStorage.setItem('currentProject', name);
+        updateProjectList();
+        updateStatus('Project saved.', true);
     }
 
     function updateProjectList() {
@@ -205,6 +225,7 @@ new Date(year, m).toLocaleString('default',{month:'long'})
             currentProject = null;
             editor.value = '';
             renderCalendar([]);
+            updateStatus('Enter project title on the first line starting with "#".', false);
         }
     }
 
@@ -236,14 +257,12 @@ new Date(year, m).toLocaleString('default',{month:'long'})
     });
 
     newFileBtn.addEventListener('click', () => {
-        const name = prompt('Project name:');
-        if (!name) return;
-        if (localStorage.getItem('project_' + name) !== null) {
-            alert('Project already exists');
-            return;
-        }
-        localStorage.setItem('project_' + name, '');
-        loadProject(name);
+        currentProject = null;
+        editor.value = '';
+        localStorage.removeItem('currentProject');
+        renderCalendar([]);
+        updateProjectList();
+        updateStatus('Enter project title on the first line starting with "#".', false);
     });
 
     projectSearch.addEventListener('input', updateProjectList);
