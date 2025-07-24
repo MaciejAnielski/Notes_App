@@ -165,8 +165,8 @@ font-family: Arial, sans-serif;
 }
 
 #preview {
-background-color: #2e2e2e;
-color: #f0f0f0;
+    background-color: #2e2e2e;
+    color: #f0f0f0;
 border: 1px solid #555;
 border-radius: 4px;
 width: 100%;
@@ -177,7 +177,11 @@ padding: 10px;
 margin: 10px;
 font-size: 16px;
 font-family: Arial, sans-serif;
-overflow-y: auto;
+    overflow-y: auto;
+}
+
+#preview a {
+    color: #79b8ff;
 }
 
 /* Calendar CSS Here */
