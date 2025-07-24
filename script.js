@@ -92,28 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadAllProjects() {
-        let combined = '';
-        const names = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('project_')) {
-                names.push(key.slice(8));
-            }
-        }
-        names.sort().forEach(name => {
-            const txt = localStorage.getItem('project_' + name) || '';
-            combined += txt + '\n\n';
-        });
         currentProject = ALL_PROJECTS_NAME;
         editor.readOnly = true;
-        editor.value = combined.trim();
         localStorage.removeItem('currentProject');
-        renderCalendar(parseProjects(combined));
+        updateAllProjectsDisplay();
         updateProjectList();
         updateStatus('Viewing all projects. Editing disabled.', true);
-        if (previewActive) {
-            renderPreview();
-        }
     }
 
     function saveProject() {
@@ -239,6 +223,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const content = (localStorage.getItem('project_' + n) || '').toLowerCase();
             return matches(n.toLowerCase(), content);
         });
+    }
+
+    function updateAllProjectsDisplay() {
+        const names = getVisibleProjects();
+        let combined = '';
+        names.forEach(name => {
+            const txt = localStorage.getItem('project_' + name) || '';
+            combined += txt + '\n\n';
+        });
+        combined = combined.trim();
+        editor.value = combined;
+        renderCalendar(parseProjects(combined));
+        if (previewActive) {
+            renderPreview();
+        }
     }
 
     function deleteCurrentProject() {
@@ -577,5 +576,10 @@ new Date(year, m).toLocaleString('default',{month:'long'})
     });
     previewBtn.addEventListener('click', previewMarkdown);
 
-    projectSearch.addEventListener('input', updateProjectList);
+    projectSearch.addEventListener('input', () => {
+        updateProjectList();
+        if (currentProject === ALL_PROJECTS_NAME) {
+            updateAllProjectsDisplay();
+        }
+    });
 });
