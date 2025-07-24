@@ -506,7 +506,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof marked !== 'undefined') {
             html = marked.parse(text);
         } else {
-            html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+            html = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            html = html
+                .replace(/&lt;(\/?)del&gt;/g, '<$1del>')
+                .replace(/&lt;(\/?)span([^&]*)&gt;/g, '<$1span$2>')
+                .replace(/\n/g, '<br>');
         }
         previewDiv.innerHTML = html;
     }
