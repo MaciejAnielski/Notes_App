@@ -21,257 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProject = null;
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const today = new Date();
-    const EXPORT_STYLE = `
-body {
-
-background-color: #1e1e1e;
-color: #f0f0f0;
-
-font-family: Arial, sans-serif;
-}
-
-@media (max-width: 1500px){
-
-#layout-wrapper {
-
-flex-direction: column;
-
-}
-
-}
-
-
-@media (max-width: 650px){
-
-#widget-container {
-
-flex-direction: column-reverse;
-
-}
-
-}
-
-#saved-projects-list {
-
-  list-style: none;
-  margin-left: 5px;
-  padding: 0;
-
-}
-
-#saved-projects-list li {
-  margin-bottom: 5px;
-  cursor: pointer;
-}
-
-#saved-projects-list li:hover{
-  text-decoration: underline;
-}
-
-#status-message {
-  margin-top: 30px;
-  margin-bottom: 10px;
-  margin-left: 10px;
-  font-weight: bold;
-}
-
-#layout-wrapper {
-width: 100%;
-display: flex;
-gap: 20px;
-padding-right: 20px;
-box-sizing: border-box;
-
-}
-
-#widget-container{
-
-display:flex;
-
-}
-
-#project-container {
-
-margin: 20px;
-
-}
-
-#button-container {
-
-margin-top: 20px;
-margin-left: 10px;
-margin-right: 5px;
-
-display: flex;
-
-}
-
-input {
-
-display: block;
-
-background-color: #2e2e2e;
-color: #f0f0f0;
-border: 1px solid #555;
-border-radius: 4px;
-
-width: 100%;
-max-width: 400px;
-
-padding: 5px;
-margin: 10px;
-margin-left: 0px;
-margin-top: 20px;
-
-font-size: 16px;
-font-family: Arial, sans-serif;
-
-}
-
-button {
-
-background-color: #2e2e2e;
-color: #f0f0f0;
-border: 1px solid #555;
-border-radius: 4px;
-
-padding: 8px 12px;
-margin-right: 5px;
-
-font-size: 14px;
-font-family: Arial, sans-serif;
-
-cursor: pointer;
-
-}
-
-.button-group {
-
-position: relative;
-display: inline-block;
-
-}
-
-.button-group:hover .sub-button {
-
-display: block;
-
-}
-
-.sub-button {
-
-display: none;
-position: absolute;
-top: 100%;
-left: 0;
-
-}
-
-
-textarea {
-
-background-color: #2e2e2e;
-color: #f0f0f0;
-border: 1px solid #555;
-border-radius: 4px;
-
-width: 100%;
-max-width: 800px;
-box-sizing: border-box;
-height: 400px;
-resize: vertical;
-padding: 10px;
-margin: 10px;
-
-font-size: 16px;
-font-family: Arial, sans-serif;
-
-}
-
-/* Calendar CSS Here */
-
-#calendar {
-margin: 20px;
-margin-left: 10px;
-padding: 10px;
-overflow: auto;
-background-color: #1e1e1e;
-width: 500px;
-}
-
-.year-block h1 {
-margin: 0 0 10px;
-color: #eee;
-font-size: 1.5em;
-}
-
-.month {
-margin-bottom: 20px;
-}
-
-.month h2 {
-margin: 0 0 15px;
-color: #eee;
-font-size: 1.2em;
-}
-
-.weekdays {
-display: grid;
-grid-template-columns: repeat(7, 1fr);
-text-align: center;
-margin-bottom: 2px;
-font-size: 12px;
-color: #ccc;
-}
-
-.weekdays div {
-padding: 2px 0;
-}
-
-.days {
-display: grid;
-grid-template-columns: repeat(7, 1fr);
-gap: 2px;
-}
-
-.day {
-border: 1px solid #333;
-height: 60px;
-position: relative;
-background-color: #2a2a2a;
-box-sizing: border-box;
-}
-
-.day.today {
-border: 3px solid #fff;
-
-}
-
-.day-number {
-position: absolute;
-top: 2px;
-left: 4px;
-font-size: 12px;
-color: #bbb;
-z-index: 2;
-}
-
-.bars {
-position: absolute;
-top: 0;
-left: 0;
-right: 0;
-bottom: 0;
-display: flex;
-flex-direction: column;
-z-index: 1;
-}
-
-.bar {
-flex: 1;
-cursor: default;
-}
-`;
 
     function randomColour() {
         const h = Math.floor(Math.random() * 360);
@@ -475,10 +224,9 @@ cursor: default;
 
     function buildProjectHTML(title, text) {
         const projects = parseProjects(text);
-        const data = JSON.stringify(projects);
+        const calHTML = getCalendarHTML(projects);
         const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        const script = `<script>const weekdays=${JSON.stringify(weekdays)};const today=new Date();${renderCalendar.toString()}document.addEventListener('DOMContentLoaded',()=>{const data=${data};renderCalendar(data, document.getElementById('calendar'));});<\/script>`;
-        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(title)}</title><style>${EXPORT_STYLE}</style></head><body><pre>${esc(text)}</pre><div id="calendar"></div>${script}</body></html>`;
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(title)}</title><link rel="stylesheet" href="styles.css"></head><body><pre>${esc(text)}</pre><div id="calendar">${calHTML}</div></body></html>`;
     }
 
     function exportProjects(names, fileName) {
@@ -637,7 +385,6 @@ new Date(year, m).toLocaleString('default',{month:'long'})
                     const bars = document.createElement('div');
                     bars.className = 'bars';
 
-                    const titles = [];
                     projects.forEach(p => {
                         if (date >= p.start && date <= p.end) {
                             const bar = document.createElement('div');
@@ -645,13 +392,11 @@ new Date(year, m).toLocaleString('default',{month:'long'})
                             bar.style.backgroundColor = p.colour;
                             bar.title = p.title;
                             bars.appendChild(bar);
-                            titles.push(p.title);
                         }
                     });
 
                     if (bars.children.length > 0) {
                         num.style.color = '#000';
-                        cell.title = titles.join(', ');
                     }
 
                     cell.appendChild(num);
