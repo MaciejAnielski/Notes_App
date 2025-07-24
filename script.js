@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewBtn = document.getElementById('preview-markdown');
     const previewDiv = document.getElementById('preview');
     let previewActive = false;
+    const savedPreview = localStorage.getItem('is_preview') === 'true';
 
     if (typeof marked !== 'undefined') {
         marked.setOptions({ breaks: true });
@@ -532,11 +533,13 @@ document.addEventListener('DOMContentLoaded', () => {
             previewDiv.style.display = 'block';
             previewBtn.textContent = 'Edit Markdown';
             previewActive = true;
+            localStorage.setItem('is_preview', 'true');
         } else {
             previewDiv.style.display = 'none';
             editor.style.display = 'block';
             previewBtn.textContent = 'Preview Markdown';
             previewActive = false;
+            localStorage.setItem('is_preview', 'false');
         }
     }
 
@@ -546,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
             editor.style.display = 'block';
             previewBtn.textContent = 'Preview Markdown';
             previewActive = false;
+            localStorage.setItem('is_preview', 'false');
         }
     }
 
@@ -670,6 +674,10 @@ new Date(year, m).toLocaleString('default',{month:'long'})
             renderCalendar([]);
             updateStatus('Enter project title on the first line starting with "#".', false);
         }
+    }
+
+    if (savedPreview) {
+        previewMarkdown();
     }
 
     editor.addEventListener('keydown', e => {
