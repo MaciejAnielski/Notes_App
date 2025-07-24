@@ -284,8 +284,41 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     }
 
+    function preprocessForPreview(text) {
+        const lines = text.split('\n');
+        const out = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Skip attribute lines entirely
+            if (/^(Start|End|Colour):/.test(line)) continue;
+
+            const heading = line.match(/^#\s+(.+)/);
+            if (heading) {
+                // Look ahead for a colour attribute before the next heading
+                let colour = null;
+                for (let j = i + 1; j < lines.length; j++) {
+                    const next = lines[j];
+                    if (/^#\s+/.test(next)) break;
+                    const m = next.match(/^Colour:\s*(.+)/);
+                    if (m) { colour = m[1].trim(); break; }
+                    if (!next.trim()) break;
+                }
+                if (colour) {
+                    out.push('# <span style="color:' + colour + '">' + heading[1].trim() + '</span>');
+                    continue;
+                }
+            }
+
+            out.push(line);
+        }
+
+        return out.join('\n');
+    }
+
     function renderPreview() {
-        const text = editor.value;
+        const text = preprocessForPreview(editor.value);
         let html = '';
         if (typeof marked !== 'undefined') {
             html = marked.parse(text);
