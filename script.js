@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadAllProjects() {
         currentProject = ALL_PROJECTS_NAME;
         editor.readOnly = true;
-        localStorage.removeItem('currentProject');
+        localStorage.setItem('currentProject', ALL_PROJECTS_NAME);
         updateAllProjectsDisplay();
         updateProjectList();
         updateStatus('Viewing all projects. Editing disabled.', true);
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadCompletedProjects() {
         currentProject = COMPLETED_PROJECTS_NAME;
         editor.readOnly = true;
-        localStorage.removeItem('currentProject');
+        localStorage.setItem('currentProject', COMPLETED_PROJECTS_NAME);
         updateCompletedProjectsDisplay();
         updateProjectList();
         updateStatus('Viewing completed projects. Editing disabled.', true);
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadIncompleteProjects() {
         currentProject = INCOMPLETE_PROJECTS_NAME;
         editor.readOnly = true;
-        localStorage.removeItem('currentProject');
+        localStorage.setItem('currentProject', INCOMPLETE_PROJECTS_NAME);
         updateIncompleteProjectsDisplay();
         updateProjectList();
         updateStatus('Viewing incomplete projects. Editing disabled.', true);
@@ -662,7 +662,13 @@ new Date(year, m).toLocaleString('default',{month:'long'})
     updateProjectList();
 
     const saved = localStorage.getItem('currentProject');
-    if (saved && localStorage.getItem('project_' + saved) !== null) {
+    if (saved === ALL_PROJECTS_NAME) {
+        loadAllProjects();
+    } else if (saved === COMPLETED_PROJECTS_NAME) {
+        loadCompletedProjects();
+    } else if (saved === INCOMPLETE_PROJECTS_NAME) {
+        loadIncompleteProjects();
+    } else if (saved && localStorage.getItem('project_' + saved) !== null) {
         loadProject(saved);
     } else {
         const anyKey = Object.keys(localStorage).find(k => k.startsWith('project_'));
