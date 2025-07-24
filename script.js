@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewDiv = document.getElementById('preview');
     let previewActive = false;
 
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({ breaks: true });
+    }
+
     const ALL_PROJECTS_NAME = 'All Projects';
     let currentProject = null;
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -82,6 +86,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar(parseProjects(content));
         updateProjectList();
         updateStatus('', true);
+        if (previewActive) {
+            renderPreview();
+        }
     }
 
     function loadAllProjects() {
@@ -104,6 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar(parseProjects(combined));
         updateProjectList();
         updateStatus('Viewing all projects. Editing disabled.', true);
+        if (previewActive) {
+            renderPreview();
+        }
     }
 
     function saveProject() {
@@ -187,6 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar([]);
         updateProjectList();
         updateStatus('Project deleted.', true);
+        if (previewActive) {
+            renderPreview();
+        }
     }
 
     function deleteAllProjects() {
@@ -199,6 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar([]);
         updateProjectList();
         updateStatus('All projects deleted.', true);
+        if (previewActive) {
+            renderPreview();
+        }
     }
 
     function deleteVisibleProjects() {
@@ -220,6 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateProjectList();
         updateStatus('Visible projects deleted.', true);
+        if (previewActive) {
+            renderPreview();
+        }
     }
 
 
@@ -265,16 +284,20 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     }
 
+    function renderPreview() {
+        const text = editor.value;
+        let html = '';
+        if (typeof marked !== 'undefined') {
+            html = marked.parse(text);
+        } else {
+            html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+        }
+        previewDiv.innerHTML = html;
+    }
+
     function previewMarkdown() {
         if (!previewActive) {
-            const text = editor.value;
-            let html = '';
-            if (typeof marked !== 'undefined') {
-                html = marked.parse(text);
-            } else {
-                html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
-            }
-            previewDiv.innerHTML = html;
+            renderPreview();
             editor.style.display = 'none';
             previewDiv.style.display = 'block';
             previewBtn.textContent = 'Edit Markdown';
@@ -447,6 +470,9 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         renderCalendar([]);
         updateProjectList();
         updateStatus('Enter project title on the first line starting with "#".', false);
+        if (previewActive) {
+            renderPreview();
+        }
     });
 
     deleteCurrentBtn.addEventListener('click', deleteCurrentProject);
