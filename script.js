@@ -35,8 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return `hsl(${h},${s}%,${l}%)`;
     }
 
+    function toTitleCase(str) {
+        return str.replace(/\w\S*/g, (w) =>
+            w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+        );
+    }
+
     function updateStatus(message, success) {
-        statusDiv.textContent = message;
+        const formatted = message ? toTitleCase(message) : '';
+        statusDiv.textContent = formatted;
         statusDiv.style.color = success ? 'green' : 'red';
     }
 
