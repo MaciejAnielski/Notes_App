@@ -40,7 +40,6 @@ const searchBox = document.getElementById('searchBox');
 const searchTasksBox = document.getElementById('searchTasksBox');
 const fileList = document.getElementById('fileList');
 const todoList = document.getElementById('todoList');
-const calendarDiv = document.getElementById('calendar');
 const statusDiv = document.getElementById('status-message');
 const deleteSelectedBtn = document.getElementById('delete-selected');
 const exportSelectedBtn = document.getElementById('export-selected');
@@ -390,13 +389,6 @@ function generateHtmlContent(title, markdown) {
   const container = document.createElement('div');
   container.innerHTML = marked.parse(markdown);
   styleTaskListItems(container);
-  const events = [];
-  markdown.split(/\n/).forEach(line => {
-    const m = line.match(/^\[(\d{4}-\d{2}-\d{2})\]\s*(.+)$/);
-    if (m) {
-      events.push({ date: m[1], name: m[2] });
-    }
-  });
   const isDark = document.body.classList.contains('dark-mode');
   const bgColor = isDark ? '#2e2e2e' : '#d8bbdf';
   const textColor = isDark ? '#f0f0f0' : '#000';
@@ -420,51 +412,8 @@ function generateHtmlContent(title, markdown) {
     li p:first-child:last-child { margin: 0; }
     li.task-item + li.bullet-item,
     li.bullet-item + li.task-item { margin-top: 8px; }
-    .calendar-table { width: 100%; max-width: 300px; border-collapse: collapse; }
-    .calendar-table th, .calendar-table td { border: 1px solid #a272b0; width: 14%; padding: 4px; text-align: center; }
-    .calendar-table td.project-date { background-color: #ffd966; cursor: pointer; }
   `;
-  const script = `
-    function renderCalendar(container, events) {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const firstDay = new Date(year, month, 1).getDay();
-      const days = new Date(year, month + 1, 0).getDate();
-      const table = document.createElement('table');
-      table.className = 'calendar-table';
-      const header = document.createElement('tr');
-      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
-        const th = document.createElement('th');
-        th.textContent = d;
-        header.appendChild(th);
-      });
-      table.appendChild(header);
-      const map = {};
-      events.forEach(e => {
-        const d = new Date(e.date);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          const day = d.getDate();
-          map[day] = map[day] ? map[day].concat([e.name]) : [e.name];
-        }
-      });
-      let row = document.createElement('tr');
-      for (let i = 0; i < firstDay; i++) row.appendChild(document.createElement('td'));
-      for (let day = 1; day <= days; day++) {
-        if ((firstDay + day - 1) % 7 === 0 && day !== 1) { table.appendChild(row); row = document.createElement('tr'); }
-        const td = document.createElement('td');
-        td.textContent = day;
-        if (map[day]) { td.classList.add('project-date'); td.title = map[day].join(', '); }
-        row.appendChild(td);
-      }
-      table.appendChild(row);
-      container.appendChild(table);
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-      renderCalendar(document.getElementById('calendar'), ${JSON.stringify(events)});
-    });
-  `;
-  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n<div id="calendar"></div>\n<script>${script}</script>\n</body>\n</html>`;
+  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
 
 function exportNote() {
@@ -595,72 +544,6 @@ function importNotesFromZip(file) {
   });
 }
 
-function extractProjectEvents() {
-  const events = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) {
-      const content = localStorage.getItem(key).split(/\n/);
-      content.forEach(line => {
-        const match = line.match(/^\[(\d{4}-\d{2}-\d{2})\]\s*(.+)$/);
-        if (match) {
-          events.push({ date: match[1], name: match[2] });
-        }
-      });
-    }
-  }
-  return events;
-}
-
-function renderCalendar() {
-  if (!calendarDiv) return;
-  calendarDiv.innerHTML = '';
-  const events = extractProjectEvents();
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const table = document.createElement('table');
-  table.className = 'calendar-table';
-  const headerRow = document.createElement('tr');
-  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
-    const th = document.createElement('th');
-    th.textContent = d;
-    headerRow.appendChild(th);
-  });
-  table.appendChild(headerRow);
-
-  const eventMap = {};
-  events.forEach(e => {
-    const d = new Date(e.date);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      const day = d.getDate();
-      eventMap[day] = eventMap[day] ? eventMap[day].concat([e.name]) : [e.name];
-    }
-  });
-
-  let row = document.createElement('tr');
-  for (let i = 0; i < firstDay; i++) {
-    row.appendChild(document.createElement('td'));
-  }
-  for (let day = 1; day <= daysInMonth; day++) {
-    if ((firstDay + day - 1) % 7 === 0 && day !== 1) {
-      table.appendChild(row);
-      row = document.createElement('tr');
-    }
-    const td = document.createElement('td');
-    td.textContent = day;
-    if (eventMap[day]) {
-      td.classList.add('project-date');
-      td.title = eventMap[day].join(', ');
-    }
-    row.appendChild(td);
-  }
-  table.appendChild(row);
-  calendarDiv.appendChild(table);
-}
-
 function updateFileList() {
   fileList.innerHTML = '';
   let raw = searchBox.value.trim().toLowerCase();
@@ -717,7 +600,6 @@ function updateFileList() {
   items.forEach(li => fileList.appendChild(li));
 
   updateTodoList();
-  renderCalendar();
 }
 
 function updateTodoList() {
@@ -888,8 +770,6 @@ if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {
 } else {
   newNote();
 }
-
-renderCalendar();
 
 if (savedPreview && !isPreview) {
   toggleView();
