@@ -1,11 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('editor');
+    editor.readOnly = false;
     const calendar = document.getElementById('calendar');
     const newFileBtn = document.getElementById('new-file');
     const projectList = document.getElementById('saved-projects-list');
     const projectSearch = document.getElementById('project-search');
     const statusDiv = document.getElementById('status-message');
 
+    const ALL_PROJECTS_NAME = 'All Projects';
     let currentProject = null;
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const today = new Date();
@@ -64,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadProject(name) {
         const content = localStorage.getItem('project_' + name) || '';
         currentProject = name;
+        editor.readOnly = false;
         editor.value = content;
         localStorage.setItem('currentProject', name);
         renderCalendar(parseProjects(content));
@@ -71,7 +74,30 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus('', true);
     }
 
+    function loadAllProjects() {
+        let combined = '';
+        const names = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('project_')) {
+                names.push(key.slice(8));
+            }
+        }
+        names.sort().forEach(name => {
+            const txt = localStorage.getItem('project_' + name) || '';
+            combined += txt + '\n\n';
+        });
+        currentProject = ALL_PROJECTS_NAME;
+        editor.readOnly = true;
+        editor.value = combined.trim();
+        localStorage.removeItem('currentProject');
+        renderCalendar(parseProjects(combined));
+        updateProjectList();
+        updateStatus('Viewing all projects. Editing disabled.', true);
+    }
+
     function saveProject() {
+        if (editor.readOnly) return;
         const firstLine = editor.value.split('\n')[0] || '';
         const m = firstLine.match(/^#\s+(.+)/);
         if (!m) {
@@ -79,6 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const name = m[1].trim();
+        if (name === ALL_PROJECTS_NAME) {
+            updateStatus('The name "All Projects" is reserved.', false);
+            return;
+        }
         if (currentProject && currentProject !== name) {
             localStorage.removeItem('project_' + currentProject);
         }
@@ -103,6 +133,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+        if (!filter || ALL_PROJECTS_NAME.toLowerCase().includes(filter)) {
+            const allLi = document.createElement('li');
+            allLi.textContent = ALL_PROJECTS_NAME;
+            if (currentProject === ALL_PROJECTS_NAME) allLi.classList.add('active-file');
+            allLi.addEventListener('click', loadAllProjects);
+            projectList.appendChild(allLi);
+        }
+
         projects.sort().forEach(name => {
             const li = document.createElement('li');
             li.textContent = name;
@@ -230,6 +268,7 @@ new Date(year, m).toLocaleString('default',{month:'long'})
     }
 
     editor.addEventListener('keydown', e => {
+        if (editor.readOnly) return;
         if (e.key !== 'Enter') return;
         const pos = editor.selectionStart;
         const text = editor.value;
@@ -251,6 +290,7 @@ new Date(year, m).toLocaleString('default',{month:'long'})
     });
 
     editor.addEventListener('input', () => {
+        if (editor.readOnly) return;
         const txt = editor.value;
         saveProject();
         renderCalendar(parseProjects(txt));
@@ -258,6 +298,7 @@ new Date(year, m).toLocaleString('default',{month:'long'})
 
     newFileBtn.addEventListener('click', () => {
         currentProject = null;
+        editor.readOnly = false;
         editor.value = '';
         localStorage.removeItem('currentProject');
         renderCalendar([]);
