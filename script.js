@@ -9,13 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteCurrentBtn = document.getElementById('delete-current-file');
     const deleteAllBtn = document.getElementById('delete-all-files');
     const deleteVisibleBtn = document.getElementById('delete-visible-files');
-    const exportAllBtn = document.getElementById('export-all-files');
-    const exportVisibleBtn = document.getElementById('export-visible-files');
     const backupAllBtn = document.getElementById('backup-all-files');
     const backupVisibleBtn = document.getElementById('backup-visible-files');
     const importBtn = document.getElementById('import-note');
     const importInput = document.getElementById('import-file');
     const previewBtn = document.getElementById('preview-markdown');
+    const previewDiv = document.getElementById('preview');
+    let previewActive = false;
 
     const ALL_PROJECTS_NAME = 'All Projects';
     let currentProject = null;
@@ -222,40 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus('Visible projects deleted.', true);
     }
 
-    function buildProjectHTML(title, text) {
-        const projects = parseProjects(text);
-        const calHTML = getCalendarHTML(projects);
-        const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(title)}</title><link rel="stylesheet" href="styles.css"></head><body><pre>${esc(text)}</pre><div id="calendar">${calHTML}</div></body></html>`;
-    }
-
-    function exportProjects(names, fileName) {
-        if (!names.length) {
-            updateStatus('No projects to export.', false);
-            return;
-        }
-        if (typeof JSZip === 'undefined') {
-            updateStatus('Export failed: JSZip not loaded.', false);
-            return;
-        }
-        const zip = new JSZip();
-        let combined = '';
-        names.forEach(n => {
-            const text = localStorage.getItem('project_' + n) || '';
-            zip.file(n + '.html', buildProjectHTML(n, text));
-            combined += text + '\n\n';
-        });
-        const allText = combined.trim();
-        zip.file(ALL_PROJECTS_NAME + '.html', buildProjectHTML(ALL_PROJECTS_NAME, allText));
-        zip.generateAsync({ type: 'blob' }).then(content => {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(content);
-            link.download = fileName;
-            link.click();
-            URL.revokeObjectURL(link.href);
-            updateStatus('Projects exported.', true);
-        });
-    }
 
     function backupProjects(names, fileName) {
         if (!names.length) {
@@ -300,16 +266,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function previewMarkdown() {
-        const text = editor.value;
-        let html = '';
-        if (typeof marked !== 'undefined') {
-            html = marked.parse(text);
+        if (!previewActive) {
+            const text = editor.value;
+            let html = '';
+            if (typeof marked !== 'undefined') {
+                html = marked.parse(text);
+            } else {
+                html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+            }
+            previewDiv.innerHTML = html;
+            editor.style.display = 'none';
+            previewDiv.style.display = 'block';
+            previewBtn.textContent = 'Edit Markdown';
+            previewActive = true;
         } else {
-            html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+            previewDiv.style.display = 'none';
+            editor.style.display = 'block';
+            previewBtn.textContent = 'Preview Markdown';
+            previewActive = false;
         }
-        const win = window.open('', '_blank');
-        win.document.write(html);
-        win.document.close();
     }
 
 
@@ -477,8 +452,6 @@ new Date(year, m).toLocaleString('default',{month:'long'})
     deleteCurrentBtn.addEventListener('click', deleteCurrentProject);
     deleteAllBtn.addEventListener('click', deleteAllProjects);
     deleteVisibleBtn.addEventListener('click', deleteVisibleProjects);
-    exportAllBtn.addEventListener('click', () => exportProjects(getAllProjects(), 'all_projects_html.zip'));
-    exportVisibleBtn.addEventListener('click', () => exportProjects(getVisibleProjects(), 'visible_projects_html.zip'));
     backupAllBtn.addEventListener('click', () => backupProjects(getAllProjects(), 'all_projects.zip'));
     backupVisibleBtn.addEventListener('click', () => backupProjects(getVisibleProjects(), 'visible_projects.zip'));
     importBtn.addEventListener('click', () => importInput.click());
