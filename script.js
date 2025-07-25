@@ -163,6 +163,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!query) return () => true;
 
         const tokens = query.match(/"[^"]+"|\S+/g) || [];
+        const hasOps = tokens.some(t => ['AND', 'OR', 'NOT'].includes(t.toUpperCase()));
+        if (!hasOps && tokens.length > 1) {
+            const phrase = query.toLowerCase();
+            return (n, c) => n.includes(phrase) || c.includes(phrase);
+        }
+
         let index = 0;
 
         function parseExpression() {
