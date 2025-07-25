@@ -145,6 +145,10 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStatus('The selected name is reserved.', false);
             return;
         }
+        if (currentProject !== name && localStorage.getItem('project_' + name) !== null) {
+            updateStatus('A Project With That Name Already Exists.', false);
+            return;
+        }
         if (currentProject && currentProject !== name) {
             localStorage.removeItem('project_' + currentProject);
         }
