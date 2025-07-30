@@ -266,6 +266,6 @@ z-index: 1;
 }
 
 .bar {
-flex: 1;
-cursor: default;
+    flex: 1;
+    cursor: pointer;
 }
