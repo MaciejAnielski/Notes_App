@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDiv.style.color = success ? 'green' : 'red';
     }
 
-    function parseProjects(text) {
+    function parseProjects(text, owner = null) {
         const lines = text.split('\n'),
             items = [];
         let current = null;
@@ -63,7 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     start: null,
                     end: null,
                     colour: null,
-                    completed: false
+                    completed: false,
+                    owner: owner
                 };
 
             } else if (current) {
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.readOnly = false;
         editor.value = content;
         localStorage.setItem('currentProject', name);
-        renderCalendar(parseProjects(content));
+        renderCalendar(parseProjects(content, name));
         updateProjectList();
         updateStatus('', true);
         if (previewActive) {
@@ -327,13 +328,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateAllProjectsDisplay() {
         const names = getVisibleProjects();
         let combined = '';
+        let projects = [];
         names.forEach(name => {
             const txt = localStorage.getItem('project_' + name) || '';
             combined += txt + '\n\n';
+            projects = projects.concat(parseProjects(txt, name));
         });
         combined = combined.trim();
         editor.value = combined;
-        renderCalendar(parseProjects(combined));
+        renderCalendar(projects);
         if (previewActive) {
             renderPreview();
         }
@@ -342,14 +345,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateCompletedProjectsDisplay() {
         const names = getVisibleProjects();
         let combined = '';
+        let projects = [];
         names.forEach(name => {
             const txt = localStorage.getItem('project_' + name) || '';
             const part = filterProjectsByCompletion(txt, true);
             if (part) combined += part + '\n\n';
+            projects = projects.concat(
+                parseProjects(txt, name).filter(p => p.completed)
+            );
         });
         combined = combined.trim();
         editor.value = combined;
-        renderCalendar(parseProjects(combined));
+        renderCalendar(projects);
         if (previewActive) {
             renderPreview();
         }
@@ -358,14 +365,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateIncompleteProjectsDisplay() {
         const names = getVisibleProjects();
         let combined = '';
+        let projects = [];
         names.forEach(name => {
             const txt = localStorage.getItem('project_' + name) || '';
             const part = filterProjectsByCompletion(txt, false);
             if (part) combined += part + '\n\n';
+            projects = projects.concat(
+                parseProjects(txt, name).filter(p => !p.completed)
+            );
         });
         combined = combined.trim();
         editor.value = combined;
-        renderCalendar(parseProjects(combined));
+        renderCalendar(projects);
         if (previewActive) {
             renderPreview();
         }
@@ -424,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (currentProject === INCOMPLETE_PROJECTS_NAME) {
                 updateIncompleteProjectsDisplay();
             } else {
-                renderCalendar(parseProjects(editor.value));
+                renderCalendar(parseProjects(editor.value, currentProject));
             }
         }
         updateProjectList();
@@ -642,6 +653,13 @@ new Date(year, m).toLocaleString('default',{month:'long'})
                             bar.className = 'bar';
                             bar.style.backgroundColor = p.colour;
                             bar.title = p.title;
+                            if (p.owner) {
+                                bar.dataset.owner = p.owner;
+                                bar.addEventListener('click', e => {
+                                    e.stopPropagation();
+                                    loadProject(p.owner);
+                                });
+                            }
                             bars.appendChild(bar);
                         }
                     });
@@ -715,14 +733,14 @@ new Date(year, m).toLocaleString('default',{month:'long'})
         editor.selectionStart = editor.selectionEnd = newPos;
 
         saveProject();
-        renderCalendar(parseProjects(newText));
+        renderCalendar(parseProjects(newText, currentProject));
     });
 
     editor.addEventListener('input', () => {
         if (editor.readOnly) return;
         const txt = editor.value;
         saveProject();
-        renderCalendar(parseProjects(txt));
+        renderCalendar(parseProjects(txt, currentProject));
     });
 
     newFileBtn.addEventListener('click', () => {
