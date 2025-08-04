@@ -163,7 +163,7 @@ border: 1px solid #555;
 border-radius: 4px;
 
 width: 100%;
-max-width: 800px;
+max-width: 700px;
 box-sizing: border-box;
 height: 400px;
 resize: vertical;
@@ -203,7 +203,8 @@ margin-left: 10px;
 padding: 10px;
 overflow: auto;
 background-color: #1e1e1e;
-width: 500px;
+width: 100%;
+max-width: 400px;
 }
 
 .year-block h1 {
