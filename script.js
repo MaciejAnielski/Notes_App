@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('editor');
     editor.readOnly = false;
+    // Prevent mouse wheel from scrolling inside the text area
+    editor.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        window.scrollBy(0, e.deltaY);
+    }, { passive: false });
     const calendar = document.getElementById('calendar');
     const newFileBtn = document.getElementById('new-file');
     const projectList = document.getElementById('saved-projects-list');
