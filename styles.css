@@ -18,6 +18,7 @@ textarea {
   border-radius: 4px;
   box-sizing: border-box;
   resize: vertical;
+  overflow-y: auto;
   background-color: #d8bbdf;
   color: #000;
   transition: background-color 0.3s, color 0.3s;
