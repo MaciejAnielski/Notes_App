@@ -1,226 +1,30 @@
 body {
-  background-color: #d0a8dc; /* pastel pink */
-  font-family: Arial, sans-serif;
-  padding: 20px;
-  color: #333;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-textarea {
-  width: 100%;
-  max-width: 800px;
-  height: 400px;
-  padding: 10px;
-  margin-top: 10px;
-  font-size: 16px;
-  line-height: 1.5;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  box-sizing: border-box;
-  resize: vertical;
-  overflow-y: auto;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-#preview {
-  width: 100%;
-  max-width: 800px;
-  min-height: 400px;
-  padding: 10px;
-  font-size: 16px;
-  line-height: 1.5;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  box-sizing: border-box;
-  background-color: #d8bbdf;
-  color: #000;
-  overflow-y: auto;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-.dark-mode #preview {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-#preview li p:first-child:last-child {
-  margin: 0;
-}
-#preview a {
-  color: #0645ad;
-}
-
-.dark-mode #preview a {
-  color: #9cdcfe;
-}
-
-#todo-container a {
-  color: #0645ad;
-}
-
-.dark-mode #todo-container a {
-  color: #9cdcfe;
-}
-
-
-button {
-  cursor: pointer;
-  background-color: transparent;
-  border: none;
-}
-
-#toggle-view {
-  padding: 8px 12px;
-  margin-top: 10px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
-}
-
-.dark-mode #toggle-view {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-/* Dark mode */
-.dark-mode {
   background-color: #1e1e1e;
   color: #f0f0f0;
+  font-family: Arial, sans-serif;
 }
 
-.dark-mode textarea {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
+@media (max-width: 1500px) {
+  #layout-wrapper {
+    flex-direction: column;
+  }
 }
 
-/* Theme toggle icon */
-#toggle-theme {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background-size: cover;
-  background-repeat: no-repeat;
-  border-radius: 50%;
-}
-
-#toggle-theme.sun {
-  background-image: url('001_Assets/sun.png');
-}
-
-#toggle-theme.moon {
-  background-image: url('001_Assets/moon.png');
-}
-
-
-/* Storage controls */
-.storage-controls button {
-  padding: 8px 12px;
-  margin-right: 5px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
-}
-
-#status-message {
-  margin: 5px 0 10px;
-  font-weight: bold;
-}
-
-.dark-mode .storage-controls button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-/* Button groups for condensed controls */
-.storage-controls .button-group {
-  position: relative;
-  display: inline-block;
-  margin-right: 5px;
-  margin-bottom: 10px;
-}
-
-.storage-controls .button-group .sub-buttons {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  display: none;
-  z-index: 1;
-  width: 100%;
-}
-
-.storage-controls .button-group .sub-buttons .sub-button {
-  display: block;
-  margin-top: 0;
-  width: 100%;
-}
-
-.storage-controls .button-group:hover .sub-buttons,
-.storage-controls .button-group.active .sub-buttons {
-  display: block;
-}
-
-.dark-mode .storage-controls .button-group .sub-button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-
-#searchBox {
-  display: block;
-  margin: 10px 0;
-  padding: 8px;
-  font-size: 16px;
-  width: 300px;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.dark-mode #searchBox {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-
-#searchTasksBox {
-  display: block;
-  margin: 10px 0;
-  padding: 8px;
-  font-size: 16px;
-  width: 300px;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.dark-mode #searchTasksBox {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
+@media (max-width: 650px) {
+  #lists-container {
+    flex-direction: column-reverse;
+  }
 }
 
 #fileList {
   list-style: none;
-  padding-left: 0;
+  margin-left: 5px;
+  padding: 0;
 }
 
 #fileList li {
+  margin-bottom: 5px;
   cursor: pointer;
-  margin-bottom: 4px;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -232,61 +36,149 @@ button {
   white-space: nowrap;
 }
 
-#fileList li.active-file {
-  font-weight: bold;
-  color: #510e63;
+#fileList li:hover {
+  text-decoration: underline;
 }
 
-.dark-mode #fileList li.active-file {
+#fileList li.active-file {
   font-weight: bold;
   color: #d8bbdf;
 }
 
 #fileList li.linked-file {
   font-weight: bold;
-  color: #510e63;
-}
-
-.dark-mode #fileList li.linked-file {
-  font-weight: bold;
   color: #d8bbdf;
 }
 
-#fileList li:hover {
-  text-decoration: underline;
-}
-
-#lists-container {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-#files-container,
-#todo-container {
-  width: 100%;
+#status-message {
+  margin: 5px 0 10px;
+  font-weight: bold;
 }
 
 #layout-wrapper {
+  width: 100%;
   display: flex;
-  flex-direction: column;
   gap: 20px;
+  padding-right: 20px;
+  box-sizing: border-box;
 }
 
 #editor-section {
   flex: 1;
 }
 
-@media (min-width: 1500px) {
-  #layout-wrapper {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  #editor-section {
-    margin-right: 20px;
-    min-width: 700px;
-  }
+#lists-container {
+  display: flex;
+}
+
+#files-container {
+  margin: 20px;
+}
+
+#todo-container {
+  margin: 20px;
+}
+
+#button-container {
+  margin-top: 20px;
+  margin-left: 10px;
+  margin-right: 5px;
+  display: flex;
+}
+
+input {
+  display: block;
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 400px;
+  padding: 5px;
+  margin: 10px;
+  margin-left: 0px;
+  margin-top: 20px;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+}
+
+button {
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-right: 5px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  cursor: pointer;
+}
+
+.button-group {
+  position: relative;
+  display: inline-block;
+}
+
+.button-group:hover .sub-buttons {
+  display: block;
+}
+
+.sub-buttons {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+}
+
+.sub-button {
+  display: block;
+  width: 100%;
+  margin-top: 0;
+}
+
+textarea {
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 800px;
+  box-sizing: border-box;
+  height: 400px;
+  resize: vertical;
+  overflow-y: auto;
+  padding: 10px;
+  margin: 10px;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+}
+
+#preview {
+  width: 100%;
+  max-width: 800px;
+  min-height: 400px;
+  padding: 10px;
+  margin: 10px;
+  font-size: 16px;
+  line-height: 1.5;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background-color: #2e2e2e;
+  color: #f0f0f0;
+  overflow-y: auto;
+}
+
+#preview li p:first-child:last-child {
+  margin: 0;
+}
+
+#preview a {
+  color: #9cdcfe;
+}
+
+#todo-container a {
+  color: #9cdcfe;
 }
 
 #todo-container ul {
@@ -298,7 +190,6 @@ button {
   margin-top: 4px;
 }
 
-/* Align multi-line tasks with their text rather than the checkbox */
 #todoList li li {
   display: flex;
   align-items: flex-start;
@@ -310,20 +201,18 @@ button {
 }
 
 #todo-container .todo-note-title {
-  display:block;
+  display: block;
   margin-bottom: 10px;
   margin-top: 10px;
   text-decoration: underline;
 }
 
-/* Increase spacing and add separator between task groups */
 #todoList > li {
   margin-top: 20px;
   padding-top: 10px;
-  border-top: 1px solid #a272b0;
+  border-top: 1px solid #555;
 }
 
-/* Add spacing between checklist and bullet items within the same list */
 #preview li.task-item + li.bullet-item,
 #preview li.bullet-item + li.task-item,
 #todoList li.task-item + li.bullet-item,
@@ -341,24 +230,25 @@ button {
     flex: 1;
     max-width: 300px;
   }
-  
   #todo-container {
-      margin-left: 40px;
+    margin-left: 40px;
   }
 }
 
 @media (min-width: 1500px) {
   #layout-wrapper {
+    flex-direction: row;
+    align-items: flex-start;
     gap: 0;
   }
   #editor-section {
     margin-right: 0;
     flex: 0;
+    min-width: 700px;
   }
   #lists-container {
     margin-left: 40px;
     margin-right: 0;
+    flex-direction: row;
   }
 }
-
-

@@ -1,4 +1,3 @@
-const toggleBtn = document.getElementById('toggle-theme');
 const textarea = document.getElementById('editor');
 const previewDiv = document.getElementById('preview');
 const toggleViewBtn = document.getElementById('toggle-view');
@@ -6,23 +5,6 @@ let isPreview = false;
 let autoSaveTimer = null;
 let currentFileName = null;
 let linkedNoteChain = [];
-
-function applyTheme(theme) {
-  document.body.classList.toggle('dark-mode', theme === 'dark');
-  toggleBtn.classList.remove('sun', 'moon');
-  toggleBtn.classList.add(theme === 'dark' ? 'moon' : 'sun');
-}
-
-function toggleTheme() {
-  const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
-  applyTheme(newTheme);
-  localStorage.setItem('theme', newTheme);
-}
-
-toggleBtn.addEventListener('click', toggleTheme);
-
-const savedTheme = localStorage.getItem('theme') || 'dark';
-applyTheme(savedTheme);
 
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');
