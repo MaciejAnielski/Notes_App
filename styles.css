@@ -52,6 +52,7 @@ body {
 
 #status-message {
   margin: 5px 0 10px;
+  margin-left: 10px;
   font-weight: bold;
 }
 
@@ -86,7 +87,8 @@ body {
   display: flex;
 }
 
-input {
+#searchBox,
+#searchTasksBox {
   display: block;
   background-color: #2e2e2e;
   color: #f0f0f0;
@@ -137,10 +139,10 @@ button {
 }
 
 textarea {
-  background-color: #2e2e2e;
+  background-color: #1e1e1e;
   color: #f0f0f0;
-  border: 1px solid #555;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   width: 100%;
   max-width: 800px;
   box-sizing: border-box;
@@ -161,10 +163,10 @@ textarea {
   margin: 10px;
   font-size: 16px;
   line-height: 1.5;
-  border: 1px solid #555;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   box-sizing: border-box;
-  background-color: #2e2e2e;
+  background-color: #1e1e1e;
   color: #f0f0f0;
   overflow-y: auto;
 }
@@ -210,7 +212,7 @@ textarea {
 #todoList > li {
   margin-top: 20px;
   padding-top: 10px;
-  border-top: 1px solid #555;
+  border-top: 1px solid #a272b0;
 }
 
 #preview li.task-item + li.bullet-item,
@@ -236,16 +238,39 @@ textarea {
 }
 
 @media (min-width: 1500px) {
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
   #layout-wrapper {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0;
+    flex: 1;
+    min-height: 0;
   }
+
   #editor-section {
     margin-right: 0;
     flex: 0;
     min-width: 700px;
+    display: flex;
+    flex-direction: column;
   }
+
+  textarea,
+  #preview {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    resize: none;
+  }
+
   #lists-container {
     margin-left: 40px;
     margin-right: 0;

@@ -55,14 +55,10 @@ function updateStatus(message, success) {
 
 function getFormattedDate() {
   const date = new Date();
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const day = date.getDate();
-  const suffix = (day % 10 === 1 && day !== 11) ? 'st'
-                : (day % 10 === 2 && day !== 12) ? 'nd'
-                : (day % 10 === 3 && day !== 13) ? 'rd'
-                : 'th';
-  return `${days[date.getDay()]} ${day}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}${mm}${dd}`;
 }
 
 function getNoteTitle() {
@@ -241,7 +237,7 @@ toggleViewBtn.addEventListener('click', toggleView);
 function autoSaveNote() {
   const name = getNoteTitle();
   if (!name) {
-    updateStatus('File not saved. Please add a title starting with "#".', false);
+    updateStatus('File Not Saved. Please Add A Title Starting With "#".', false);
     return;
   }
   if (currentFileName && currentFileName !== name) {
@@ -254,9 +250,9 @@ function autoSaveNote() {
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
     if (isNoteBodyEmpty()) {
       loadNote(name);
-      updateStatus(`Opened existing note "${name}".`, true);
+      updateStatus(`Opened Existing Note "${name}".`, true);
     } else {
-      updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
+      updateStatus(`File Not Saved. A File Named "${name}" Already Exists. Please Rename.`, false);
     }
     return;
   }
@@ -265,7 +261,7 @@ function autoSaveNote() {
   currentFileName = name;
   localStorage.setItem('current_file', name);
   updateFileList();
-  updateStatus('File saved successfully.', true);
+  updateStatus('File Saved Successfully.', true);
 }
 
 function loadNote(name, fromLink = false) {
@@ -745,6 +741,16 @@ searchTasksBox.addEventListener('input', updateTodoList);
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
+});
+
+textarea.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = textarea.value.substring(0, start) + '\t' + textarea.value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + 1;
+  }
 });
 
 if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {
