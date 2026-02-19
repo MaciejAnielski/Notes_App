@@ -106,14 +106,30 @@ button {
   text-decoration: underline;
 }
 
+/* ── Active note: bright, solid left border ── */
 #fileList li.active-file {
   font-weight: bold;
-  color: #d8bbdf;
+  color: #c89fdf;
+  border-left: 3px solid #a272b0;
+  padding-left: 6px;
+  margin-left: -9px;
 }
 
+/* ── Link chain: connected thread with fading trail ── */
 #fileList li.linked-file {
-  font-weight: bold;
-  color: #d8bbdf;
+  color: #9a7aaa;
+  border-left: 2px dashed #6b4e7a;
+  padding-left: 6px;
+  margin-left: -8px;
+}
+
+/* Step number badge on each linked note */
+#fileList li.linked-file::before {
+  content: attr(data-chain-index);
+  font-size: 10px;
+  color: #6b4e7a;
+  margin-right: 5px;
+  flex-shrink: 0;
 }
 
 /* ── Textarea & preview ── */

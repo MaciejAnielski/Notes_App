@@ -180,32 +180,57 @@ function styleTaskListItems(container = previewDiv) {
   });
 }
 
+// Convert [[Note Name]] or [[Note_Name]] wiki-style links to markdown links
+// before passing to marked, preserving display name with spaces.
+function preprocessWikiLinks(text) {
+  return text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+    const display = inner.replace(/_/g, ' ').trim();
+    const href = encodeURIComponent(inner.trim());
+    return `[${display}](${href})`;
+  });
+}
+
 function setupNoteLinks(container = previewDiv) {
   container.querySelectorAll('a').forEach(a => {
     const href = a.getAttribute('href');
     if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) {
       return;
     }
-    const noteName = decodeURIComponent(href).replace(/\_/g, ' ').trim();
+    const noteName = decodeURIComponent(href).replace(/_/g, ' ').trim();
+    const exists = localStorage.getItem('md_' + noteName) !== null;
+
     a.href = '#';
+
+    // Style links to non-existent notes differently
+    if (!exists) {
+      a.classList.add('internal-link-new');
+      a.title = `Create note "${noteName}"`;
+    }
+
     a.addEventListener('click', e => {
       e.preventDefault();
       if (localStorage.getItem('md_' + noteName) !== null) {
+        // Note exists — navigate into it
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
-          // Add the previously viewed note to the top of the chain so the
-          // history is ordered from most recent to oldest.
           linkedNoteChain.unshift(currentFileName);
         }
         loadNote(noteName, true);
       } else {
-        alert(`Note "${noteName}" not found.`);
+        // Note doesn't exist — create it and navigate to it
+        if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
+          linkedNoteChain.unshift(currentFileName);
+        }
+        const newContent = `# ${noteName}\n\n`;
+        localStorage.setItem('md_' + noteName, newContent);
+        loadNote(noteName, true);
+        updateStatus(`Created Note "${noteName}".`, true);
       }
     });
   });
 }
 
 function renderPreview() {
-  previewDiv.innerHTML = marked.parse(textarea.value);
+  previewDiv.innerHTML = marked.parse(preprocessWikiLinks(textarea.value));
   styleTaskListItems(previewDiv);
   setupNoteLinks(previewDiv);
   setupPreviewTaskCheckboxes();
@@ -316,6 +341,8 @@ function deleteNote() {
 
   localStorage.removeItem('md_' + name);
   textarea.value = '';
+  if (isPreview) toggleView();
+  else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
@@ -330,6 +357,8 @@ function deleteAllNotes() {
   }
   keys.forEach(k => localStorage.removeItem(k));
   textarea.value = '';
+  if (isPreview) toggleView();
+  else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
@@ -561,9 +590,10 @@ function updateFileList() {
     delete noteMap[currentFileName];
   }
 
-  linkedNoteChain.forEach(name => {
+  linkedNoteChain.forEach((name, idx) => {
     if (noteMap[name]) {
       noteMap[name].classList.add('linked-file');
+      noteMap[name].dataset.chainIndex = idx + 1;
       items.push(noteMap[name]);
       delete noteMap[name];
     }
