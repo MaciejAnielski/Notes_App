@@ -185,6 +185,47 @@ textarea {
   color: #9cdcfe;
 }
 
+/* ── Footnotes ── */
+.footnote-ref {
+  color: #a272b0;
+  text-decoration: none;
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.footnote-ref:hover {
+  text-decoration: underline;
+}
+
+.footnote-hr {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 24px 0 12px;
+}
+
+.footnotes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85em;
+  color: #9a8aaa;
+}
+
+.footnotes li {
+  margin-bottom: 4px;
+}
+
+.footnote-back {
+  color: #6b4e7a;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.footnote-back:hover {
+  text-decoration: underline;
+}
+
 /* ── Todo / lists ── */
 #todo-container a {
   color: #9cdcfe;

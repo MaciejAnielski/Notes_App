@@ -180,14 +180,48 @@ function styleTaskListItems(container = previewDiv) {
   });
 }
 
-// Convert [[Note Name]] or [[Note_Name]] wiki-style links to markdown links
-// before passing to marked, preserving display name with spaces.
-function preprocessWikiLinks(text) {
-  return text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+// Pre-process markdown before passing to marked:
+//   1. Convert [[Note Name]] wiki-links to standard markdown links
+//   2. Convert [^id] footnote references and [^id]: definitions to HTML
+function preprocessMarkdown(text) {
+  // ── Wiki links ──
+  text = text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
     const display = inner.replace(/_/g, ' ').trim();
     const href = encodeURIComponent(inner.trim());
     return `[${display}](${href})`;
   });
+
+  // ── Footnotes ──
+  // Collect definitions: lines starting with [^id]: (may span indented continuations)
+  const defs = {};
+  // Match [^id]: text — captures the whole definition line
+  text = text.replace(/^\[\^([^\]]+)\]:\s*(.+)$/gm, (_, id, def) => {
+    defs[id] = def.trim();
+    return ''; // remove definition line from body
+  });
+
+  // Only proceed if any definitions were found
+  if (Object.keys(defs).length === 0) return text;
+
+  // Replace inline [^id] references with numbered superscripts
+  const order = []; // track encounter order for numbering
+  text = text.replace(/\[\^([^\]]+)\]/g, (_, id) => {
+    if (!order.includes(id)) order.push(id);
+    const n = order.indexOf(id) + 1;
+    return `<sup><a id="fnref-${id}" href="#fn-${id}" class="footnote-ref">${n}</a></sup>`;
+  });
+
+  // Build footnotes section HTML — parse inline markdown so links, bold,
+  // italic, LaTeX etc. all render correctly inside footnote definitions
+  const items = order.map((id, i) => {
+    const n = i + 1;
+    const defText = marked.parseInline(defs[id] || '');
+    return `<li id="fn-${id}">${n}. ${defText} <a href="#fnref-${id}" class="footnote-back">↩</a></li>`;
+  }).join('\n');
+
+  text += `\n\n<hr class="footnote-hr">\n<ol class="footnotes">\n${items}\n</ol>`;
+
+  return text;
 }
 
 function setupNoteLinks(container = previewDiv) {
@@ -230,7 +264,7 @@ function setupNoteLinks(container = previewDiv) {
 }
 
 function renderPreview() {
-  previewDiv.innerHTML = marked.parse(preprocessWikiLinks(textarea.value));
+  previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
   setupNoteLinks(previewDiv);
   setupPreviewTaskCheckboxes();
@@ -600,7 +634,7 @@ function updateFileList() {
   });
 
   Object.keys(noteMap)
-    .sort()
+    .sort((a, b) => b.localeCompare(a))
     .forEach(name => {
       items.push(noteMap[name]);
     });
