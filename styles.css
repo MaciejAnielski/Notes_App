@@ -10,7 +10,7 @@ html, body {
 
 body {
   background-color: #1e1e1e;
-  color: #d8c8e8;
+  color: #e8dcf4;
   font-family: Arial, sans-serif;
   display: flex;
   flex-direction: column;
@@ -33,7 +33,7 @@ body {
 /* ── Buttons ── */
 button {
   background-color: #2e2e2e;
-  color: #d8c8e8;
+  color: #e8dcf4;
   border: 1px solid #555;
   border-radius: 4px;
   padding: 8px 12px;
@@ -70,7 +70,7 @@ button {
 #searchTasksBox {
   display: block;
   background-color: #2e2e2e;
-  color: #d8c8e8;
+  color: #e8dcf4;
   border: 1px solid #555;
   border-radius: 4px;
   width: 100%;
@@ -132,10 +132,21 @@ button {
   flex-shrink: 0;
 }
 
+/* ── Hide scrollbars while keeping scroll functionality ── */
+textarea::-webkit-scrollbar,
+#preview::-webkit-scrollbar {
+  display: none;
+}
+
+textarea,
+#preview {
+  scrollbar-width: none; /* Firefox */
+}
+
 /* ── Textarea & preview ── */
 textarea {
   background-color: #1e1e1e;
-  color: #d8c8e8;
+  color: #e8dcf4;
   border: none;
   border-radius: 0;
   width: 100%;
@@ -160,7 +171,7 @@ textarea {
   border-radius: 0;
   box-sizing: border-box;
   background-color: #1e1e1e;
-  color: #d8c8e8;
+  color: #e8dcf4;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -228,7 +239,7 @@ textarea {
   height: 40px;
   border-radius: 50%;
   background-color: #2e2e2e;
-  color: #d8c8e8;
+  color: #e8dcf4;
   border: 1px solid #555;
   font-size: 22px;
   line-height: 1;
