@@ -743,6 +743,35 @@ textarea.addEventListener('input', () => {
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
 });
 
+const panelLists = document.getElementById('panel-lists');
+const panelArrow = document.getElementById('panel-arrow');
+const filesContainer = document.getElementById('files-container');
+const todosContainer = document.getElementById('todo-container');
+let peekHideTimer = null;
+
+// Arrow click toggles between Saved Notes and Tasks
+panelArrow.addEventListener('click', () => {
+  const notesActive = filesContainer.classList.contains('active');
+  filesContainer.classList.toggle('active', !notesActive);
+  todosContainer.classList.toggle('active', notesActive);
+});
+
+// Hover on arrow or lists panel shows the overlay
+function showPanel() {
+  clearTimeout(peekHideTimer);
+  panelLists.classList.add('visible');
+}
+
+function scheduleHidePanel() {
+  clearTimeout(peekHideTimer);
+  peekHideTimer = setTimeout(() => panelLists.classList.remove('visible'), 100);
+}
+
+panelArrow.addEventListener('mouseenter', showPanel);
+panelArrow.addEventListener('mouseleave', scheduleHidePanel);
+panelLists.addEventListener('mouseenter', showPanel);
+panelLists.addEventListener('mouseleave', scheduleHidePanel);
+
 textarea.addEventListener('keydown', e => {
   if (e.key === 'Tab') {
     e.preventDefault();
