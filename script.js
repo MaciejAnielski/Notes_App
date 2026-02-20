@@ -208,23 +208,40 @@ function preprocessMarkdown(text) {
   // headings (#) are left for marked to handle natively even when indented.
   // Only plain prose lines with leading tabs are converted to <p> blocks
   // with matching padding-left so indentation is preserved in the preview.
+  //
+  // Tab-indented list runs that start a new top-level list are wrapped in a
+  // <div style="padding-left:Nem"> so the visual indent is preserved.
+  // Marked parses markdown inside a <div> block when surrounded by blank lines.
+  // Items that follow a non-tab list line (e.g. `1. Ordered \n\t- sub`) keep
+  // their full 4-space depth so they nest as sub-items of the parent list.
   {
     const lines = text.split('\n');
     const out = [];
     let inFence = false;
-    // Track the tab depth of the first item in the current list run so that
-    // all items in the same list are indented relative to that baseline.
-    // This prevents tab-indented list starts from being unreachable by marked
-    // (marked ignores lists whose first item has leading spaces).
-    let listBaseDepth = null;
+    // pendingList accumulates lines for a tab-indented top-level list run
+    // before we know whether it needs a wrapping <div>.
+    let pendingList = null; // { baseDepth, lines[] } | null
     let prevWasListItem = false;
+
+    const flushPendingList = () => {
+      if (!pendingList) return;
+      const { baseDepth, listLines } = pendingList;
+      const padEm = baseDepth * 2;
+      out.push(`<div style="padding-left:${padEm}em">`);
+      out.push('');
+      listLines.forEach(l => out.push(l));
+      out.push('');
+      out.push('</div>');
+      out.push('');
+      pendingList = null;
+    };
 
     for (const line of lines) {
       // Track fenced code blocks (``` or ~~~)
       if (/^[ \t]*(`{3,}|~{3,})/.test(line)) {
+        flushPendingList();
         inFence = !inFence;
         out.push(line);
-        listBaseDepth = null;
         prevWasListItem = false;
         continue;
       }
@@ -233,10 +250,10 @@ function preprocessMarkdown(text) {
         continue;
       }
 
-      // Blank lines reset the list run
+      // Blank lines end the current list run
       if (line.trim() === '') {
+        flushPendingList();
         out.push(line);
-        listBaseDepth = null;
         prevWasListItem = false;
         continue;
       }
@@ -252,47 +269,48 @@ function preprocessMarkdown(text) {
         const isHeading = trimmed.startsWith('#');
 
         if (isListItem) {
-          // If the previous line was a list item (tab-indented or not) and we
-          // already have a base depth, indent relative to that base so the first
-          // tab-indented item of a run is always at depth 0.
-          // If there's no base yet (first tab-indented item in this run),
-          // set it now — unless the previous line was a non-tab list item (e.g.
-          // `1. Ordered`) in which case keep the full depth so it nests properly.
-          if (listBaseDepth === null) {
-            if (!prevWasListItem) {
-              // First item of a brand-new list at the top level
-              listBaseDepth = depth;
-            }
-            // else: previous line was a non-tab list item; keep depth as-is
-            // so this item becomes a nested sub-item of that list
+          if (!prevWasListItem) {
+            // First item of a brand-new top-level list — start a pending run
+            flushPendingList();
+            pendingList = { baseDepth: depth, listLines: [] };
           }
-          const relativeDepth = listBaseDepth !== null ? depth - listBaseDepth : depth;
-          out.push('    '.repeat(Math.max(0, relativeDepth)) + content);
+
+          if (pendingList) {
+            // Accumulate into the pending indented list run, stripping base tabs
+            const relativeDepth = depth - pendingList.baseDepth;
+            pendingList.listLines.push('    '.repeat(Math.max(0, relativeDepth)) + content);
+          } else {
+            // Sub-item of a non-tab parent list: keep full 4-space depth
+            out.push('    '.repeat(depth) + content);
+          }
           prevWasListItem = true;
         } else if (isBlockquote || isHeading) {
+          flushPendingList();
           out.push('    '.repeat(depth) + content);
-          listBaseDepth = null;
           prevWasListItem = false;
         } else {
           // Plain prose: convert to padded HTML block
+          flushPendingList();
           const rendered = marked.parseInline(content);
           // Blank line after HTML block so marked ends it cleanly before
           // whatever follows (lists, paragraphs, etc.)
           out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>`);
           out.push('');
-          listBaseDepth = null;
           prevWasListItem = false;
         }
       } else {
-        // Non-tab-indented line: reset list base but preserve prevWasListItem
-        // so a following tab-indented item knows it's a continuation/child
+        // Non-tab-indented line — flush any pending list, then emit as-is.
+        // Preserve prevWasListItem so a following tab-indented item knows
+        // whether it's continuing a parent list or starting a new one.
+        flushPendingList();
         const trimmed = line.trimStart();
-        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
-        prevWasListItem = isListItem;
-        listBaseDepth = null; // always reset base on non-tab lines
+        prevWasListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
         out.push(line);
       }
     }
+    // Flush any remaining pending list at end of input
+    flushPendingList();
+
     text = out.join('\n');
   }
 
