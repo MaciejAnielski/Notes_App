@@ -212,39 +212,84 @@ function preprocessMarkdown(text) {
     const lines = text.split('\n');
     const out = [];
     let inFence = false;
+    // Track the tab depth of the first item in the current list run so that
+    // all items in the same list are indented relative to that baseline.
+    // This prevents tab-indented list starts from being unreachable by marked
+    // (marked ignores lists whose first item has leading spaces).
+    let listBaseDepth = null;
+    let prevWasListItem = false;
+
     for (const line of lines) {
       // Track fenced code blocks (``` or ~~~)
       if (/^[ \t]*(`{3,}|~{3,})/.test(line)) {
         inFence = !inFence;
         out.push(line);
+        listBaseDepth = null;
+        prevWasListItem = false;
         continue;
       }
       if (inFence) {
         out.push(line);
         continue;
       }
+
+      // Blank lines reset the list run
+      if (line.trim() === '') {
+        out.push(line);
+        listBaseDepth = null;
+        prevWasListItem = false;
+        continue;
+      }
+
       // Count leading tabs on this line
       const tabMatch = line.match(/^(\t+)(.*)/);
       if (tabMatch) {
         const depth = tabMatch[1].length;
         const content = tabMatch[2];
-        // Skip lines that are markdown syntax — let marked handle them.
-        // Convert leading tabs to 4 spaces each so marked recognises nesting.
         const trimmed = content.trimStart();
         const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
         const isBlockquote = trimmed.startsWith('>');
         const isHeading = trimmed.startsWith('#');
-        if (isListItem || isBlockquote || isHeading) {
+
+        if (isListItem) {
+          // If the previous line was a list item (tab-indented or not) and we
+          // already have a base depth, indent relative to that base so the first
+          // tab-indented item of a run is always at depth 0.
+          // If there's no base yet (first tab-indented item in this run),
+          // set it now — unless the previous line was a non-tab list item (e.g.
+          // `1. Ordered`) in which case keep the full depth so it nests properly.
+          if (listBaseDepth === null) {
+            if (!prevWasListItem) {
+              // First item of a brand-new list at the top level
+              listBaseDepth = depth;
+            }
+            // else: previous line was a non-tab list item; keep depth as-is
+            // so this item becomes a nested sub-item of that list
+          }
+          const relativeDepth = listBaseDepth !== null ? depth - listBaseDepth : depth;
+          out.push('    '.repeat(Math.max(0, relativeDepth)) + content);
+          prevWasListItem = true;
+        } else if (isBlockquote || isHeading) {
           out.push('    '.repeat(depth) + content);
+          listBaseDepth = null;
+          prevWasListItem = false;
         } else {
-          // Parse inline markdown so bold, italic, links etc. still render
+          // Plain prose: convert to padded HTML block
           const rendered = marked.parseInline(content);
-          // Raw HTML block + blank line so marked ends the HTML block cleanly
-          // and can parse whatever follows (lists, paragraphs, etc.)
+          // Blank line after HTML block so marked ends it cleanly before
+          // whatever follows (lists, paragraphs, etc.)
           out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>`);
           out.push('');
+          listBaseDepth = null;
+          prevWasListItem = false;
         }
       } else {
+        // Non-tab-indented line: reset list base but preserve prevWasListItem
+        // so a following tab-indented item knows it's a continuation/child
+        const trimmed = line.trimStart();
+        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        prevWasListItem = isListItem;
+        listBaseDepth = null; // always reset base on non-tab lines
         out.push(line);
       }
     }
