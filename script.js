@@ -203,6 +203,44 @@ function preprocessMarkdown(text) {
     return `[${display}](${href})`;
   });
 
+  // ── Indentation: convert leading tabs into padded HTML blocks ──
+  // Fenced code blocks are left untouched. Outside of them, lines that start
+  // with one or more tabs (inserted via the Tab key) are converted to raw HTML
+  // paragraphs with matching padding-left so the indentation is preserved in
+  // the rendered preview. Each tab level = 2em of padding.
+  // Wiki links have already been converted to markdown links above, so inline
+  // content (including links) is passed through marked.parseInline for rendering.
+  {
+    const lines = text.split('\n');
+    const out = [];
+    let inFence = false;
+    for (const line of lines) {
+      // Track fenced code blocks (``` or ~~~)
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) {
+        inFence = !inFence;
+        out.push(line);
+        continue;
+      }
+      if (inFence) {
+        out.push(line);
+        continue;
+      }
+      // Count leading tabs
+      const tabMatch = line.match(/^(\t+)(.*)/);
+      if (tabMatch) {
+        const depth = tabMatch[1].length;
+        const content = tabMatch[2];
+        // Parse inline markdown (bold, italic, links, etc.) so formatting still works
+        const rendered = marked.parseInline(content);
+        // Emit as a raw HTML block so marked passes it through without re-wrapping
+        out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>\n`);
+      } else {
+        out.push(line);
+      }
+    }
+    text = out.join('\n');
+  }
+
   // ── Footnotes ──
   // Collect definitions: lines starting with [^id]: (may span indented continuations)
   const defs = {};
