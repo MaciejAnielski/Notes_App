@@ -263,10 +263,46 @@ function setupNoteLinks(container = previewDiv) {
   });
 }
 
+function setupCollapsibleHeadings(container) {
+  const headingTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+  const headingLevel = el => parseInt(el.tagName[1]);
+
+  // Work bottom-up so nested headings wrap correctly
+  const headings = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')].reverse();
+
+  headings.forEach(heading => {
+    const level = headingLevel(heading);
+    const details = document.createElement('details');
+    details.open = true;
+    const summary = document.createElement('summary');
+
+    // Move heading's content into summary, keep heading tag for styling
+    const headingClone = heading.cloneNode(true);
+    summary.appendChild(headingClone);
+    details.appendChild(summary);
+
+    // Collect all following siblings until a heading of same or higher level
+    const siblings = [];
+    let next = heading.nextSibling;
+    while (next) {
+      const after = next.nextSibling;
+      if (next.nodeType === Node.ELEMENT_NODE && headingTags.has(next.tagName) && headingLevel(next) <= level) {
+        break;
+      }
+      siblings.push(next);
+      next = after;
+    }
+    siblings.forEach(s => details.appendChild(s));
+
+    heading.replaceWith(details);
+  });
+}
+
 function renderPreview() {
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
   setupNoteLinks(previewDiv);
+  setupCollapsibleHeadings(previewDiv);
   setupPreviewTaskCheckboxes();
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]);
@@ -676,7 +712,12 @@ function updateTodoList() {
           const todoLi = document.createElement('li');
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          const text = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').trim();
+          const rawText = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').trim();
+          const text = rawText.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+            const display = inner.replace(/_/g, ' ').trim();
+            const href = encodeURIComponent(inner.trim());
+            return `[${display}](${href})`;
+          });
           checkbox.addEventListener('change', () => {
             toggleTaskStatus(fileName, t.idx);
           });

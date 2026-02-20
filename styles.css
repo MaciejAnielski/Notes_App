@@ -185,6 +185,41 @@ textarea {
   color: #9cdcfe;
 }
 
+/* ── Collapsible headings ── */
+#preview details {
+  margin: 0;
+}
+
+#preview details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+#preview details > summary::-webkit-details-marker {
+  display: none;
+}
+
+#preview details > summary h1,
+#preview details > summary h2,
+#preview details > summary h3,
+#preview details > summary h4,
+#preview details > summary h5,
+#preview details > summary h6 {
+  display: inline;
+  margin: revert;
+}
+
+#preview details > summary::after {
+  content: ' ›';
+  font-size: 0.8em;
+  color: #6b4e7a;
+  transition: none;
+}
+
+#preview details[open] > summary::after {
+  content: ' ⌄';
+}
+
 /* ── Footnotes ── */
 .footnote-ref {
   color: #a272b0;
