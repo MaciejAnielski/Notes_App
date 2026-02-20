@@ -239,7 +239,7 @@ function preprocessMarkdown(text) {
         } else {
           // Parse inline markdown so bold, italic, links etc. still render
           const rendered = marked.parseInline(content);
-          out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>\n`);
+          out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>`);
         }
       } else {
         out.push(line);
@@ -556,6 +556,10 @@ function generateHtmlContent(title, markdown) {
       border-radius: 0 4px 4px 0;
     }
     blockquote p { margin: 0; }
+    p { margin: 0.5em 0; }
+    ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
+    li > ul, li > ol { margin: 0; }
+    li { margin: 0.15em 0; }
     ul { list-style-type: disc; }
     ul ul { list-style-type: circle; }
     ul ul ul { list-style-type: square; }

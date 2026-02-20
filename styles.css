@@ -177,6 +177,10 @@ textarea {
   min-height: 0;
 }
 
+#preview p {
+  margin: 0.5em 0;
+}
+
 #preview li p:first-child:last-child {
   margin: 0;
 }
@@ -185,10 +189,21 @@ textarea {
   color: #9cdcfe;
 }
 
-/* ── Nested lists ── */
+/* ── Lists ── */
 #preview ul,
 #preview ol {
   padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+/* Nested lists: no extra vertical margin */
+#preview li > ul,
+#preview li > ol {
+  margin: 0;
+}
+
+#preview li {
+  margin: 0.15em 0;
 }
 
 #preview ul { list-style-type: disc; }
