@@ -324,7 +324,19 @@ function setupCollapsibleHeadings(container) {
   const headingTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
   const headingLevel = el => parseInt(el.tagName[1]);
 
-  // Work bottom-up so nested headings wrap correctly
+  // Return the heading level of a node, accounting for the fact that earlier
+  // iterations (bottom-up) may have already wrapped headings in <details>.
+  function nodeHeadingLevel(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    if (headingTags.has(node.tagName)) return headingLevel(node);
+    if (node.tagName === 'DETAILS') {
+      const h = node.querySelector('summary > h1, summary > h2, summary > h3, summary > h4, summary > h5, summary > h6');
+      return h ? headingLevel(h) : null;
+    }
+    return null;
+  }
+
+  // Work bottom-up so inner headings are wrapped before outer ones
   const headings = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')].reverse();
 
   headings.forEach(heading => {
@@ -334,18 +346,17 @@ function setupCollapsibleHeadings(container) {
     const summary = document.createElement('summary');
 
     // Move heading's content into summary, keep heading tag for styling
-    const headingClone = heading.cloneNode(true);
-    summary.appendChild(headingClone);
+    summary.appendChild(heading.cloneNode(true));
     details.appendChild(summary);
 
-    // Collect all following siblings until a heading of same or higher level
+    // Collect following siblings until a heading of the same or higher level.
+    // Use nodeHeadingLevel so already-wrapped <details> siblings are detected.
     const siblings = [];
     let next = heading.nextSibling;
     while (next) {
       const after = next.nextSibling;
-      if (next.nodeType === Node.ELEMENT_NODE && headingTags.has(next.tagName) && headingLevel(next) <= level) {
-        break;
-      }
+      const sibLevel = nodeHeadingLevel(next);
+      if (sibLevel !== null && sibLevel <= level) break;
       siblings.push(next);
       next = after;
     }
