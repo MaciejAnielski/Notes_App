@@ -239,7 +239,10 @@ function preprocessMarkdown(text) {
         } else {
           // Parse inline markdown so bold, italic, links etc. still render
           const rendered = marked.parseInline(content);
+          // Raw HTML block + blank line so marked ends the HTML block cleanly
+          // and can parse whatever follows (lists, paragraphs, etc.)
           out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>`);
+          out.push('');
         }
       } else {
         out.push(line);
