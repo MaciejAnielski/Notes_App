@@ -21,7 +21,6 @@ let linkedNoteChain = [];
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');
 
-
 const newNoteBtn = document.getElementById('new-note');
 const downloadAllBtn = document.getElementById('download-all');
 const exportNoteBtn = document.getElementById('export-note');
@@ -194,7 +193,8 @@ function styleTaskListItems(container = previewDiv) {
 
 // Pre-process markdown before passing to marked:
 //   1. Convert [[Note Name]] wiki-links to standard markdown links
-//   2. Convert [^id] footnote references and [^id]: definitions to HTML
+//   2. Preserve tab indentation as CSS padding in the rendered preview
+//   3. Convert [^id] footnote references and [^id]: definitions to HTML
 function preprocessMarkdown(text) {
   // ── Wiki links ──
   text = text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
@@ -204,12 +204,10 @@ function preprocessMarkdown(text) {
   });
 
   // ── Indentation: convert leading tabs into padded HTML blocks ──
-  // Fenced code blocks are left untouched. Outside of them, lines that start
-  // with one or more tabs (inserted via the Tab key) are converted to raw HTML
-  // paragraphs with matching padding-left so the indentation is preserved in
-  // the rendered preview. Each tab level = 2em of padding.
-  // Wiki links have already been converted to markdown links above, so inline
-  // content (including links) is passed through marked.parseInline for rendering.
+  // Fenced code blocks, list items (- / * / + / 1.), blockquotes (>), and
+  // headings (#) are left for marked to handle natively even when indented.
+  // Only plain prose lines with leading tabs are converted to <p> blocks
+  // with matching padding-left so indentation is preserved in the preview.
   {
     const lines = text.split('\n');
     const out = [];
@@ -225,15 +223,24 @@ function preprocessMarkdown(text) {
         out.push(line);
         continue;
       }
-      // Count leading tabs
+      // Count leading tabs on this line
       const tabMatch = line.match(/^(\t+)(.*)/);
       if (tabMatch) {
         const depth = tabMatch[1].length;
         const content = tabMatch[2];
-        // Parse inline markdown (bold, italic, links, etc.) so formatting still works
-        const rendered = marked.parseInline(content);
-        // Emit as a raw HTML block so marked passes it through without re-wrapping
-        out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>\n`);
+        // Skip lines that are markdown syntax — let marked handle them.
+        // Convert leading tabs to 4 spaces each so marked recognises nesting.
+        const trimmed = content.trimStart();
+        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isBlockquote = trimmed.startsWith('>');
+        const isHeading = trimmed.startsWith('#');
+        if (isListItem || isBlockquote || isHeading) {
+          out.push('    '.repeat(depth) + content);
+        } else {
+          // Parse inline markdown so bold, italic, links etc. still render
+          const rendered = marked.parseInline(content);
+          out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>\n`);
+        }
       } else {
         out.push(line);
       }
@@ -378,7 +385,6 @@ function toggleView() {
 
 toggleViewBtn.addEventListener('click', toggleView);
 
-
 function autoSaveNote() {
   const name = getNoteTitle();
   if (!name) {
@@ -514,12 +520,8 @@ function downloadAllNotes() {
 
 function generateHtmlContent(title, markdown) {
   const container = document.createElement('div');
-  container.innerHTML = marked.parse(markdown);
+  container.innerHTML = marked.parse(preprocessMarkdown(markdown));
   styleTaskListItems(container);
-  const isDark = document.body.classList.contains('dark-mode');
-  const bgColor = isDark ? '#2e2e2e' : '#d8bbdf';
-  const textColor = isDark ? '#f0f0f0' : '#000';
-  const linkColor = isDark ? '#9cdcfe' : '#0645ad';
   const style = `
     body {
       width: 100%;
@@ -531,14 +533,28 @@ function generateHtmlContent(title, markdown) {
       line-height: 1.5;
       border-radius: 4px;
       box-sizing: border-box;
-      background-color: ${bgColor};
-      color: ${textColor};
+      background-color: #1e1e1e;
+      color: #e8dcf4;
       margin: 20px auto;
     }
-    a { color: ${linkColor}; }
+    a { color: #9cdcfe; }
+    blockquote {
+      margin: 12px 0; padding: 6px 14px;
+      border-left: 3px solid #a272b0;
+      background-color: #262030; color: #b8a8cc;
+      border-radius: 0 4px 4px 0;
+    }
+    blockquote p { margin: 0; }
+    ul { list-style-type: disc; }
+    ul ul { list-style-type: circle; }
+    ul ul ul { list-style-type: square; }
     li p:first-child:last-child { margin: 0; }
     li.task-item + li.bullet-item,
     li.bullet-item + li.task-item { margin-top: 8px; }
+    .footnote-ref { color: #a272b0; text-decoration: none; font-size: 0.75em; vertical-align: super; }
+    .footnote-hr { border: none; border-top: 1px solid #333; margin: 24px 0 12px; }
+    .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: #9a8aaa; }
+    .footnote-back { color: #6b4e7a; text-decoration: none; margin-left: 4px; }
   `;
   return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
@@ -838,10 +854,6 @@ function toggleTaskStatus(fileName, lineIndex) {
   updateTodoList();
 }
 
-function filterNotes() {
-  updateFileList();
-}
-
 function setupMobileButtonGroup(button, action) {
   const group = button.parentElement;
   const sub = group ? group.querySelector('.sub-button') : null;
@@ -891,7 +903,7 @@ importZipInput.addEventListener('change', e => {
     importNotesFromZip(e.target.files[0]);
   }
 });
-searchBox.addEventListener('input', filterNotes);
+searchBox.addEventListener('input', updateFileList);
 searchTasksBox.addEventListener('input', updateTodoList);
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
