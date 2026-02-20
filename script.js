@@ -1,3 +1,15 @@
+// Disable indented code blocks so indented text renders as normal paragraphs.
+// Fenced code blocks (``` ... ```) still work correctly.
+marked.use({
+  tokenizer: {
+    code(src) {
+      // Suppress the indented code block rule entirely
+      const indentedCode = /^(?:(?:    |\t)[^\n]+(?:\n|$))+/;
+      if (indentedCode.test(src)) return undefined;
+    }
+  }
+});
+
 const textarea = document.getElementById('editor');
 const previewDiv = document.getElementById('preview');
 const toggleViewBtn = document.getElementById('toggle-view');
