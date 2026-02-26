@@ -432,11 +432,39 @@ function setupCollapsibleHeadings(container) {
   });
 }
 
+function alignTableColumns(container) {
+  container.querySelectorAll('table').forEach(table => {
+    const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+    if (bodyRows.length === 0) return;
+
+    const firstRow = bodyRows[0];
+    const firstCells = Array.from(firstRow.querySelectorAll('td'));
+
+    firstCells.forEach((cell, colIndex) => {
+      const text = cell.textContent.trim();
+      const cleaned = text.replace(/[,$€£¥%+ ]/g, '');
+      const numeric = cleaned !== '' && !isNaN(Number(cleaned));
+      const align = numeric ? 'right' : 'left';
+
+      // Align all body cells in this column
+      bodyRows.forEach(row => {
+        const td = row.querySelectorAll('td')[colIndex];
+        if (td) td.style.textAlign = align;
+      });
+
+      // Align the header cell to match the first row's content type
+      const th = table.querySelectorAll('thead tr th')[colIndex];
+      if (th) th.style.textAlign = align;
+    });
+  });
+}
+
 function renderPreview() {
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
   setupNoteLinks(previewDiv);
   setupCollapsibleHeadings(previewDiv);
+  alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]);
@@ -636,7 +664,12 @@ function generateHtmlContent(title, markdown) {
     .footnote-hr { border: none; border-top: 1px solid #333; margin: 24px 0 12px; }
     .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: #9a8aaa; }
     .footnote-back { color: #6b4e7a; text-decoration: none; margin-left: 4px; }
+    table { border-collapse: collapse; margin: 0.75em 0; }
+    th, td { border: 1px solid #444; padding: 6px 12px; }
+    thead tr { background-color: #2a2040; }
+    tbody tr:nth-child(even) { background-color: #242030; }
   `;
+  alignTableColumns(container);
   return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
 
