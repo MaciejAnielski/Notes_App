@@ -670,7 +670,7 @@ function generateHtmlContent(title, markdown) {
     tbody tr:nth-child(even) { background-color: #242030; }
   `;
   alignTableColumns(container);
-  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
+  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script>window.MathJax = { tex: { inlineMath: [['$','$'],['\\\\(','\\\\)']], displayMath: [['$$','$$'],['\\\\[','\\\\]']] } };</script>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
 
 function exportNote() {
