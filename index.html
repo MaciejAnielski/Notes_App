@@ -22,13 +22,11 @@
 
 </head>
 
-<body class="dark-mode">
+<body>
 
-    <button id="toggle-theme" class="moon" aria-label="Toggle Dark Mode"></button>
-    
-    <div id="status-message"></div>    
-  
-    <div class="storage-controls">
+    <div id="status-message"></div>
+
+    <div id="button-container" class="storage-controls">
 
         <div class="button-group">
             <button id="new-note">New Note</button>
@@ -61,25 +59,25 @@
 
     </div>
 
-    <div id="layout-wrapper">
-      <div id="editor-section">
-        <textarea id="editor" placeholder="Start typing here..."></textarea>
-        <div id="preview" style="display:none;"></div>
-      </div>
+    <div id="editor-section">
+      <textarea id="editor" placeholder="Start typing here..."></textarea>
+      <div id="preview" style="display:none;"></div>
+    </div>
 
-      <div id="lists-container">
-        <div id="files-container">
-          <h2>Saved Notes</h2>
-          <input type="text" id="searchBox" placeholder="Search Notes...">
-          <ul id="fileList"></ul>
-        </div>
-        <div id="todo-container">
-          <h2>Tasks</h2>
-          <input type="text" id="searchTasksBox" placeholder="Search Tasks...">
-          <ul id="todoList"></ul>
-        </div>
+    <div id="panel-lists">
+      <div id="files-container" class="active">
+        <h2>Saved Notes</h2>
+        <input type="text" id="searchBox" placeholder="Search Notes...">
+        <ul id="fileList"></ul>
+      </div>
+      <div id="todo-container">
+        <h2>Tasks</h2>
+        <input type="text" id="searchTasksBox" placeholder="Search Tasks...">
+        <ul id="todoList"></ul>
       </div>
     </div>
+
+    <button id="panel-arrow" aria-label="Switch panel">&#8250;</button>
 
   <script src="script.js"></script>
 </body>

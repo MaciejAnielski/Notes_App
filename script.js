@@ -1,4 +1,15 @@
-const toggleBtn = document.getElementById('toggle-theme');
+// Disable indented code blocks so indented text renders as normal paragraphs.
+// Fenced code blocks (``` ... ```) still work correctly.
+marked.use({
+  tokenizer: {
+    code(src) {
+      // Suppress the indented code block rule entirely
+      const indentedCode = /^(?:(?:    |\t)[^\n]+(?:\n|$))+/;
+      if (indentedCode.test(src)) return undefined;
+    }
+  }
+});
+
 const textarea = document.getElementById('editor');
 const previewDiv = document.getElementById('preview');
 const toggleViewBtn = document.getElementById('toggle-view');
@@ -7,26 +18,8 @@ let autoSaveTimer = null;
 let currentFileName = null;
 let linkedNoteChain = [];
 
-function applyTheme(theme) {
-  document.body.classList.toggle('dark-mode', theme === 'dark');
-  toggleBtn.classList.remove('sun', 'moon');
-  toggleBtn.classList.add(theme === 'dark' ? 'moon' : 'sun');
-}
-
-function toggleTheme() {
-  const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
-  applyTheme(newTheme);
-  localStorage.setItem('theme', newTheme);
-}
-
-toggleBtn.addEventListener('click', toggleTheme);
-
-const savedTheme = localStorage.getItem('theme') || 'dark';
-applyTheme(savedTheme);
-
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');
-
 
 const newNoteBtn = document.getElementById('new-note');
 const downloadAllBtn = document.getElementById('download-all');
@@ -73,14 +66,10 @@ function updateStatus(message, success) {
 
 function getFormattedDate() {
   const date = new Date();
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const day = date.getDate();
-  const suffix = (day % 10 === 1 && day !== 11) ? 'st'
-                : (day % 10 === 2 && day !== 12) ? 'nd'
-                : (day % 10 === 3 && day !== 13) ? 'rd'
-                : 'th';
-  return `${days[date.getDay()]} ${day}${suffix} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}${mm}${dd}`;
 }
 
 function getNoteTitle() {
@@ -202,34 +191,280 @@ function styleTaskListItems(container = previewDiv) {
   });
 }
 
+// Pre-process markdown before passing to marked:
+//   1. Convert [[Note Name]] wiki-links to standard markdown links
+//   2. Preserve tab indentation as CSS padding in the rendered preview
+//   3. Convert [^id] footnote references and [^id]: definitions to HTML
+function preprocessMarkdown(text) {
+  // ── Wiki links ──
+  text = text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+    const display = inner.replace(/_/g, ' ').trim();
+    const href = encodeURIComponent(inner.trim());
+    return `[${display}](${href})`;
+  });
+
+  // ── Indentation: convert leading tabs into padded HTML blocks ──
+  // Fenced code blocks, list items (- / * / + / 1.), blockquotes (>), and
+  // headings (#) are left for marked to handle natively even when indented.
+  // Only plain prose lines with leading tabs are converted to <p> blocks
+  // with matching padding-left so indentation is preserved in the preview.
+  //
+  // Tab-indented list runs that start a new top-level list are wrapped in a
+  // <div style="padding-left:Nem"> so the visual indent is preserved.
+  // Marked parses markdown inside a <div> block when surrounded by blank lines.
+  // Items that follow a non-tab list line (e.g. `1. Ordered \n\t- sub`) keep
+  // their full 4-space depth so they nest as sub-items of the parent list.
+  {
+    const lines = text.split('\n');
+    const out = [];
+    let inFence = false;
+    // pendingList accumulates lines for a tab-indented top-level list run
+    // before we know whether it needs a wrapping <div>.
+    let pendingList = null; // { baseDepth, lines[] } | null
+    let prevWasListItem = false;
+
+    const flushPendingList = () => {
+      if (!pendingList) return;
+      const { baseDepth, listLines } = pendingList;
+      const padEm = baseDepth * 2;
+      out.push(`<div style="padding-left:${padEm}em">`);
+      out.push('');
+      listLines.forEach(l => out.push(l));
+      out.push('');
+      out.push('</div>');
+      out.push('');
+      pendingList = null;
+    };
+
+    for (const line of lines) {
+      // Track fenced code blocks (``` or ~~~)
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) {
+        flushPendingList();
+        inFence = !inFence;
+        out.push(line);
+        prevWasListItem = false;
+        continue;
+      }
+      if (inFence) {
+        out.push(line);
+        continue;
+      }
+
+      // Blank lines end the current list run
+      if (line.trim() === '') {
+        flushPendingList();
+        out.push(line);
+        prevWasListItem = false;
+        continue;
+      }
+
+      // Count leading tabs on this line
+      const tabMatch = line.match(/^(\t+)(.*)/);
+      if (tabMatch) {
+        const depth = tabMatch[1].length;
+        const content = tabMatch[2];
+        const trimmed = content.trimStart();
+        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isBlockquote = trimmed.startsWith('>');
+        const isHeading = trimmed.startsWith('#');
+
+        if (isListItem) {
+          if (!prevWasListItem) {
+            // First item of a brand-new top-level list — start a pending run
+            flushPendingList();
+            pendingList = { baseDepth: depth, listLines: [] };
+          }
+
+          if (pendingList) {
+            // Accumulate into the pending indented list run, stripping base tabs
+            const relativeDepth = depth - pendingList.baseDepth;
+            pendingList.listLines.push('    '.repeat(Math.max(0, relativeDepth)) + content);
+          } else {
+            // Sub-item of a non-tab parent list: keep full 4-space depth
+            out.push('    '.repeat(depth) + content);
+          }
+          prevWasListItem = true;
+        } else if (isBlockquote || isHeading) {
+          flushPendingList();
+          out.push('    '.repeat(depth) + content);
+          prevWasListItem = false;
+        } else {
+          // Plain prose: convert to padded HTML block
+          flushPendingList();
+          const rendered = marked.parseInline(content);
+          // Blank line after HTML block so marked ends it cleanly before
+          // whatever follows (lists, paragraphs, etc.)
+          out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>`);
+          out.push('');
+          prevWasListItem = false;
+        }
+      } else {
+        // Non-tab-indented line — flush any pending list, then emit as-is.
+        // Preserve prevWasListItem so a following tab-indented item knows
+        // whether it's continuing a parent list or starting a new one.
+        flushPendingList();
+        const trimmed = line.trimStart();
+        prevWasListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        out.push(line);
+      }
+    }
+    // Flush any remaining pending list at end of input
+    flushPendingList();
+
+    text = out.join('\n');
+  }
+
+  // ── Footnotes ──
+  // Collect definitions: lines starting with [^id]: (may span indented continuations)
+  const defs = {};
+  // Match [^id]: text — captures the whole definition line
+  text = text.replace(/^\[\^([^\]]+)\]:\s*(.+)$/gm, (_, id, def) => {
+    defs[id] = def.trim();
+    return ''; // remove definition line from body
+  });
+
+  // Only proceed if any definitions were found
+  if (Object.keys(defs).length === 0) return text;
+
+  // Replace inline [^id] references with numbered superscripts
+  const order = []; // track encounter order for numbering
+  text = text.replace(/\[\^([^\]]+)\]/g, (_, id) => {
+    if (!order.includes(id)) order.push(id);
+    const n = order.indexOf(id) + 1;
+    return `<sup><a id="fnref-${id}" href="#fn-${id}" class="footnote-ref">${n}</a></sup>`;
+  });
+
+  // Build footnotes section HTML — parse inline markdown so links, bold,
+  // italic, LaTeX etc. all render correctly inside footnote definitions
+  const items = order.map((id, i) => {
+    const n = i + 1;
+    const defText = marked.parseInline(defs[id] || '');
+    return `<li id="fn-${id}">${n}. ${defText} <a href="#fnref-${id}" class="footnote-back">↩</a></li>`;
+  }).join('\n');
+
+  text += `\n\n<hr class="footnote-hr">\n<ol class="footnotes">\n${items}\n</ol>`;
+
+  return text;
+}
+
 function setupNoteLinks(container = previewDiv) {
   container.querySelectorAll('a').forEach(a => {
     const href = a.getAttribute('href');
     if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) {
       return;
     }
-    const noteName = decodeURIComponent(href).replace(/\_/g, ' ').trim();
+    const noteName = decodeURIComponent(href).replace(/_/g, ' ').trim();
+    const exists = localStorage.getItem('md_' + noteName) !== null;
+
     a.href = '#';
+
+    // Style links to non-existent notes differently
+    if (!exists) {
+      a.classList.add('internal-link-new');
+      a.title = `Create note "${noteName}"`;
+    }
+
     a.addEventListener('click', e => {
       e.preventDefault();
       if (localStorage.getItem('md_' + noteName) !== null) {
+        // Note exists — navigate into it
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
-          // Add the previously viewed note to the top of the chain so the
-          // history is ordered from most recent to oldest.
           linkedNoteChain.unshift(currentFileName);
         }
         loadNote(noteName, true);
       } else {
-        alert(`Note "${noteName}" not found.`);
+        // Note doesn't exist — create it and navigate to it
+        if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
+          linkedNoteChain.unshift(currentFileName);
+        }
+        const newContent = `# ${noteName}\n\n`;
+        localStorage.setItem('md_' + noteName, newContent);
+        loadNote(noteName, true);
+        updateStatus(`Created Note "${noteName}".`, true);
       }
     });
   });
 }
 
+function setupCollapsibleHeadings(container) {
+  const headingTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+  const headingLevel = el => parseInt(el.tagName[1]);
+
+  // Return the heading level of a node, accounting for the fact that earlier
+  // iterations (bottom-up) may have already wrapped headings in <details>.
+  function nodeHeadingLevel(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    if (headingTags.has(node.tagName)) return headingLevel(node);
+    if (node.tagName === 'DETAILS') {
+      const h = node.querySelector('summary > h1, summary > h2, summary > h3, summary > h4, summary > h5, summary > h6');
+      return h ? headingLevel(h) : null;
+    }
+    return null;
+  }
+
+  // Work bottom-up so inner headings are wrapped before outer ones
+  const headings = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')].reverse();
+
+  headings.forEach(heading => {
+    const level = headingLevel(heading);
+    const details = document.createElement('details');
+    details.open = true;
+    const summary = document.createElement('summary');
+
+    // Move heading's content into summary, keep heading tag for styling
+    summary.appendChild(heading.cloneNode(true));
+    details.appendChild(summary);
+
+    // Collect following siblings until a heading of the same or higher level.
+    // Use nodeHeadingLevel so already-wrapped <details> siblings are detected.
+    const siblings = [];
+    let next = heading.nextSibling;
+    while (next) {
+      const after = next.nextSibling;
+      const sibLevel = nodeHeadingLevel(next);
+      if (sibLevel !== null && sibLevel <= level) break;
+      siblings.push(next);
+      next = after;
+    }
+    siblings.forEach(s => details.appendChild(s));
+
+    heading.replaceWith(details);
+  });
+}
+
+function alignTableColumns(container) {
+  container.querySelectorAll('table').forEach(table => {
+    const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+    if (bodyRows.length === 0) return;
+
+    const firstRow = bodyRows[0];
+    const firstCells = Array.from(firstRow.querySelectorAll('td'));
+
+    firstCells.forEach((cell, colIndex) => {
+      const text = cell.textContent.trim();
+      const cleaned = text.replace(/[,$€£¥%+ ]/g, '');
+      const numeric = cleaned !== '' && !isNaN(Number(cleaned));
+      const align = numeric ? 'right' : 'left';
+
+      // Align all body cells in this column
+      bodyRows.forEach(row => {
+        const td = row.querySelectorAll('td')[colIndex];
+        if (td) td.style.textAlign = align;
+      });
+
+      // Align the header cell to match the first row's content type
+      const th = table.querySelectorAll('thead tr th')[colIndex];
+      if (th) th.style.textAlign = align;
+    });
+  });
+}
+
 function renderPreview() {
-  previewDiv.innerHTML = marked.parse(textarea.value);
+  previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
   setupNoteLinks(previewDiv);
+  setupCollapsibleHeadings(previewDiv);
+  alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]);
@@ -255,11 +490,10 @@ function toggleView() {
 
 toggleViewBtn.addEventListener('click', toggleView);
 
-
 function autoSaveNote() {
   const name = getNoteTitle();
   if (!name) {
-    updateStatus('File not saved. Please add a title starting with "#".', false);
+    updateStatus('File Not Saved. Please Add A Title Starting With "#".', false);
     return;
   }
   if (currentFileName && currentFileName !== name) {
@@ -272,9 +506,9 @@ function autoSaveNote() {
   if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
     if (isNoteBodyEmpty()) {
       loadNote(name);
-      updateStatus(`Opened existing note "${name}".`, true);
+      updateStatus(`Opened Existing Note "${name}".`, true);
     } else {
-      updateStatus(`File not saved. A file named "${name}" already exists. Please rename.`, false);
+      updateStatus(`File Not Saved. A File Named "${name}" Already Exists. Please Rename.`, false);
     }
     return;
   }
@@ -283,7 +517,7 @@ function autoSaveNote() {
   currentFileName = name;
   localStorage.setItem('current_file', name);
   updateFileList();
-  updateStatus('File saved successfully.', true);
+  updateStatus('File Saved Successfully.', true);
 }
 
 function loadNote(name, fromLink = false) {
@@ -338,6 +572,8 @@ function deleteNote() {
 
   localStorage.removeItem('md_' + name);
   textarea.value = '';
+  if (isPreview) toggleView();
+  else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
@@ -352,6 +588,8 @@ function deleteAllNotes() {
   }
   keys.forEach(k => localStorage.removeItem(k));
   textarea.value = '';
+  if (isPreview) toggleView();
+  else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
@@ -387,12 +625,8 @@ function downloadAllNotes() {
 
 function generateHtmlContent(title, markdown) {
   const container = document.createElement('div');
-  container.innerHTML = marked.parse(markdown);
+  container.innerHTML = marked.parse(preprocessMarkdown(markdown));
   styleTaskListItems(container);
-  const isDark = document.body.classList.contains('dark-mode');
-  const bgColor = isDark ? '#2e2e2e' : '#d8bbdf';
-  const textColor = isDark ? '#f0f0f0' : '#000';
-  const linkColor = isDark ? '#9cdcfe' : '#0645ad';
   const style = `
     body {
       width: 100%;
@@ -404,16 +638,39 @@ function generateHtmlContent(title, markdown) {
       line-height: 1.5;
       border-radius: 4px;
       box-sizing: border-box;
-      background-color: ${bgColor};
-      color: ${textColor};
+      background-color: #1e1e1e;
+      color: #e8dcf4;
       margin: 20px auto;
     }
-    a { color: ${linkColor}; }
+    a { color: #9cdcfe; }
+    blockquote {
+      margin: 12px 0; padding: 6px 14px;
+      border-left: 3px solid #a272b0;
+      background-color: #262030; color: #b8a8cc;
+      border-radius: 0 4px 4px 0;
+    }
+    blockquote p { margin: 0; }
+    p { margin: 0.5em 0; }
+    ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
+    li > ul, li > ol { margin: 0; }
+    li { margin: 0.15em 0; }
+    ul { list-style-type: disc; }
+    ul ul { list-style-type: circle; }
+    ul ul ul { list-style-type: square; }
     li p:first-child:last-child { margin: 0; }
     li.task-item + li.bullet-item,
     li.bullet-item + li.task-item { margin-top: 8px; }
+    .footnote-ref { color: #a272b0; text-decoration: none; font-size: 0.75em; vertical-align: super; }
+    .footnote-hr { border: none; border-top: 1px solid #333; margin: 24px 0 12px; }
+    .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: #9a8aaa; }
+    .footnote-back { color: #6b4e7a; text-decoration: none; margin-left: 4px; }
+    table { border-collapse: collapse; margin: 0.75em 0; }
+    th, td { border: 1px solid #444; padding: 6px 12px; }
+    thead tr { background-color: #2a2040; }
+    tbody tr:nth-child(even) { background-color: #242030; }
   `;
-  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
+  alignTableColumns(container);
+  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script>window.MathJax = { tex: { inlineMath: [['$','$'],['\\\\(','\\\\)']], displayMath: [['$$','$$'],['\\\\[','\\\\]']] } };</script>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
 
 function exportNote() {
@@ -583,16 +840,17 @@ function updateFileList() {
     delete noteMap[currentFileName];
   }
 
-  linkedNoteChain.forEach(name => {
+  linkedNoteChain.forEach((name, idx) => {
     if (noteMap[name]) {
       noteMap[name].classList.add('linked-file');
+      noteMap[name].dataset.chainIndex = idx + 1;
       items.push(noteMap[name]);
       delete noteMap[name];
     }
   });
 
   Object.keys(noteMap)
-    .sort()
+    .sort((a, b) => b.localeCompare(a))
     .forEach(name => {
       items.push(noteMap[name]);
     });
@@ -634,7 +892,12 @@ function updateTodoList() {
           const todoLi = document.createElement('li');
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          const text = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').trim();
+          const rawText = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').trim();
+          const text = rawText.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
+            const display = inner.replace(/_/g, ' ').trim();
+            const href = encodeURIComponent(inner.trim());
+            return `[${display}](${href})`;
+          });
           checkbox.addEventListener('change', () => {
             toggleTaskStatus(fileName, t.idx);
           });
@@ -705,10 +968,6 @@ function toggleTaskStatus(fileName, lineIndex) {
   updateTodoList();
 }
 
-function filterNotes() {
-  updateFileList();
-}
-
 function setupMobileButtonGroup(button, action) {
   const group = button.parentElement;
   const sub = group ? group.querySelector('.sub-button') : null;
@@ -758,11 +1017,50 @@ importZipInput.addEventListener('change', e => {
     importNotesFromZip(e.target.files[0]);
   }
 });
-searchBox.addEventListener('input', filterNotes);
+searchBox.addEventListener('input', updateFileList);
 searchTasksBox.addEventListener('input', updateTodoList);
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
+});
+
+const panelLists = document.getElementById('panel-lists');
+const panelArrow = document.getElementById('panel-arrow');
+const filesContainer = document.getElementById('files-container');
+const todosContainer = document.getElementById('todo-container');
+let peekHideTimer = null;
+
+// Arrow click toggles between Saved Notes and Tasks
+panelArrow.addEventListener('click', () => {
+  const notesActive = filesContainer.classList.contains('active');
+  filesContainer.classList.toggle('active', !notesActive);
+  todosContainer.classList.toggle('active', notesActive);
+});
+
+// Hover on arrow or lists panel shows the overlay
+function showPanel() {
+  clearTimeout(peekHideTimer);
+  panelLists.classList.add('visible');
+}
+
+function scheduleHidePanel() {
+  clearTimeout(peekHideTimer);
+  peekHideTimer = setTimeout(() => panelLists.classList.remove('visible'), 100);
+}
+
+panelArrow.addEventListener('mouseenter', showPanel);
+panelArrow.addEventListener('mouseleave', scheduleHidePanel);
+panelLists.addEventListener('mouseenter', showPanel);
+panelLists.addEventListener('mouseleave', scheduleHidePanel);
+
+textarea.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = textarea.value.substring(0, start) + '\t' + textarea.value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + 1;
+  }
 });
 
 if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {

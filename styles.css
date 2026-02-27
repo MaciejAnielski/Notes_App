@@ -1,226 +1,96 @@
-body {
-  background-color: #d0a8dc; /* pastel pink */
-  font-family: Arial, sans-serif;
-  padding: 20px;
-  color: #333;
-  transition: background-color 0.3s, color 0.3s;
+:root {
+  --gap: 10px;
 }
 
-textarea {
-  width: 100%;
-  max-width: 800px;
-  height: 400px;
-  padding: 10px;
-  margin-top: 10px;
-  font-size: 16px;
-  line-height: 1.5;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  box-sizing: border-box;
-  resize: vertical;
-  overflow-y: auto;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-#preview {
-  width: 100%;
-  max-width: 800px;
-  min-height: 400px;
-  padding: 10px;
-  font-size: 16px;
-  line-height: 1.5;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  box-sizing: border-box;
-  background-color: #d8bbdf;
-  color: #000;
-  overflow-y: auto;
-  transition: background-color 0.3s, color 0.3s;
-}
-
-.dark-mode #preview {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-#preview li p:first-child:last-child {
+/* ── Base ── */
+html, body {
+  height: 100%;
   margin: 0;
 }
-#preview a {
-  color: #0645ad;
-}
 
-.dark-mode #preview a {
-  color: #9cdcfe;
-}
-
-#todo-container a {
-  color: #0645ad;
-}
-
-.dark-mode #todo-container a {
-  color: #9cdcfe;
-}
-
-
-button {
-  cursor: pointer;
-  background-color: transparent;
-  border: none;
-}
-
-#toggle-view {
-  padding: 8px 12px;
-  margin-top: 10px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
-}
-
-.dark-mode #toggle-view {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-/* Dark mode */
-.dark-mode {
+body {
   background-color: #1e1e1e;
-  color: #f0f0f0;
+  color: #e8dcf4;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
-.dark-mode textarea {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-
-/* Theme toggle icon */
-#toggle-theme {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background-size: cover;
-  background-repeat: no-repeat;
-  border-radius: 50%;
-}
-
-#toggle-theme.sun {
-  background-image: url('001_Assets/sun.png');
-}
-
-#toggle-theme.moon {
-  background-image: url('001_Assets/moon.png');
-}
-
-
-/* Storage controls */
-.storage-controls button {
-  padding: 8px 12px;
-  margin-right: 5px;
-  background-color: #d8bbdf;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  color: inherit;
-}
-
+/* ── Status message ── */
 #status-message {
-  margin: 5px 0 10px;
+  margin: var(--gap) 0 var(--gap) var(--gap);
   font-weight: bold;
 }
 
-.dark-mode .storage-controls button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
+/* ── Button container ── */
+#button-container {
+  margin-top: 20px;
+  margin-left: 10px;
+  margin-right: 5px;
+  display: flex;
 }
 
-/* Button groups for condensed controls */
-.storage-controls .button-group {
+/* ── Buttons ── */
+button {
+  background-color: #2e2e2e;
+  color: #e8dcf4;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-right: 5px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  cursor: pointer;
+}
+
+.button-group {
   position: relative;
   display: inline-block;
-  margin-right: 5px;
-  margin-bottom: 10px;
 }
 
-.storage-controls .button-group .sub-buttons {
+.button-group:hover .sub-buttons {
+  display: block;
+}
+
+.sub-buttons {
+  display: none;
   position: absolute;
   top: 100%;
   left: 0;
-  display: none;
-  z-index: 1;
+  z-index: 10;
+}
+
+.sub-button {
+  display: block;
   width: 100%;
 }
 
-.storage-controls .button-group .sub-buttons .sub-button {
-  display: block;
-  margin-top: 0;
-  width: 100%;
-}
-
-.storage-controls .button-group:hover .sub-buttons,
-.storage-controls .button-group.active .sub-buttons {
-  display: block;
-}
-
-.dark-mode .storage-controls .button-group .sub-button {
-  background-color: #3a3a3a;
-  border: 1px solid #555;
-  color: #f0f0f0;
-}
-
-
-#searchBox {
-  display: block;
-  margin: 10px 0;
-  padding: 8px;
-  font-size: 16px;
-  width: 300px;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.dark-mode #searchBox {
-  background-color: #2e2e2e;
-  color: #f0f0f0;
-  border: 1px solid #555;
-}
-
+/* ── Search boxes ── */
+#searchBox,
 #searchTasksBox {
   display: block;
-  margin: 10px 0;
-  padding: 8px;
-  font-size: 16px;
-  width: 300px;
-  border: 1px solid #a272b0;
-  border-radius: 4px;
-  background-color: #d8bbdf;
-  color: #000;
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.dark-mode #searchTasksBox {
   background-color: #2e2e2e;
-  color: #f0f0f0;
+  color: #e8dcf4;
   border: 1px solid #555;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px;
+  margin: var(--gap) 0;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
 }
 
+/* ── File list ── */
 #fileList {
   list-style: none;
-  padding-left: 0;
+  margin: 0;
+  padding: 0;
 }
 
 #fileList li {
+  margin-bottom: 5px;
   cursor: pointer;
-  margin-bottom: 4px;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -232,61 +102,228 @@ button {
   white-space: nowrap;
 }
 
-#fileList li.active-file {
-  font-weight: bold;
-  color: #510e63;
-}
-
-.dark-mode #fileList li.active-file {
-  font-weight: bold;
-  color: #d8bbdf;
-}
-
-#fileList li.linked-file {
-  font-weight: bold;
-  color: #510e63;
-}
-
-.dark-mode #fileList li.linked-file {
-  font-weight: bold;
-  color: #d8bbdf;
-}
-
 #fileList li:hover {
   text-decoration: underline;
 }
 
-#lists-container {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 20px;
-  align-items: flex-start;
+/* ── Active note: bright, solid left border ── */
+#fileList li.active-file {
+  font-weight: bold;
+  color: #c89fdf;
+  border-left: 3px solid #a272b0;
+  padding-left: 6px;
+  margin-left: -9px;
 }
 
-#files-container,
-#todo-container {
+/* ── Link chain: connected thread with fading trail ── */
+#fileList li.linked-file {
+  color: #9a7aaa;
+  border-left: 2px dashed #6b4e7a;
+  padding-left: 6px;
+  margin-left: -8px;
+}
+
+/* Step number badge on each linked note */
+#fileList li.linked-file::before {
+  content: attr(data-chain-index);
+  font-size: 10px;
+  color: #6b4e7a;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
+/* ── Hide scrollbars while keeping scroll functionality ── */
+textarea::-webkit-scrollbar,
+#preview::-webkit-scrollbar {
+  display: none;
+}
+
+textarea,
+#preview {
+  scrollbar-width: none; /* Firefox */
+}
+
+/* ── Textarea & preview ── */
+textarea {
+  background-color: #1e1e1e;
+  color: #e8dcf4;
+  border: none;
+  border-radius: 0;
   width: 100%;
-}
-
-#layout-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-#editor-section {
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+  padding: var(--gap);
+  margin: 0;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
   flex: 1;
+  min-height: 0;
 }
 
-@media (min-width: 1500px) {
-  #layout-wrapper {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-  #editor-section {
-    margin-right: 20px;
-    min-width: 700px;
-  }
+#preview {
+  width: 100%;
+  padding: var(--gap);
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  border: none;
+  border-radius: 0;
+  box-sizing: border-box;
+  background-color: #1e1e1e;
+  color: #e8dcf4;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+#preview p {
+  margin: 0.5em 0;
+}
+
+#preview li p:first-child:last-child {
+  margin: 0;
+}
+
+#preview a {
+  color: #9cdcfe;
+}
+
+/* ── Lists ── */
+#preview ul,
+#preview ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+/* Nested lists: no extra vertical margin */
+#preview li > ul,
+#preview li > ol {
+  margin: 0;
+}
+
+#preview li {
+  margin: 0.15em 0;
+}
+
+#preview ul { list-style-type: disc; }
+#preview ul ul { list-style-type: circle; }
+#preview ul ul ul { list-style-type: square; }
+
+/* ── Blockquotes ── */
+#preview blockquote {
+  margin: 12px 0;
+  padding: 6px 14px;
+  border-left: 3px solid #a272b0;
+  background-color: #262030;
+  color: #b8a8cc;
+  border-radius: 0 4px 4px 0;
+}
+
+#preview blockquote p {
+  margin: 0;
+}
+
+/* ── Collapsible headings ── */
+#preview details {
+  margin: 0;
+}
+
+#preview details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+#preview details > summary::-webkit-details-marker {
+  display: none;
+}
+
+#preview details > summary h1,
+#preview details > summary h2,
+#preview details > summary h3,
+#preview details > summary h4,
+#preview details > summary h5,
+#preview details > summary h6 {
+  display: inline;
+  margin: revert;
+}
+
+#preview details > summary::after {
+  content: ' ›';
+  font-size: 0.8em;
+  color: #6b4e7a;
+  transition: none;
+}
+
+#preview details[open] > summary::after {
+  content: ' ⌄';
+}
+
+/* ── Tables ── */
+#preview table {
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  width: auto;
+}
+
+#preview th,
+#preview td {
+  border: 1px solid #444;
+  padding: 6px 12px;
+}
+
+#preview thead tr {
+  background-color: #2a2040;
+}
+
+#preview tbody tr:nth-child(even) {
+  background-color: #242030;
+}
+
+/* ── Footnotes ── */
+.footnote-ref {
+  color: #a272b0;
+  text-decoration: none;
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.footnote-ref:hover {
+  text-decoration: underline;
+}
+
+.footnote-hr {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 24px 0 12px;
+}
+
+.footnotes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85em;
+  color: #9a8aaa;
+}
+
+.footnotes li {
+  margin-bottom: 4px;
+}
+
+.footnote-back {
+  color: #6b4e7a;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.footnote-back:hover {
+  text-decoration: underline;
+}
+
+/* ── Todo / lists ── */
+#todo-container a {
+  color: #9cdcfe;
 }
 
 #todo-container ul {
@@ -298,7 +335,6 @@ button {
   margin-top: 4px;
 }
 
-/* Align multi-line tasks with their text rather than the checkbox */
 #todoList li li {
   display: flex;
   align-items: flex-start;
@@ -310,20 +346,18 @@ button {
 }
 
 #todo-container .todo-note-title {
-  display:block;
-  margin-bottom: 10px;
-  margin-top: 10px;
+  display: block;
+  margin-bottom: var(--gap);
+  margin-top: var(--gap);
   text-decoration: underline;
 }
 
-/* Increase spacing and add separator between task groups */
 #todoList > li {
   margin-top: 20px;
-  padding-top: 10px;
+  padding-top: var(--gap);
   border-top: 1px solid #a272b0;
 }
 
-/* Add spacing between checklist and bullet items within the same list */
 #preview li.task-item + li.bullet-item,
 #preview li.bullet-item + li.task-item,
 #todoList li.task-item + li.bullet-item,
@@ -331,34 +365,75 @@ button {
   margin-top: 8px;
 }
 
-@media (min-width: 650px) {
-  #lists-container {
-    flex-direction: row;
-    margin-right: 40px;
-  }
-  #files-container,
-  #todo-container {
-    flex: 1;
-    max-width: 300px;
-  }
-  
-  #todo-container {
-      margin-left: 40px;
-  }
+/* ── Arrow button — peeks at middle-right edge ── */
+#panel-arrow {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%) translateX(50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #2e2e2e;
+  color: #e8dcf4;
+  border: 1px solid #555;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 100;
+  transition: none;
 }
 
-@media (min-width: 1500px) {
-  #layout-wrapper {
-    gap: 0;
-  }
-  #editor-section {
-    margin-right: 0;
-    flex: 0;
-  }
-  #lists-container {
-    margin-left: 40px;
-    margin-right: 0;
-  }
+/* ════════════════════════════════════════════
+   Editor — always full width, fills viewport
+   ════════════════════════════════════════════ */
+
+#editor-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--gap) calc(var(--gap) * 2) calc(var(--gap) * 2) var(--gap);
+  box-sizing: border-box;
 }
 
+/* ════════════════════════════════════════════
+   Lists overlay — hidden by default,
+   shown on arrow hover
+   ════════════════════════════════════════════ */
 
+#panel-lists {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
+  z-index: 50;
+  background-color: #1e1e1e;
+  border-left: 1px solid #333;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--gap) calc(var(--gap) * 2);
+  box-sizing: border-box;
+}
+
+#panel-lists.visible {
+  display: block;
+}
+
+/* Arrow click toggles which container is shown */
+#files-container,
+#todo-container {
+  display: none;
+  box-sizing: border-box;
+}
+
+#files-container.active,
+#todo-container.active {
+  display: block;
+}
