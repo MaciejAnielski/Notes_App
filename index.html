@@ -79,6 +79,28 @@
 
     <button id="panel-arrow" aria-label="Switch panel">&#8250;</button>
 
+  <!-- Global Search & Replace Panel -->
+  <div id="global-search-panel" class="gs-hidden">
+    <div id="gs-header">
+      <span>Search &amp; Replace All Notes</span>
+      <button id="gs-close" title="Close (Esc)">&#x2715;</button>
+    </div>
+    <div id="gs-inputs">
+      <input type="text" id="gs-search-input" placeholder="Search all notes..." autocomplete="off" spellcheck="false">
+      <input type="text" id="gs-replace-input" placeholder="Replace with..." autocomplete="off" spellcheck="false">
+      <label id="gs-case-label">
+        <input type="checkbox" id="gs-case-checkbox"> Case sensitive
+      </label>
+    </div>
+    <div id="gs-actions">
+      <button id="gs-find-btn">Find All</button>
+      <button id="gs-replace-btn">Replace in Note</button>
+      <button id="gs-replace-all-btn">Replace All</button>
+    </div>
+    <div id="gs-status"></div>
+    <ul id="gs-results"></ul>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
