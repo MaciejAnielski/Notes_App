@@ -1027,9 +1027,29 @@ textarea.addEventListener('input', () => {
 
 const panelLists = document.getElementById('panel-lists');
 const panelArrow = document.getElementById('panel-arrow');
+const panelPin   = document.getElementById('panel-pin');
 const filesContainer = document.getElementById('files-container');
 const todosContainer = document.getElementById('todo-container');
 let peekHideTimer = null;
+let isPanelPinned = localStorage.getItem('panel_pinned') === 'true';
+
+function applyPinState() {
+  if (isPanelPinned) {
+    panelLists.classList.add('pinned', 'visible');
+    panelPin.classList.add('active');
+    document.body.classList.add('panel-pinned');
+  } else {
+    panelLists.classList.remove('pinned', 'visible');
+    panelPin.classList.remove('active');
+    document.body.classList.remove('panel-pinned');
+  }
+}
+
+panelPin.addEventListener('click', () => {
+  isPanelPinned = !isPanelPinned;
+  localStorage.setItem('panel_pinned', isPanelPinned);
+  applyPinState();
+});
 
 // Arrow click toggles between Saved Notes and Tasks
 panelArrow.addEventListener('click', () => {
@@ -1038,13 +1058,15 @@ panelArrow.addEventListener('click', () => {
   todosContainer.classList.toggle('active', notesActive);
 });
 
-// Hover on arrow or lists panel shows the overlay
+// Hover on arrow or lists panel shows the overlay (skipped when pinned)
 function showPanel() {
+  if (isPanelPinned) return;
   clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
 }
 
 function scheduleHidePanel() {
+  if (isPanelPinned) return;
   clearTimeout(peekHideTimer);
   peekHideTimer = setTimeout(() => panelLists.classList.remove('visible'), 100);
 }
@@ -1053,6 +1075,8 @@ panelArrow.addEventListener('mouseenter', showPanel);
 panelArrow.addEventListener('mouseleave', scheduleHidePanel);
 panelLists.addEventListener('mouseenter', showPanel);
 panelLists.addEventListener('mouseleave', scheduleHidePanel);
+
+applyPinState();
 
 textarea.addEventListener('keydown', e => {
   if (e.key === 'Tab') {
