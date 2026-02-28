@@ -701,6 +701,91 @@ function generateHtmlContent(title, markdown) {
   return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script>window.MathJax = { tex: { inlineMath: [['$','$'],['\\\\(','\\\\)']], displayMath: [['$$','$$'],['\\\\[','\\\\]']] } };</script>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
 }
 
+function noteNameToId(name) {
+  return 'note-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function generateNotebookHtml(noteEntries) {
+  const noteNameSet = new Set(noteEntries.map(e => e.name));
+
+  const tocItems = noteEntries.map(({ name }) =>
+    `<li><a href="#${noteNameToId(name)}">${name}</a></li>`
+  ).join('\n      ');
+
+  const sections = noteEntries.map(({ name, content }) => {
+    const container = document.createElement('div');
+    container.innerHTML = marked.parse(preprocessMarkdown(content));
+    styleTaskListItems(container);
+    container.querySelectorAll('a').forEach(a => {
+      const href = a.getAttribute('href');
+      if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) return;
+      const noteName = decodeURIComponent(href).replace(/_/g, ' ').trim();
+      if (noteNameSet.has(noteName)) {
+        a.setAttribute('href', '#' + noteNameToId(noteName));
+      }
+    });
+    alignTableColumns(container);
+    return `<article id="${noteNameToId(name)}">\n${container.innerHTML}\n</article>`;
+  }).join('\n\n');
+
+  const style = `
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; font-size: 16px; background-color: #1e1e1e; color: #e8dcf4; }
+    #toc { width: 220px; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid #333; padding: 20px 12px; background-color: #1a1a1a; scrollbar-width: none; }
+    #toc::-webkit-scrollbar { display: none; }
+    #toc h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b4e7a; }
+    #toc ul { list-style: none; margin: 0; padding: 0; }
+    #toc a { display: block; padding: 4px 6px; border-radius: 3px; color: #9a7aaa; text-decoration: none; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #toc a:hover { color: #e8dcf4; background-color: #2e2e2e; }
+    main { flex: 1; overflow-y: auto; padding: 40px; scrollbar-width: none; }
+    main::-webkit-scrollbar { display: none; }
+    article { max-width: 800px; margin: 0 auto 60px; }
+    article + article { border-top: 1px solid #333; padding-top: 40px; }
+    a { color: #9cdcfe; }
+    blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid #a272b0; background-color: #262030; color: #b8a8cc; border-radius: 0 4px 4px 0; }
+    blockquote p { margin: 0; }
+    p { margin: 0.5em 0; }
+    ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
+    li > ul, li > ol { margin: 0; }
+    li { margin: 0.15em 0; }
+    ul { list-style-type: disc; }
+    ul ul { list-style-type: circle; }
+    ul ul ul { list-style-type: square; }
+    li p:first-child:last-child { margin: 0; }
+    li.task-item + li.bullet-item, li.bullet-item + li.task-item { margin-top: 8px; }
+    .footnote-ref { color: #a272b0; text-decoration: none; font-size: 0.75em; vertical-align: super; }
+    .footnote-hr { border: none; border-top: 1px solid #333; margin: 24px 0 12px; }
+    .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: #9a8aaa; }
+    .footnote-back { color: #6b4e7a; text-decoration: none; margin-left: 4px; }
+    table { border-collapse: collapse; margin: 0.75em 0; }
+    th, td { border: 1px solid #444; padding: 6px 12px; }
+    thead tr { background-color: #2a2040; }
+    tbody tr:nth-child(even) { background-color: #242030; }
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Notes Notebook</title>
+<style>${style}</style>
+<script>window.MathJax = { tex: { inlineMath: [['$','$'],['\\\\(','\\\\)']], displayMath: [['$$','$$'],['\\\\[','\\\\]']] } };</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+<nav id="toc">
+  <h3>Contents</h3>
+  <ul>
+      ${tocItems}
+  </ul>
+</nav>
+<main>
+${sections}
+</main>
+</body>
+</html>`;
+}
+
 function exportNote() {
   const name = currentFileName || getNoteTitle();
   if (!name) {
@@ -718,32 +803,22 @@ function exportNote() {
 }
 
 function exportAllNotes() {
-  const zip = new JSZip();
-  let count = 0;
-
+  const entries = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key.startsWith('md_')) {
-      const fileName = key.slice(3);
-      const content = localStorage.getItem(key);
-      const html = generateHtmlContent(fileName, content);
-      zip.file(fileName + '.html', html);
-      count++;
+      entries.push({ name: key.slice(3), content: localStorage.getItem(key) });
     }
   }
-
-  if (count === 0) {
-    alert('No notes found.');
-    return;
-  }
-
-  zip.generateAsync({ type: 'blob' }).then(function(content) {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(content);
-    link.download = 'all_notes_html.zip';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  });
+  if (entries.length === 0) { alert('No notes found.'); return; }
+  entries.sort((a, b) => b.name.localeCompare(a.name));
+  const html = generateNotebookHtml(entries);
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'notes_notebook.html';
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function deleteSelectedNotes() {
@@ -788,25 +863,17 @@ function backupSelectedNotes() {
 
 function exportSelectedNotes() {
   const notes = getVisibleNotes();
-  if (notes.length === 0) {
-    alert('No notes match the filter.');
-    return;
-  }
-  const zip = new JSZip();
-  notes.forEach(name => {
-    const content = localStorage.getItem('md_' + name);
-    if (content !== null) {
-      const html = generateHtmlContent(name, content);
-      zip.file(name + '.html', html);
-    }
-  });
-  zip.generateAsync({ type: 'blob' }).then(content => {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(content);
-    link.download = 'selected_notes_html.zip';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  });
+  if (notes.length === 0) { alert('No notes match the filter.'); return; }
+  const entries = notes
+    .map(name => ({ name, content: localStorage.getItem('md_' + name) }))
+    .filter(e => e.content !== null);
+  const html = generateNotebookHtml(entries);
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'notes_notebook.html';
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function importNotesFromZip(file) {
