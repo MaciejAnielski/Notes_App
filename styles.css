@@ -134,12 +134,14 @@ button {
 
 /* ── Hide scrollbars while keeping scroll functionality ── */
 textarea::-webkit-scrollbar,
-#preview::-webkit-scrollbar {
+#preview::-webkit-scrollbar,
+#panel-lists::-webkit-scrollbar {
   display: none;
 }
 
 textarea,
-#preview {
+#preview,
+#panel-lists {
   scrollbar-width: none; /* Firefox */
 }
 
@@ -439,16 +441,12 @@ textarea {
   display: block;
 }
 
-/* Pinned: leave fixed flow and sit in the flex row */
+/* Pinned: stay fixed at top of viewport (same as unpinned overlay) */
 #panel-lists.pinned {
-  position: relative;
   display: flex;
   flex-direction: column;
-  height: auto;
-  top: auto;
-  right: auto;
   flex-shrink: 0;
-  z-index: 1;
+  z-index: 50;
 }
 
 /* ── Pin button ── */
@@ -478,6 +476,12 @@ textarea {
 
 #panel-pin.active svg circle {
   fill: currentColor;
+}
+
+/* Push all body content left to make room for the fixed pinned panel */
+body.panel-pinned {
+  padding-right: 300px;
+  box-sizing: border-box;
 }
 
 /* Arrow repositions to the left edge of the pinned panel */
