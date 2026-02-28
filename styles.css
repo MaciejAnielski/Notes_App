@@ -484,12 +484,6 @@ body.panel-pinned {
   box-sizing: border-box;
 }
 
-/* Arrow repositions to the left edge of the pinned panel */
-body.panel-pinned #panel-arrow {
-  right: 300px;
-  transform: translateY(-50%) translateX(-50%);
-}
-
 /* Arrow click toggles which container is shown */
 #files-container,
 #todo-container {

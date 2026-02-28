@@ -73,6 +73,29 @@ function getFormattedDate() {
   return `${yy}${mm}${dd}`;
 }
 
+function saveChain() {
+  localStorage.setItem('linked_chain', JSON.stringify(linkedNoteChain));
+}
+
+function handleRenameAfterReplace(noteName, newContent) {
+  const firstLine = newContent.split(/\n/)[0].trim();
+  if (!firstLine.startsWith('#')) return;
+  const newTitle = firstLine.replace(/^#+\s*/, '').trim();
+  if (!newTitle || newTitle === noteName) return;
+  if (localStorage.getItem('md_' + newTitle) !== null) return;
+  localStorage.removeItem('md_' + noteName);
+  localStorage.setItem('md_' + newTitle, newContent);
+  if (currentFileName === noteName) {
+    currentFileName = newTitle;
+    localStorage.setItem('current_file', newTitle);
+  }
+  const chainIdx = linkedNoteChain.indexOf(noteName);
+  if (chainIdx !== -1) {
+    linkedNoteChain[chainIdx] = newTitle;
+    saveChain();
+  }
+}
+
 function getNoteTitle() {
   const firstLine = textarea.value.split(/\n/)[0].trim();
   if (firstLine.startsWith('#')) {
@@ -371,12 +394,14 @@ function setupNoteLinks(container = previewDiv) {
         // Note exists — navigate into it
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
           linkedNoteChain.unshift(currentFileName);
+          saveChain();
         }
         loadNote(noteName, true);
       } else {
         // Note doesn't exist — create it and navigate to it
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
           linkedNoteChain.unshift(currentFileName);
+          saveChain();
         }
         const newContent = `# ${noteName}\n\n`;
         localStorage.setItem('md_' + noteName, newContent);
@@ -526,6 +551,7 @@ function loadNote(name, fromLink = false) {
   autoSaveTimer = null;
   if (!fromLink) {
     linkedNoteChain = [];
+    saveChain();
   }
   const content = localStorage.getItem('md_' + name);
   if (content === null) {
@@ -554,6 +580,7 @@ function newNote() {
   }
   clearTimeout(autoSaveTimer);
   linkedNoteChain = [];
+  saveChain();
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
@@ -845,6 +872,11 @@ function updateFileList() {
     if (noteMap[name]) {
       noteMap[name].classList.add('linked-file');
       noteMap[name].dataset.chainIndex = idx + 1;
+      noteMap[name].querySelector('span').onclick = () => {
+        linkedNoteChain = linkedNoteChain.slice(idx + 1);
+        saveChain();
+        loadNote(name, true);
+      };
       items.push(noteMap[name]);
       delete noteMap[name];
     }
@@ -1297,6 +1329,8 @@ gsReplaceBtn.addEventListener('click', () => {
     if (isPreview) renderPreview();
   }
 
+  handleRenameAfterReplace(result.noteName, content);
+  updateFileList();
   gsCurrentResults = gsGetAllMatches(query, caseSensitive);
   gsRenderResults(gsCurrentResults, query);
   gsSetStatus(`Replaced 1 match in \u201c${result.noteName}\u201d.`, true);
@@ -1337,8 +1371,10 @@ gsReplaceAllBtn.addEventListener('click', () => {
       textarea.value = newContent;
       if (isPreview) renderPreview();
     }
+    handleRenameAfterReplace(noteName, newContent);
   });
 
+  updateFileList();
   gsCurrentResults = gsGetAllMatches(query, caseSensitive);
   gsRenderResults(gsCurrentResults, query);
   gsSetStatus(
@@ -1363,8 +1399,12 @@ globalSearchPanel.addEventListener('keydown', e => {
 
 // ── End Global Search & Replace ──────────────────────────────────────────
 
+const savedChain = localStorage.getItem('linked_chain');
+if (savedChain) {
+  try { linkedNoteChain = JSON.parse(savedChain); } catch(e) {}
+}
 if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {
-  loadNote(lastFile);
+  loadNote(lastFile, true);
 } else {
   newNote();
 }
