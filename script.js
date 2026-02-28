@@ -7,6 +7,8 @@ let autoSaveTimer = null;
 let currentFileName = null;
 let linkedNoteChain = [];
 
+marked.use({ breaks: true });
+
 function applyTheme(theme) {
   document.body.classList.toggle('dark-mode', theme === 'dark');
   toggleBtn.classList.remove('sun', 'moon');
