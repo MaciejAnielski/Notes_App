@@ -59,21 +59,29 @@
 
     </div>
 
-    <div id="editor-section">
-      <textarea id="editor" placeholder="Start typing here..."></textarea>
-      <div id="preview" style="display:none;"></div>
-    </div>
-
-    <div id="panel-lists">
-      <div id="files-container" class="active">
-        <h2>Saved Notes</h2>
-        <input type="text" id="searchBox" placeholder="Search Notes...">
-        <ul id="fileList"></ul>
+    <div id="content-area">
+      <div id="editor-section">
+        <textarea id="editor" placeholder="Start typing here..."></textarea>
+        <div id="preview" style="display:none;"></div>
       </div>
-      <div id="todo-container">
-        <h2>Tasks</h2>
-        <input type="text" id="searchTasksBox" placeholder="Search Tasks...">
-        <ul id="todoList"></ul>
+
+      <div id="panel-lists">
+        <button id="panel-pin" title="Pin panel">
+          <svg width="11" height="14" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="5.5" cy="4.5" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="5.5" y1="8" x2="5.5" y2="13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div id="files-container" class="active">
+          <h2>Saved Notes</h2>
+          <input type="text" id="searchBox" placeholder="Search Notes...">
+          <ul id="fileList"></ul>
+        </div>
+        <div id="todo-container">
+          <h2>Tasks</h2>
+          <input type="text" id="searchTasksBox" placeholder="Search Tasks...">
+          <ul id="todoList"></ul>
+        </div>
       </div>
     </div>
 

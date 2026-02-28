@@ -389,12 +389,25 @@ textarea {
 }
 
 /* ════════════════════════════════════════════
-   Editor — always full width, fills viewport
+   Content area — row wrapper for editor + panel
+   ════════════════════════════════════════════ */
+
+#content-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+/* ════════════════════════════════════════════
+   Editor — fills available width in content-area
    ════════════════════════════════════════════ */
 
 #editor-section {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   padding: var(--gap) calc(var(--gap) * 2) calc(var(--gap) * 2) var(--gap);
@@ -424,6 +437,53 @@ textarea {
 
 #panel-lists.visible {
   display: block;
+}
+
+/* Pinned: leave fixed flow and sit in the flex row */
+#panel-lists.pinned {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  top: auto;
+  right: auto;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+/* ── Pin button ── */
+#panel-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #6b4e7a;
+  cursor: pointer;
+  padding: 4px;
+  margin: 0;
+  border-radius: 4px;
+  line-height: 0;
+  z-index: 1;
+}
+
+#panel-pin:hover {
+  color: #e8dcf4;
+  background-color: #2e2e2e;
+}
+
+#panel-pin.active {
+  color: #a272b0;
+}
+
+#panel-pin.active svg circle {
+  fill: currentColor;
+}
+
+/* Arrow repositions to the left edge of the pinned panel */
+body.panel-pinned #panel-arrow {
+  right: 300px;
+  transform: translateY(-50%) translateX(-50%);
 }
 
 /* Arrow click toggles which container is shown */
