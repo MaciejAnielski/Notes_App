@@ -1279,8 +1279,36 @@ function stripMarkdownText(text) {
   return text.trim();
 }
 
+function updateNowIndicator() {
+  const ROW_H = 40;
+  const START_H = 7;
+  const END_H = 19;
+  const now = new Date();
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = START_H * 60;
+  const endMinutes = END_H * 60;
+
+  let indicator = scheduleGrid.querySelector('.schedule-now-indicator');
+
+  if (totalMinutes < startMinutes || totalMinutes > endMinutes) {
+    if (indicator) indicator.remove();
+    return;
+  }
+
+  const top = ((totalMinutes - startMinutes) / 30) * ROW_H;
+
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.className = 'schedule-now-indicator';
+    scheduleGrid.appendChild(indicator);
+  }
+
+  indicator.style.top = top + 'px';
+}
+
 function renderSchedule() {
   if (!scheduleGrid) return;
+  if (scheduleNowTimer) { clearInterval(scheduleNowTimer); scheduleNowTimer = null; }
   scheduleGrid.innerHTML = '';
   scheduleDateLabel.textContent = formatScheduleDate(scheduleDate);
 
@@ -1347,6 +1375,12 @@ function renderSchedule() {
 
     scheduleGrid.appendChild(block);
   });
+
+  // Current time indicator (today only)
+  if (dateStr === toYYMMDD(new Date())) {
+    updateNowIndicator();
+    scheduleNowTimer = setInterval(updateNowIndicator, 60000);
+  }
 }
 
 function toggleScheduleTask(fileName, lineIndex, checked) {
@@ -1432,6 +1466,7 @@ const scheduleDateLabel = document.getElementById('schedule-date-label');
 const schedulePrevBtn = document.getElementById('schedule-prev');
 const scheduleNextBtn = document.getElementById('schedule-next');
 let scheduleDate = new Date();
+let scheduleNowTimer = null;
 let peekHideTimer = null;
 let isPanelPinned = localStorage.getItem('panel_pinned') === 'true';
 
