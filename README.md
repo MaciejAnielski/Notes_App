@@ -113,7 +113,7 @@ Write tasks using standard markdown checkbox syntax:
   - **Blue** — future.
   - **Grey** — no schedule attached.
 
-The Tasks panel has its own search box that supports the same AND / OR / NOT operators as the notes search (see [Searching and Filtering Notes](#searching-and-filtering-notes)).
+The Tasks panel has its own search box with AND / OR / NOT support and colour-based schedule filtering (see [Searching and Filtering Notes](#searching-and-filtering-notes)).
 
 Wiki-links and inline markdown inside tasks are rendered in both the preview and the Tasks panel.
 
@@ -320,15 +320,39 @@ The **Search Notes** box in the side panel filters the notes list in real time. 
 | `OR` | Either term may match | `draft OR outline` |
 | `NOT` | Exclude results containing the term | `meeting NOT cancelled` |
 
-Operators are case-insensitive. Searches match against both the note name and its content.
+Operators are case-insensitive. Unquoted terms search against both the note name and its content.
 
-To search **note names only** (ignoring content), wrap the query in double quotes:
+### Title-only search
 
-```
-"project"
-```
+Wrap an individual term in double quotes to restrict that term to **note titles only** (content is ignored for that term). Unquoted terms still search both title and content, so you can mix both styles in one query:
 
-This will only show notes whose title contains "project".
+| Query | Result |
+|-------|--------|
+| `"project"` | Notes whose title contains "project" |
+| `"project" AND emily` | Title contains "project" AND title-or-content contains "emily" |
+| `"project" AND "emily"` | Title contains both "project" and "emily" |
+| `"project" OR meeting` | Title contains "project" OR title-or-content contains "meeting" |
+
+### Task search and colour filters
+
+The Tasks panel has its own search box with the same AND / OR / NOT query support. In addition, quoted colour keywords filter tasks by their **schedule status colour**:
+
+| Quoted keyword | Tasks shown |
+|----------------|-------------|
+| `"Red"` | Overdue tasks only |
+| `"Amber"` | Tasks due today only |
+| `"Green"` | Future tasks only |
+| `"Grey"` | Unscheduled tasks only |
+
+Colour filters compose with all the standard operators:
+
+| Query | Result |
+|-------|--------|
+| `"Red" OR "Amber"` | Overdue and today tasks |
+| `"Red" AND meeting` | Overdue tasks whose text contains "meeting" |
+| `NOT "Grey"` | Any scheduled task |
+
+Only text inside double quotes is treated as a colour filter. Bare terms remain free-text search across the note name and task text.
 
 ---
 
@@ -362,7 +386,7 @@ A collapsible panel on the right side of the screen with three tabs, cycled by c
 
 - Aggregates all unchecked tasks (`- [ ]`) from every note.
 - Tasks are grouped under their note name. Click the name to open the note; check the box to complete the task.
-- Has its own search box with the same AND / OR / NOT query support.
+- Has its own search box with AND / OR / NOT support and colour-based schedule filtering (see [Searching and Filtering Notes](#searching-and-filtering-notes)).
 
 ### Schedule tab
 
