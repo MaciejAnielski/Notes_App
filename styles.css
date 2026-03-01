@@ -777,9 +777,6 @@ body.panel-pinned {
 /* Inline result (e.g. $x + y =$) */
 .math-result {
   color: #a272b0;
-  font-weight: bold;
-  font-family: 'Courier New', monospace;
-  font-size: 0.95em;
   margin-left: 0.25em;
 }
 

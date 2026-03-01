@@ -1216,6 +1216,24 @@ function getScheduleItems(dateStr) {
   return items;
 }
 
+// Strip all markdown formatting from a text string for plain-text display.
+// Handles wiki-links, markdown links, bullets, ordered lists, bold/italic,
+// inline code, and removes stray square-bracket characters.
+function stripMarkdownText(text) {
+  // Strip wiki-links [[text]] → text
+  text = text.replace(/\[\[([^\]]+)\]\]/g, '$1');
+  // Strip bullet / ordered-list markers at line start
+  text = text.replace(/^\s*[-*+]\s+/, '');
+  text = text.replace(/^\s*\d+[.)]\s+/, '');
+  // Use marked + textContent to strip remaining markdown (links, bold, italic, code…)
+  const tmp = document.createElement('span');
+  tmp.innerHTML = marked.parseInline(text);
+  text = tmp.textContent;
+  // Strip any remaining stray square brackets
+  text = text.replace(/[[\]]/g, '');
+  return text.trim();
+}
+
 function renderSchedule() {
   if (!scheduleGrid) return;
   scheduleGrid.innerHTML = '';
@@ -1278,9 +1296,7 @@ function renderSchedule() {
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'schedule-item-name';
-    const _tmp = document.createElement('span');
-    _tmp.innerHTML = marked.parseInline(item.text);
-    nameSpan.textContent = _tmp.textContent;
+    nameSpan.textContent = stripMarkdownText(item.text);
     nameSpan.addEventListener('click', () => loadNote(item.fileName));
     block.appendChild(nameSpan);
 
@@ -1397,12 +1413,15 @@ panelArrow.addEventListener('click', () => {
   if (filesContainer.classList.contains('active')) {
     filesContainer.classList.remove('active');
     todosContainer.classList.add('active');
+    localStorage.setItem('active_panel', 'tasks');
   } else if (todosContainer.classList.contains('active')) {
     todosContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
+    localStorage.setItem('active_panel', 'schedule');
   } else {
     scheduleContainer.classList.remove('active');
     filesContainer.classList.add('active');
+    localStorage.setItem('active_panel', 'files');
   }
 });
 
@@ -1438,6 +1457,19 @@ panelLists.addEventListener('mouseenter', showPanel);
 panelLists.addEventListener('mouseleave', scheduleHidePanel);
 
 applyPinState();
+
+// Restore the last active panel (Notes / Tasks / Schedule)
+{
+  const savedPanel = localStorage.getItem('active_panel');
+  if (savedPanel === 'tasks') {
+    filesContainer.classList.remove('active');
+    todosContainer.classList.add('active');
+  } else if (savedPanel === 'schedule') {
+    filesContainer.classList.remove('active');
+    scheduleContainer.classList.add('active');
+  }
+  // default ('files' or null) keeps the HTML default (#files-container.active)
+}
 
 textarea.addEventListener('keydown', e => {
   if (e.key === 'Tab') {
@@ -2053,7 +2085,12 @@ function makeFormulaClickable(container, texSource, varMap) {
       container.after(resultEl);
     }
 
-    resultEl.textContent = result === null ? '= ?' : `= ${formatMathResult(result)}`;
+    if (result !== null && window.MathJax) {
+      resultEl.innerHTML = `\\(${formatMathResult(result)}\\)`;
+      MathJax.typesetPromise([resultEl]);
+    } else {
+      resultEl.textContent = result === null ? '?' : formatMathResult(result);
+    }
   });
 }
 
