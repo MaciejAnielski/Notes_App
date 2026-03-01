@@ -762,3 +762,31 @@ body.panel-pinned {
   border-radius: 2px;
   padding: 0 1px;
 }
+
+/* ── Clickable Math Formulas ── */
+.math-evaluable {
+  cursor: pointer;
+  border-bottom: 1px dashed #a272b0;
+  transition: opacity 0.15s;
+}
+
+.math-evaluable:hover {
+  opacity: 0.7;
+}
+
+/* Inline result (e.g. $x + y =$) */
+.math-result {
+  color: #a272b0;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95em;
+  margin-left: 0.25em;
+}
+
+/* Block result (e.g. $$x + y =$$) */
+.math-result-block {
+  display: block;
+  text-align: center;
+  margin-top: 0.4em;
+  font-size: 1em;
+}
