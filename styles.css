@@ -590,6 +590,29 @@ body.panel-pinned {
   text-decoration: underline;
 }
 
+/* ── Schedule now indicator ── */
+.schedule-now-indicator {
+  position: absolute;
+  left: 54px;
+  right: 0;
+  height: 2px;
+  background-color: #e05c5c;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.schedule-now-indicator::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #e05c5c;
+}
+
 /* ── Task status dots ── */
 .task-status-dot {
   display: inline-block;
