@@ -484,16 +484,108 @@ body.panel-pinned {
   box-sizing: border-box;
 }
 
-/* Arrow click toggles which container is shown */
+/* Arrow click cycles which container is shown */
 #files-container,
-#todo-container {
+#todo-container,
+#schedule-container {
   display: none;
   box-sizing: border-box;
 }
 
 #files-container.active,
-#todo-container.active {
+#todo-container.active,
+#schedule-container.active {
   display: block;
+}
+
+/* ── Schedule ── */
+.schedule-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--gap);
+}
+
+.schedule-date-row button {
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+#schedule-date-label {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+}
+
+#scheduleGrid {
+  position: relative;
+}
+
+.schedule-time-label {
+  position: absolute;
+  left: 0;
+  width: 50px;
+  font-size: 10px;
+  color: #6b4e7a;
+  text-align: right;
+  padding-right: 6px;
+  transform: translateY(-50%);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.schedule-gridline {
+  position: absolute;
+  left: 54px;
+  right: 0;
+  border-top: 1px solid #2e2e2e;
+}
+
+.schedule-gridline-hour {
+  border-top-color: #444;
+}
+
+.schedule-item {
+  position: absolute;
+  left: 54px;
+  right: 4px;
+  background-color: #2a2040;
+  border-left: 3px solid #a272b0;
+  border-radius: 0 4px 4px 0;
+  padding: 2px 6px;
+  font-size: 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  cursor: default;
+}
+
+.schedule-item.completed {
+  opacity: 0.45;
+}
+
+.schedule-item.completed .schedule-item-name {
+  text-decoration: line-through;
+}
+
+.schedule-item input[type="checkbox"] {
+  margin: 0;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.schedule-item-name {
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedule-item-name:hover {
+  text-decoration: underline;
 }
 
 /* ── Global Search & Replace Panel ── */
