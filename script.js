@@ -45,12 +45,8 @@ const exportSelectedBtn = document.getElementById('export-selected');
 const backupSelectedBtn = document.getElementById('backup-selected');
 
 function getVisibleNotes() {
-  let raw = searchBox.value.trim().toLowerCase();
-  const namesOnly = raw.startsWith('"') && raw.endsWith('"');
-  if (namesOnly) {
-    raw = raw.slice(1, -1);
-  }
-  const matches = createSearchPredicate(raw, namesOnly);
+  const raw = searchBox.value.trim().toLowerCase();
+  const matches = createSearchPredicate(raw, makeNoteTermPredicate);
   const notes = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -170,8 +166,14 @@ function isNoteBodyEmpty() {
 }
 
 // Build a predicate from a search query supporting AND, OR and NOT operators.
-function createSearchPredicate(query, namesOnly = false) {
+// makeTermPredicate(token) must return a function (...args) => boolean.
+// AND/OR/NOT combiners forward all arguments so callers can use any arity.
+function createSearchPredicate(query, makeTermPredicate) {
   if (!query) return () => true;
+
+  if (!makeTermPredicate) {
+    makeTermPredicate = (term) => (n, c) => n.includes(term) || c.includes(term);
+  }
 
   const tokens = query.split(/\s+/).filter(Boolean);
   let index = 0;
@@ -182,7 +184,7 @@ function createSearchPredicate(query, namesOnly = false) {
       index++;
       const right = parseTerm();
       const prev = left;
-      left = (n, c) => prev(n, c) || right(n, c);
+      left = (...args) => prev(...args) || right(...args);
     }
     return left;
   }
@@ -195,7 +197,7 @@ function createSearchPredicate(query, namesOnly = false) {
       }
       const right = parseFactor();
       const prev = left;
-      left = (n, c) => prev(n, c) && right(n, c);
+      left = (...args) => prev(...args) && right(...args);
     }
     return left;
   }
@@ -204,15 +206,59 @@ function createSearchPredicate(query, namesOnly = false) {
     if (tokens[index] && tokens[index].toUpperCase() === 'NOT') {
       index++;
       const next = parseFactor();
-      return (n, c) => !next(n, c);
+      return (...args) => !next(...args);
     }
-    const term = tokens[index++] || '';
-    return namesOnly ?
-      (n, c) => n.includes(term) :
-      (n, c) => n.includes(term) || c.includes(term);
+    const token = tokens[index++] || '';
+    return makeTermPredicate(token);
   }
 
   return parseExpression();
+}
+
+// Predicate factory for Notes view: quoted tokens match note title only,
+// unquoted tokens match both title and content.
+function makeNoteTermPredicate(token) {
+  if (token.startsWith('"') && token.endsWith('"') && token.length > 2) {
+    const t = token.slice(1, -1);
+    return (n, c) => n.includes(t);
+  }
+  return (n, c) => n.includes(token) || c.includes(token);
+}
+
+// Maps colour keywords (lower-case) to schedule status strings used in Task view.
+const TASK_COLOR_STATUS = {
+  red: 'overdue',
+  amber: 'today',
+  green: 'future',
+  grey: 'unscheduled',
+  gray: 'unscheduled'
+};
+
+// Predicate factory for Task view: quoted colour keywords filter by schedule
+// status; other quoted tokens match the source note title only; unquoted
+// tokens match both the note title and the task line text.
+// Predicate signature: (noteName, taskLine, scheduleStatus) => boolean.
+function makeTaskTermPredicate(token) {
+  if (token.startsWith('"') && token.endsWith('"') && token.length > 2) {
+    const t = token.slice(1, -1);
+    const status = TASK_COLOR_STATUS[t];
+    if (status !== undefined) {
+      return (n, c, s) => s === status;
+    }
+    return (n, c, s) => n.includes(t);
+  }
+  return (n, c, s) => n.includes(token) || c.includes(token);
+}
+
+// Returns the schedule status string for a raw task line.
+function getTaskScheduleStatus(line) {
+  const m = line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+  if (!m) return 'unscheduled';
+  const todayStr = toYYMMDD(new Date());
+  const taskDateStr = m[1];
+  if (taskDateStr < todayStr) return 'overdue';
+  if (taskDateStr === todayStr) return 'today';
+  return 'future';
 }
 
 
@@ -992,12 +1038,8 @@ function importNotesFromZip(file) {
 function updateFileList() {
   refreshProjectsNote();
   fileList.innerHTML = '';
-  let raw = searchBox.value.trim().toLowerCase();
-  const namesOnly = raw.startsWith('"') && raw.endsWith('"');
-  if (namesOnly) {
-    raw = raw.slice(1, -1);
-  }
-  const matches = createSearchPredicate(raw, namesOnly);
+  const raw = searchBox.value.trim().toLowerCase();
+  const matches = createSearchPredicate(raw, makeNoteTermPredicate);
 
   const noteMap = {};
 
@@ -1058,7 +1100,7 @@ function updateTodoList() {
   todoList.innerHTML = '';
 
   const query = searchTasksBox.value.trim().toLowerCase();
-  const matches = createSearchPredicate(query);
+  const matches = createSearchPredicate(query, makeTaskTermPredicate);
 
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -1068,7 +1110,10 @@ function updateTodoList() {
       const todos = lines
         .map((line, idx) => ({ line, idx }))
         .filter(obj => obj.line.trim().startsWith('- [ ]'))
-        .filter(obj => matches(fileName.toLowerCase(), obj.line.toLowerCase()));
+        .filter(obj => {
+          const status = getTaskScheduleStatus(obj.line);
+          return matches(fileName.toLowerCase(), obj.line.toLowerCase(), status);
+        });
 
       if (todos.length > 0) {
         const noteLi = document.createElement('li');
