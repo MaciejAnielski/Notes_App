@@ -22,6 +22,7 @@ let linkedNoteChain = [];
 const PROJECTS_NOTE = 'Projects';
 const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 let projectsViewActive = false;
+const SCHEDULE_RE = /\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/;
 
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');
@@ -285,6 +286,9 @@ function preprocessMarkdown(text) {
     const href = encodeURIComponent(inner.trim());
     return `[${display}](${href})`;
   });
+
+  // ── Strip schedule syntax (> YYMMDD HHMM HHMM) from end of lines ──
+  text = text.replace(/\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/gm, '');
 
   // ── Indentation: convert leading tabs into padded HTML blocks ──
   // Fenced code blocks, list items (- / * / + / 1.), blockquotes (>), and
@@ -1080,7 +1084,7 @@ function updateTodoList() {
           const todoLi = document.createElement('li');
           const checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
-          const rawText = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').trim();
+          const rawText = t.line.trim().replace(/^- \[[ xX]\]\s*/, '').replace(SCHEDULE_RE, '').trim();
           const text = rawText.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
             const display = inner.replace(/_/g, ' ').trim();
             const href = encodeURIComponent(inner.trim());
@@ -1107,6 +1111,7 @@ function updateTodoList() {
   if (window.MathJax) {
     MathJax.typesetPromise([todoList]);
   }
+  renderSchedule();
 }
 
 function setupPreviewTaskCheckboxes() {
@@ -1154,6 +1159,126 @@ function toggleTaskStatus(fileName, lineIndex) {
     }
   }
   updateTodoList();
+}
+
+function formatScheduleDate(d) {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function toYYMMDD(d) {
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return yy + mm + dd;
+}
+
+function getScheduleItems(dateStr) {
+  const items = [];
+  const re = />\s*(\d{6})\s+(\d{4})\s+(\d{4})\s*$/;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith('md_')) continue;
+    const fileName = key.slice(3);
+    const content = localStorage.getItem(key);
+    content.split(/\n/).forEach((line, idx) => {
+      const m = line.match(re);
+      if (!m || m[1] !== dateStr) return;
+      const trimmed = line.trim();
+      const isTask = /^- \[[ xX]\]/.test(trimmed);
+      const isCompleted = /^- \[[xX]\]/.test(trimmed);
+      let text = trimmed.replace(re, '');
+      if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
+      items.push({ fileName, lineIndex: idx, text: text.trim(), startTime: m[2], endTime: m[3], isTask, isCompleted });
+    });
+  }
+  items.sort((a, b) => a.startTime.localeCompare(b.startTime));
+  return items;
+}
+
+function renderSchedule() {
+  if (!scheduleGrid) return;
+  scheduleGrid.innerHTML = '';
+  scheduleDateLabel.textContent = formatScheduleDate(scheduleDate);
+
+  const dateStr = toYYMMDD(scheduleDate);
+  const items = getScheduleItems(dateStr);
+
+  const ROW_H = 40;
+  const START_H = 7;
+  const END_H = 19;
+  const SLOTS = (END_H - START_H) * 2; // 24 half-hour slots
+
+  scheduleGrid.style.height = (SLOTS * ROW_H) + 'px';
+
+  // Gridlines + time labels
+  for (let s = 0; s <= SLOTS; s++) {
+    const hour = START_H + Math.floor(s / 2);
+    const min = (s % 2) * 30;
+    const top = s * ROW_H;
+
+    const gl = document.createElement('div');
+    gl.className = 'schedule-gridline' + (min === 0 ? ' schedule-gridline-hour' : '');
+    gl.style.top = top + 'px';
+    scheduleGrid.appendChild(gl);
+
+    if (min === 0) {
+      const lbl = document.createElement('div');
+      lbl.className = 'schedule-time-label';
+      lbl.textContent = (hour % 12 || 12) + (hour < 12 ? ' AM' : ' PM');
+      lbl.style.top = top + 'px';
+      scheduleGrid.appendChild(lbl);
+    }
+  }
+
+  // Place items
+  const gridStart = START_H * 60;
+  items.forEach(item => {
+    const startMin = parseInt(item.startTime.slice(0, 2)) * 60 + parseInt(item.startTime.slice(2));
+    const endMin   = parseInt(item.endTime.slice(0, 2))   * 60 + parseInt(item.endTime.slice(2));
+    const clampedStart = Math.max(startMin, gridStart);
+    const clampedEnd   = Math.min(endMin, END_H * 60);
+    if (clampedStart >= clampedEnd) return;
+
+    const top    = ((clampedStart - gridStart) / 30) * ROW_H;
+    const height = Math.max(((clampedEnd - clampedStart) / 30) * ROW_H, ROW_H / 2);
+
+    const block = document.createElement('div');
+    block.className = 'schedule-item' + (item.isCompleted ? ' completed' : '');
+    block.style.top    = top + 'px';
+    block.style.height = height + 'px';
+
+    if (item.isTask) {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = item.isCompleted;
+      cb.addEventListener('change', () => toggleScheduleTask(item.fileName, item.lineIndex, cb.checked));
+      block.appendChild(cb);
+    }
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'schedule-item-name';
+    nameSpan.textContent = item.text;
+    nameSpan.addEventListener('click', () => loadNote(item.fileName));
+    block.appendChild(nameSpan);
+
+    scheduleGrid.appendChild(block);
+  });
+}
+
+function toggleScheduleTask(fileName, lineIndex, checked) {
+  const key = 'md_' + fileName;
+  const content = localStorage.getItem(key);
+  if (!content) return;
+  const lines = content.split(/\n/);
+  if (lineIndex >= 0 && lineIndex < lines.length) {
+    lines[lineIndex] = lines[lineIndex].replace(/- \[[ xX]\]/, checked ? '- [x]' : '- [ ]');
+    localStorage.setItem(key, lines.join('\n'));
+    if (currentFileName === fileName) {
+      textarea.value = lines.join('\n');
+      if (isPreview || projectsViewActive) renderPreview();
+    }
+  }
+  updateTodoList(); // also calls renderSchedule() at its end
 }
 
 function setupMobileButtonGroup(button, action) {
@@ -1217,6 +1342,12 @@ const panelArrow = document.getElementById('panel-arrow');
 const panelPin   = document.getElementById('panel-pin');
 const filesContainer = document.getElementById('files-container');
 const todosContainer = document.getElementById('todo-container');
+const scheduleContainer = document.getElementById('schedule-container');
+const scheduleGrid = document.getElementById('scheduleGrid');
+const scheduleDateLabel = document.getElementById('schedule-date-label');
+const schedulePrevBtn = document.getElementById('schedule-prev');
+const scheduleNextBtn = document.getElementById('schedule-next');
+let scheduleDate = new Date();
 let peekHideTimer = null;
 let isPanelPinned = localStorage.getItem('panel_pinned') === 'true';
 
@@ -1238,11 +1369,27 @@ panelPin.addEventListener('click', () => {
   applyPinState();
 });
 
-// Arrow click toggles between Saved Notes and Tasks
+// Arrow click cycles: Notes → Tasks → Schedule → Notes
 panelArrow.addEventListener('click', () => {
-  const notesActive = filesContainer.classList.contains('active');
-  filesContainer.classList.toggle('active', !notesActive);
-  todosContainer.classList.toggle('active', notesActive);
+  if (filesContainer.classList.contains('active')) {
+    filesContainer.classList.remove('active');
+    todosContainer.classList.add('active');
+  } else if (todosContainer.classList.contains('active')) {
+    todosContainer.classList.remove('active');
+    scheduleContainer.classList.add('active');
+  } else {
+    scheduleContainer.classList.remove('active');
+    filesContainer.classList.add('active');
+  }
+});
+
+schedulePrevBtn.addEventListener('click', () => {
+  scheduleDate.setDate(scheduleDate.getDate() - 1);
+  renderSchedule();
+});
+scheduleNextBtn.addEventListener('click', () => {
+  scheduleDate.setDate(scheduleDate.getDate() + 1);
+  renderSchedule();
 });
 
 // Hover on arrow or lists panel shows the overlay (skipped when pinned)
