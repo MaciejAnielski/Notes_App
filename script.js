@@ -556,7 +556,9 @@ function renderPreview() {
   alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
   if (window.MathJax) {
-    MathJax.typesetPromise([previewDiv]);
+    MathJax.typesetPromise([previewDiv]).then(() => {
+      setupClickableMathFormulas();
+    });
   }
 }
 
@@ -1725,6 +1727,359 @@ globalSearchPanel.addEventListener('keydown', e => {
 });
 
 // ── End Global Search & Replace ──────────────────────────────────────────
+
+// ── Clickable Math Formula Evaluation ────────────────────────────────────
+//
+// Formulas ending with "=" in preview mode become clickable. On click the
+// code resolves variable dependencies across all inline ($…$) and block
+// ($$…$$) formulas in the note, then evaluates the expression and shows
+// the result (≤ 10 significant figures) or "?" when unsolvable.
+
+// Extract every math expression from raw markdown, in document order.
+// Returns [{ tex, type, index }, …]
+function extractAllMathExpressions(markdown) {
+  const exprs = [];
+  let i = 0;
+  while (i < markdown.length) {
+    if (markdown[i] === '\\') { i += 2; continue; } // skip escaped char
+    if (markdown[i] !== '$') { i++; continue; }
+    if (markdown.slice(i, i + 2) === '$$') {
+      // Block math: $$…$$
+      const start = i + 2;
+      const end = markdown.indexOf('$$', start);
+      if (end === -1) { i++; continue; }
+      exprs.push({ tex: markdown.slice(start, end).trim(), type: 'block', index: i });
+      i = end + 2;
+    } else {
+      // Inline math: $…$
+      const start = i + 1;
+      let j = start;
+      while (j < markdown.length) {
+        if (markdown[j] === '\\') { j += 2; continue; }
+        if (markdown[j] === '$') break;
+        j++;
+      }
+      if (j >= markdown.length) { i++; continue; }
+      exprs.push({ tex: markdown.slice(start, j).trim(), type: 'inline', index: i });
+      i = j + 1;
+    }
+  }
+  return exprs;
+}
+
+// Parse a brace-delimited group starting at str[startIdx] (must be '{').
+// Returns { content, endIdx } where endIdx is the index after the closing '}'.
+function parseBraceGroup(str, startIdx) {
+  let depth = 1;
+  let i = startIdx + 1;
+  while (i < str.length && depth > 0) {
+    if (str[i] === '{') depth++;
+    else if (str[i] === '}') depth--;
+    i++;
+  }
+  return { content: str.slice(startIdx + 1, i - 1), endIdx: i };
+}
+
+// Expand all \frac{num}{den} occurrences to ((num)/(den)), handling nesting.
+function expandLatexFrac(expr) {
+  let result = expr;
+  for (let iter = 0; iter < 50; iter++) {
+    const idx = result.indexOf('\\frac');
+    if (idx === -1) break;
+    let i = idx + 5;
+    while (i < result.length && result[i] === ' ') i++;
+    if (result[i] !== '{') break;
+    const { content: num, endIdx: numEnd } = parseBraceGroup(result, i);
+    let j = numEnd;
+    while (j < result.length && result[j] === ' ') j++;
+    if (result[j] !== '{') break;
+    const { content: den, endIdx: denEnd } = parseBraceGroup(result, j);
+    result = result.slice(0, idx) + `((${num})/(${den}))` + result.slice(denEnd);
+  }
+  return result;
+}
+
+// Expand \sqrt[n]{x} and \sqrt{x} to their JS equivalents, handling nesting.
+function expandLatexSqrt(expr) {
+  let result = expr;
+  for (let iter = 0; iter < 50; iter++) {
+    // \sqrt[n]{…}
+    const nthMatch = result.match(/\\sqrt\[([^\]]+)\]/);
+    if (nthMatch) {
+      let i = nthMatch.index + nthMatch[0].length;
+      while (i < result.length && result[i] === ' ') i++;
+      if (result[i] === '{') {
+        const { content: inner, endIdx } = parseBraceGroup(result, i);
+        result = result.slice(0, nthMatch.index) +
+          `Math.pow((${inner}),1/(${nthMatch[1]}))` +
+          result.slice(endIdx);
+        continue;
+      }
+    }
+    // \sqrt{…}
+    const sqrtIdx = result.search(/\\sqrt(?!\[)/);
+    if (sqrtIdx !== -1) {
+      let i = sqrtIdx + 5;
+      while (i < result.length && result[i] === ' ') i++;
+      if (result[i] === '{') {
+        const { content: inner, endIdx } = parseBraceGroup(result, i);
+        result = result.slice(0, sqrtIdx) + `Math.sqrt(${inner})` + result.slice(endIdx);
+        continue;
+      }
+    }
+    break;
+  }
+  return result;
+}
+
+// Substitute user-defined variables into a LaTeX expression string.
+// LaTeX command variables (e.g. \alpha) are replaced first; then plain
+// variables are substituted character-by-character so letters inside
+// LaTeX commands (e.g. the 's' in \sin) are never touched.
+function substituteVarsInLatex(texExpr, varMap) {
+  // Split into LaTeX-command vars (\alpha …) and plain vars (x, v_0 …)
+  const latexVars = Object.entries(varMap)
+    .filter(([k]) => k.startsWith('\\'))
+    .sort(([a], [b]) => b.length - a.length);
+  const plainVars = Object.entries(varMap)
+    .filter(([k]) => !k.startsWith('\\'))
+    .sort(([a], [b]) => b.length - a.length);
+
+  let result = texExpr;
+
+  // Replace LaTeX command variables
+  for (const [varName, val] of latexVars) {
+    const esc = varName.replace(/\\/g, '\\\\');
+    result = result.replace(new RegExp(esc + '(?![a-zA-Z])', 'g'), `(${val})`);
+  }
+
+  if (plainVars.length === 0) return result;
+
+  // Replace plain variables character-by-character
+  let output = '';
+  let i = 0;
+  while (i < result.length) {
+    const ch = result[i];
+
+    // Skip entire LaTeX command (e.g. \sin, \pi) without substituting inside
+    if (ch === '\\') {
+      let cmd = '\\';
+      i++;
+      while (i < result.length && /[a-zA-Z]/.test(result[i])) cmd += result[i++];
+      output += cmd;
+      continue;
+    }
+
+    // Try to match a plain variable at the current position
+    if (/[a-zA-Z]/.test(ch)) {
+      let matched = false;
+      for (const [varName, val] of plainVars) {
+        if (result.slice(i, i + varName.length) !== varName) continue;
+        const nextCh = result[i + varName.length] || '';
+        if (varName.length === 1) {
+          // Single-letter: substitute unless followed by _ (subscript of another var)
+          if (nextCh !== '_') {
+            output += `(${val})`;
+            i += varName.length;
+            matched = true;
+            break;
+          }
+        } else {
+          // Multi-letter: substitute only when not followed by alphanumeric or _
+          if (!/[a-zA-Z0-9_]/.test(nextCh)) {
+            output += `(${val})`;
+            i += varName.length;
+            matched = true;
+            break;
+          }
+        }
+      }
+      if (!matched) { output += ch; i++; }
+      continue;
+    }
+
+    output += ch;
+    i++;
+  }
+  return output;
+}
+
+// Convert a LaTeX expression (with variables already substituted) to a
+// JavaScript string that can be passed to new Function('return …').
+function latexToJsExpr(tex) {
+  let expr = tex;
+
+  // Structural expansions (handle nested braces correctly)
+  expr = expandLatexFrac(expr);
+  expr = expandLatexSqrt(expr);
+
+  // Constants
+  expr = expr.replace(/\\pi\b/g, `(${Math.PI})`);
+  expr = expr.replace(/\\infty\b/g, 'Infinity');
+
+  // Inverse trig (must come before the base names)
+  expr = expr.replace(/\\arcsin\b|\\asin\b/g, 'Math.asin');
+  expr = expr.replace(/\\arccos\b|\\acos\b/g, 'Math.acos');
+  expr = expr.replace(/\\arctan\b|\\atan\b/g, 'Math.atan');
+
+  // Functions
+  expr = expr.replace(/\\sin\b/g, 'Math.sin');
+  expr = expr.replace(/\\cos\b/g, 'Math.cos');
+  expr = expr.replace(/\\tan\b/g, 'Math.tan');
+  expr = expr.replace(/\\ln\b/g, 'Math.log');
+  expr = expr.replace(/\\log\b/g, 'Math.log10');
+  expr = expr.replace(/\\exp\b/g, 'Math.exp');
+  expr = expr.replace(/\\abs\b/g, 'Math.abs');
+  expr = expr.replace(/\\min\b/g, 'Math.min');
+  expr = expr.replace(/\\max\b/g, 'Math.max');
+  expr = expr.replace(/\\floor\b/g, 'Math.floor');
+  expr = expr.replace(/\\ceil\b/g, 'Math.ceil');
+
+  // Operators
+  expr = expr.replace(/\\cdot\b/g, '*');
+  expr = expr.replace(/\\times\b/g, '*');
+  expr = expr.replace(/\\div\b/g, '/');
+
+  // \left and \right bracket size modifiers
+  expr = expr.replace(/\\left\s*\(/g, '(');
+  expr = expr.replace(/\\left\s*\[/g, '(');
+  expr = expr.replace(/\\left\s*\|/g, 'Math.abs(');
+  expr = expr.replace(/\\right\s*\)/g, ')');
+  expr = expr.replace(/\\right\s*\]/g, ')');
+  expr = expr.replace(/\\right\s*\|/g, ')');
+
+  // Powers: x^{expr} → x**(expr);  x^n → x**n
+  expr = expr.replace(/\^\{/g, '**(');
+  expr = expr.replace(/\^([a-zA-Z0-9.(])/g, '**$1');
+
+  // Remaining LaTeX braces → JS parentheses
+  expr = expr.replace(/\{/g, '(').replace(/\}/g, ')');
+
+  // Implicit multiplication
+  expr = expr.replace(/(\d+\.?\d*)\s*\(/g, '$1*(');  // 2( → 2*(
+  expr = expr.replace(/\)\s*\(/g, ')*(');              // )( → )*(
+  expr = expr.replace(/\)\s*([a-zA-Z])/g, ')*$1');    // )x → )*x
+
+  // Remove any remaining unknown LaTeX commands
+  expr = expr.replace(/\\[a-zA-Z]+/g, 'undefined');
+
+  return expr.trim();
+}
+
+// Attempt to evaluate a LaTeX expression with the given variable map.
+// Returns a number on success, or null if not evaluatable.
+function evaluateLatexExpr(texExpr, varMap) {
+  try {
+    const substituted = substituteVarsInLatex(texExpr, varMap);
+    const jsExpr = latexToJsExpr(substituted);
+    // eslint-disable-next-line no-new-func
+    const result = new Function(`"use strict"; return (${jsExpr})`)();
+    if (typeof result === 'number' && (isFinite(result) || !isFinite(result))) {
+      return result;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Build a map of { variableName → numericValue } from all formulas in the note.
+// Does a multi-pass resolve so variables defined in terms of other variables
+// (e.g. F = ma, where m and a are defined elsewhere) are fully resolved.
+function buildMathVariableMap(expressions) {
+  const varMap = {};
+
+  // Pattern for an assignment at the start of a formula:
+  //   VARNAME = …
+  // VARNAME may be a LaTeX command (\alpha), a subscripted form (x_1, x_{n}),
+  // or a plain identifier.
+  const assignRe = /^(\\?[a-zA-Z][a-zA-Z0-9]*(?:_\{[^}]+\}|_[a-zA-Z0-9])?)\s*=\s*(.+)$/;
+  const numericRe = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+  // First pass: simple numeric literals (x = 5, \alpha = 3.14, …)
+  for (const { tex } of expressions) {
+    const m = tex.match(assignRe);
+    if (!m) continue;
+    const rhs = m[2].trim();
+    if (numericRe.test(rhs)) varMap[m[1]] = parseFloat(rhs);
+  }
+
+  // Multi-pass: resolve variables whose RHS references other variables
+  for (let changed = true, iters = 0; changed && iters < 20; iters++) {
+    changed = false;
+    for (const { tex } of expressions) {
+      const m = tex.match(assignRe);
+      if (!m || m[1] in varMap) continue;
+      const val = evaluateLatexExpr(m[2].trim(), varMap);
+      if (val !== null) { varMap[m[1]] = val; changed = true; }
+    }
+  }
+
+  return varMap;
+}
+
+// Format a numeric result to at most 10 significant figures, removing
+// trailing zeros. Uses scientific notation for very large/small magnitudes.
+function formatMathResult(value) {
+  if (!isFinite(value)) return value > 0 ? '∞' : '-∞';
+  const abs = Math.abs(value);
+  const precise = parseFloat(value.toPrecision(10));
+  if (abs !== 0 && (abs >= 1e10 || abs < 1e-4)) return precise.toExponential();
+  return precise.toString();
+}
+
+// Attach a click handler to a rendered MathJax container. On click, the
+// formula (minus the trailing "=") is evaluated and the result is displayed
+// inline immediately after the container.
+function makeFormulaClickable(container, texSource, varMap) {
+  container.classList.add('math-evaluable');
+  container.title = 'Click to evaluate';
+
+  const isDisplay = container.getAttribute('display') === 'true';
+
+  container.addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    // Strip the trailing "=" to obtain the expression to evaluate
+    const exprTex = texSource.replace(/=\s*$/, '').trim();
+    const result = evaluateLatexExpr(exprTex, varMap);
+
+    // Find or create the result element immediately after the container
+    let resultEl = container.nextElementSibling;
+    if (!resultEl || !resultEl.classList.contains('math-result')) {
+      resultEl = document.createElement(isDisplay ? 'div' : 'span');
+      resultEl.classList.add('math-result');
+      if (isDisplay) resultEl.classList.add('math-result-block');
+      container.after(resultEl);
+    }
+
+    resultEl.textContent = result === null ? '= ?' : `= ${formatMathResult(result)}`;
+  });
+}
+
+// Post-process the rendered preview: locate every MathJax container whose
+// source formula ends with "=", build the variable map for the current note,
+// and make those containers clickable.
+function setupClickableMathFormulas() {
+  const mathExprs = extractAllMathExpressions(textarea.value);
+  if (mathExprs.length === 0) return;
+
+  const varMap = buildMathVariableMap(mathExprs);
+  const containers = Array.from(previewDiv.querySelectorAll('mjx-container'));
+
+  containers.forEach((container, idx) => {
+    // MathJax 3 stores the original TeX in the <math alttext="…"> attribute
+    let texSource = container.querySelector('math')?.getAttribute('alttext') ?? '';
+    // Fallback: correlate by document order if alttext is unavailable
+    if (!texSource && idx < mathExprs.length) texSource = mathExprs[idx].tex;
+
+    if (texSource.trim().endsWith('=')) {
+      makeFormulaClickable(container, texSource.trim(), varMap);
+    }
+  });
+}
+
+// ── End Clickable Math Formula Evaluation ─────────────────────────────────
 
 const savedChain = localStorage.getItem('linked_chain');
 if (savedChain) {
