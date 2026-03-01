@@ -516,6 +516,8 @@ body.panel-pinned {
   flex: 1;
   text-align: center;
   font-size: 13px;
+  cursor: pointer;
+  user-select: none;
 }
 
 #scheduleGrid {
@@ -587,6 +589,22 @@ body.panel-pinned {
 .schedule-item-name:hover {
   text-decoration: underline;
 }
+
+/* ── Task status dots ── */
+.task-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 6px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.dot-unscheduled { background-color: #e8dcf4; }
+.dot-overdue     { background-color: #e05c5c; }
+.dot-today       { background-color: #d4a24a; }
+.dot-future      { background-color: #4caf72; }
 
 /* ── Global Search & Replace Panel ── */
 #global-search-panel {
