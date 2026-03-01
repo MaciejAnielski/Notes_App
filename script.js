@@ -1098,6 +1098,25 @@ function updateTodoList() {
           const span = document.createElement('span');
           span.innerHTML = marked.parseInline(text);
           todoLi.appendChild(span);
+
+          const schedDateMatch = t.line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+          const dot = document.createElement('span');
+          dot.className = 'task-status-dot';
+          if (schedDateMatch) {
+            const todayStr = toYYMMDD(new Date());
+            const taskDateStr = schedDateMatch[1];
+            if (taskDateStr < todayStr) {
+              dot.classList.add('dot-overdue');
+            } else if (taskDateStr === todayStr) {
+              dot.classList.add('dot-today');
+            } else {
+              dot.classList.add('dot-future');
+            }
+          } else {
+            dot.classList.add('dot-unscheduled');
+          }
+          todoLi.appendChild(dot);
+
           innerUl.appendChild(todoLi);
         });
 
@@ -1239,8 +1258,8 @@ function renderSchedule() {
     const clampedEnd   = Math.min(endMin, END_H * 60);
     if (clampedStart >= clampedEnd) return;
 
-    const top    = ((clampedStart - gridStart) / 30) * ROW_H;
-    const height = Math.max(((clampedEnd - clampedStart) / 30) * ROW_H, ROW_H / 2);
+    const top    = ((clampedStart - gridStart) / 30) * ROW_H + 2;
+    const height = Math.max(((clampedEnd - clampedStart) / 30) * ROW_H - 4, ROW_H / 2 - 4);
 
     const block = document.createElement('div');
     block.className = 'schedule-item' + (item.isCompleted ? ' completed' : '');
@@ -1257,7 +1276,9 @@ function renderSchedule() {
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'schedule-item-name';
-    nameSpan.textContent = item.text;
+    const _tmp = document.createElement('span');
+    _tmp.innerHTML = marked.parseInline(item.text);
+    nameSpan.textContent = _tmp.textContent;
     nameSpan.addEventListener('click', () => loadNote(item.fileName));
     block.appendChild(nameSpan);
 
@@ -1389,6 +1410,10 @@ schedulePrevBtn.addEventListener('click', () => {
 });
 scheduleNextBtn.addEventListener('click', () => {
   scheduleDate.setDate(scheduleDate.getDate() + 1);
+  renderSchedule();
+});
+scheduleDateLabel.addEventListener('click', () => {
+  scheduleDate = new Date();
   renderSchedule();
 });
 
