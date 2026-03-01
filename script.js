@@ -19,6 +19,10 @@ let autoSaveTimer = null;
 let currentFileName = null;
 let linkedNoteChain = [];
 
+const PROJECTS_NOTE = 'Projects';
+const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
+let projectsViewActive = false;
+
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');
 
@@ -93,6 +97,61 @@ function handleRenameAfterReplace(noteName, newContent) {
   if (chainIdx !== -1) {
     linkedNoteChain[chainIdx] = newTitle;
     saveChain();
+  }
+}
+
+function getSeason(mm) {
+  const m = parseInt(mm, 10);
+  if (m === 12 || m <= 2) return 'Winter';
+  if (m <= 5)             return 'Spring';
+  if (m <= 8)             return 'Summer';
+  return 'Autumn';
+}
+
+function generateProjectsNoteContent() {
+  const grouped = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith('md_')) continue;
+    const name = key.slice(3);
+    if (name === PROJECTS_NOTE) continue;
+    const match = name.match(/^(\d{2})(\d{2})\d{2} Project .+$/);
+    if (!match) continue;
+    const yy = match[1], mm = match[2], season = getSeason(mm);
+    if (!grouped[yy]) grouped[yy] = {};
+    if (!grouped[yy][season]) grouped[yy][season] = [];
+    grouped[yy][season].push(name);
+  }
+  for (const yy of Object.keys(grouped))
+    for (const s of Object.keys(grouped[yy]))
+      grouped[yy][s].sort();
+
+  const years = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  const lines = ['# Projects', ''];
+  if (years.length === 0) {
+    lines.push('*No project notes found. Create a note titled `YYMMDD Project Name`.*', '');
+  } else {
+    for (const yy of years) {
+      lines.push(`## 20${yy}`, '');
+      for (const season of SEASON_ORDER) {
+        const notes = grouped[yy][season];
+        if (!notes || !notes.length) continue;
+        lines.push(`### ${season}`, '');
+        for (const name of notes) lines.push(`- [[${name}]]`);
+        lines.push('');
+      }
+    }
+  }
+  return lines.join('\n');
+}
+
+function refreshProjectsNote() {
+  const newContent = generateProjectsNoteContent();
+  if (localStorage.getItem('md_' + PROJECTS_NOTE) === newContent) return;
+  localStorage.setItem('md_' + PROJECTS_NOTE, newContent);
+  if (currentFileName === PROJECTS_NOTE) {
+    textarea.value = newContent;
+    renderPreview();
   }
 }
 
@@ -498,6 +557,7 @@ function renderPreview() {
 }
 
 function toggleView() {
+  if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
@@ -517,6 +577,7 @@ function toggleView() {
 toggleViewBtn.addEventListener('click', toggleView);
 
 function autoSaveNote() {
+  if (currentFileName === PROJECTS_NOTE) return;
   const name = getNoteTitle();
   if (!name) {
     updateStatus('File Not Saved. Please Add A Title Starting With "#".', false);
@@ -561,9 +622,29 @@ function loadNote(name, fromLink = false) {
   textarea.value = content;
   currentFileName = name;
   localStorage.setItem('current_file', name);
-  if (isPreview) {
+
+  if (name === PROJECTS_NOTE) {
+    textarea.readOnly = true;
+    toggleViewBtn.disabled = true;
     renderPreview();
+    if (!isPreview) {
+      previewDiv.style.display = 'block';
+      textarea.style.display = 'none';
+      projectsViewActive = true;
+    }
+  } else {
+    if (projectsViewActive) {
+      projectsViewActive = false;
+      if (!isPreview) {
+        previewDiv.style.display = 'none';
+        textarea.style.display = 'block';
+      }
+    }
+    textarea.readOnly = false;
+    toggleViewBtn.disabled = false;
+    if (isPreview) renderPreview();
   }
+
   updateFileList();
 }
 
@@ -577,7 +658,13 @@ function newNote() {
   }
   if (isPreview) {
     toggleView();
+  } else if (projectsViewActive) {
+    projectsViewActive = false;
+    previewDiv.style.display = 'none';
+    textarea.style.display = 'block';
   }
+  textarea.readOnly = false;
+  toggleViewBtn.disabled = false;
   clearTimeout(autoSaveTimer);
   linkedNoteChain = [];
   saveChain();
@@ -897,6 +984,7 @@ function importNotesFromZip(file) {
 }
 
 function updateFileList() {
+  refreshProjectsNote();
   fileList.innerHTML = '';
   let raw = searchBox.value.trim().toLowerCase();
   const namesOnly = raw.startsWith('"') && raw.endsWith('"');
