@@ -620,8 +620,8 @@ body.panel-pinned {
   flex-shrink: 0;
   font-size: 12px;
   line-height: 1;
-  align-self: center;
-  margin-top: 1px;
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 /* ── Schedule now indicator ── */
