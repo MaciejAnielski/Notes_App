@@ -1206,6 +1206,27 @@ function setupPreviewTaskCheckboxes() {
         updateTodoList();
       }
     };
+
+    // Add inline schedule dot after the task text
+    const sourceLine = taskIndices[i] !== undefined ? lines[taskIndices[i]] : null;
+    const dot = document.createElement('span');
+    dot.className = 'task-status-dot dot-inline';
+    const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+    if (schedDateMatch) {
+      const todayStr = toYYMMDD(new Date());
+      const taskDateStr = schedDateMatch[1];
+      if (taskDateStr < todayStr) {
+        dot.classList.add('dot-overdue');
+      } else if (taskDateStr === todayStr) {
+        dot.classList.add('dot-today');
+      } else {
+        dot.classList.add('dot-future');
+      }
+    } else {
+      dot.classList.add('dot-unscheduled');
+    }
+    const li = cb.closest('li');
+    if (li) li.appendChild(dot);
   });
 }
 
@@ -1267,6 +1288,8 @@ function getScheduleItems(dateStr) {
 function stripMarkdownText(text) {
   // Strip wiki-links [[text]] → text
   text = text.replace(/\[\[([^\]]+)\]\]/g, '$1');
+  // Strip heading markers at line start
+  text = text.replace(/^#+\s*/, '');
   // Strip bullet / ordered-list markers at line start
   text = text.replace(/^\s*[-*+]\s+/, '');
   text = text.replace(/^\s*\d+[.)]\s+/, '');
@@ -1344,6 +1367,9 @@ function renderSchedule() {
 
   // Place items
   const gridStart = START_H * 60;
+  const now = new Date();
+  const nowStr = toYYMMDD(now);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
   items.forEach(item => {
     const startMin = parseInt(item.startTime.slice(0, 2)) * 60 + parseInt(item.startTime.slice(2));
     const endMin   = parseInt(item.endTime.slice(0, 2))   * 60 + parseInt(item.endTime.slice(2));
@@ -1354,8 +1380,14 @@ function renderSchedule() {
     const top    = ((clampedStart - gridStart) / 30) * ROW_H + 2;
     const height = Math.max(((clampedEnd - clampedStart) / 30) * ROW_H - 4, ROW_H / 2 - 4);
 
+    // Non-task events fade when their end time has passed
+    const isPastEvent = !item.isTask && (
+      dateStr < nowStr ||
+      (dateStr === nowStr && endMin <= nowMinutes)
+    );
+
     const block = document.createElement('div');
-    block.className = 'schedule-item' + (item.isCompleted ? ' completed' : '');
+    block.className = 'schedule-item' + ((item.isCompleted || isPastEvent) ? ' completed' : '');
     block.style.top    = top + 'px';
     block.style.height = height + 'px';
 
@@ -1365,6 +1397,11 @@ function renderSchedule() {
       cb.checked = item.isCompleted;
       cb.addEventListener('change', () => toggleScheduleTask(item.fileName, item.lineIndex, cb.checked));
       block.appendChild(cb);
+    } else {
+      const icon = document.createElement('span');
+      icon.className = 'schedule-event-icon';
+      icon.textContent = '◆';
+      block.appendChild(icon);
     }
 
     const nameSpan = document.createElement('span');

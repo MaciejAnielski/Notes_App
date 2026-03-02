@@ -163,6 +163,10 @@ textarea {
   min-height: 0;
 }
 
+textarea:focus {
+  outline: none;
+}
+
 #preview {
   width: 100%;
   padding: var(--gap);
@@ -431,14 +435,14 @@ textarea {
   z-index: 50;
   background-color: #1e1e1e;
   border-left: 1px solid #333;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: var(--gap) calc(var(--gap) * 2);
   box-sizing: border-box;
+  flex-direction: column;
 }
 
 #panel-lists.visible {
-  display: block;
+  display: flex;
 }
 
 /* Pinned: stay fixed at top of viewport (same as unpinned overlay) */
@@ -493,9 +497,20 @@ body.panel-pinned {
 }
 
 #files-container.active,
-#todo-container.active,
+#todo-container.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 #schedule-container.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ── Schedule ── */
@@ -518,6 +533,17 @@ body.panel-pinned {
   font-size: 13px;
   cursor: pointer;
   user-select: none;
+}
+
+#schedule-timeline-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: none;
+}
+
+#schedule-timeline-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 #scheduleGrid {
@@ -590,6 +616,15 @@ body.panel-pinned {
   text-decoration: underline;
 }
 
+.schedule-event-icon {
+  flex-shrink: 0;
+  font-size: 9px;
+  line-height: 1;
+  align-self: center;
+  color: #a272b0;
+  margin-top: 1px;
+}
+
 /* ── Schedule now indicator ── */
 .schedule-now-indicator {
   position: absolute;
@@ -619,9 +654,14 @@ body.panel-pinned {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  margin-left: 6px;
+  margin-left: auto;
   flex-shrink: 0;
   align-self: center;
+}
+
+/* In markdown preview, dot sits inline after the task text */
+.task-status-dot.dot-inline {
+  margin-left: 5px;
 }
 
 .dot-unscheduled { background-color: #e8dcf4; }
