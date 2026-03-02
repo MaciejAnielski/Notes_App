@@ -1207,26 +1207,29 @@ function setupPreviewTaskCheckboxes() {
       }
     };
 
-    // Add inline schedule dot after the task text
+    // Add inline schedule dot after the task text (skip for completed tasks)
     const sourceLine = taskIndices[i] !== undefined ? lines[taskIndices[i]] : null;
-    const dot = document.createElement('span');
-    dot.className = 'task-status-dot dot-inline';
-    const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
-    if (schedDateMatch) {
-      const todayStr = toYYMMDD(new Date());
-      const taskDateStr = schedDateMatch[1];
-      if (taskDateStr < todayStr) {
-        dot.classList.add('dot-overdue');
-      } else if (taskDateStr === todayStr) {
-        dot.classList.add('dot-today');
+    const isCompleted = sourceLine && /^[\s]*- \[[xX]\]/.test(sourceLine);
+    if (!isCompleted) {
+      const dot = document.createElement('span');
+      dot.className = 'task-status-dot dot-inline';
+      const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+      if (schedDateMatch) {
+        const todayStr = toYYMMDD(new Date());
+        const taskDateStr = schedDateMatch[1];
+        if (taskDateStr < todayStr) {
+          dot.classList.add('dot-overdue');
+        } else if (taskDateStr === todayStr) {
+          dot.classList.add('dot-today');
+        } else {
+          dot.classList.add('dot-future');
+        }
       } else {
-        dot.classList.add('dot-future');
+        dot.classList.add('dot-unscheduled');
       }
-    } else {
-      dot.classList.add('dot-unscheduled');
+      const li = cb.closest('li');
+      if (li) li.appendChild(dot);
     }
-    const li = cb.closest('li');
-    if (li) li.appendChild(dot);
   });
 }
 
@@ -1400,7 +1403,7 @@ function renderSchedule() {
     } else {
       const icon = document.createElement('span');
       icon.className = 'schedule-event-icon';
-      icon.textContent = '◆';
+      icon.textContent = '🗓️';
       block.appendChild(icon);
     }
 
