@@ -618,10 +618,9 @@ body.panel-pinned {
 
 .schedule-event-icon {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1;
   align-self: center;
-  color: #a272b0;
   margin-top: 1px;
 }
 
