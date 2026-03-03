@@ -110,7 +110,7 @@ Write tasks using standard markdown checkbox syntax:
 - A coloured status dot indicating its schedule state:
   - **Red** — overdue (scheduled date is in the past).
   - **Amber** — due today.
-  - **Blue** — future.
+  - **Green** — due at future date.
   - **Grey** — no schedule attached.
 
 The Tasks panel has its own search box with AND / OR / NOT support and colour-based schedule filtering (see [Searching and Filtering Notes](#searching-and-filtering-notes)).
