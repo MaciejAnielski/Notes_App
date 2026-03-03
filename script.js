@@ -1260,7 +1260,25 @@ function setupPreviewTaskCheckboxes() {
         dot.classList.add('dot-unscheduled');
       }
       const li = cb.closest('li');
-      if (li) li.appendChild(dot);
+      if (li) {
+        const cbParent = cb.parentElement;
+        if (cbParent !== li) {
+          // Loose list: checkbox is inside a block element (e.g. <p>); append
+          // dot to that same element so it stays on the task line
+          cbParent.appendChild(dot);
+        } else {
+          // Tight list: insert dot before the first block-level child so it
+          // stays on the task line rather than after any continuation text
+          const firstBlock = Array.from(li.children).find(el =>
+            ['P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(el.tagName)
+          );
+          if (firstBlock) {
+            li.insertBefore(dot, firstBlock);
+          } else {
+            li.appendChild(dot);
+          }
+        }
+      }
     }
   });
 }
