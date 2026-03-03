@@ -66,6 +66,23 @@ function updateStatus(message, success) {
   statusDiv.style.color = success ? 'green' : 'red';
 }
 
+function updateBackupStatus() {
+  const el = document.getElementById('last-backup-status');
+  if (!el) return;
+  const t = localStorage.getItem('last_backup_time');
+  if (!t) { el.textContent = 'Never Backed Up'; return; }
+  const diff = Date.now() - parseInt(t, 10);
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  let ago;
+  if (mins < 1)       ago = 'Just Now';
+  else if (mins < 60) ago = `${mins}m Ago`;
+  else if (hours < 24) ago = `${hours}h Ago`;
+  else                 ago = `${days}d Ago`;
+  el.textContent = `Last Backed Up ${ago}`;
+}
+
 function getFormattedDate() {
   const date = new Date();
   const yy = String(date.getFullYear()).slice(-2);
@@ -335,6 +352,17 @@ function preprocessMarkdown(text) {
 
   // ── Strip schedule syntax (> YYMMDD HHMM HHMM) from end of lines ──
   text = text.replace(/\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/gm, '');
+
+  // ── Highlight syntax ==text== → <mark>text</mark> (skip fenced code blocks) ──
+  {
+    const hlLines = text.split('\n');
+    let inFence = false;
+    text = hlLines.map(line => {
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (inFence) return line;
+      return line.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+    }).join('\n');
+  }
 
   // ── Indentation: convert leading tabs into padded HTML blocks ──
   // Fenced code blocks, list items (- / * / + / 1.), blockquotes (>), and
@@ -763,6 +791,8 @@ function deleteAllNotes() {
 }
 
 function downloadAllNotes() {
+  localStorage.setItem('last_backup_time', Date.now().toString());
+  updateBackupStatus();
   const zip = new JSZip();
   let count = 0;
 
@@ -979,6 +1009,8 @@ function deleteSelectedNotes() {
 }
 
 function backupSelectedNotes() {
+  localStorage.setItem('last_backup_time', Date.now().toString());
+  updateBackupStatus();
   const notes = getVisibleNotes();
   if (notes.length === 0) {
     alert('No notes match the filter.');
@@ -1563,6 +1595,7 @@ function showPanel() {
   if (isPanelPinned) return;
   clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
+  updateBackupStatus();
 }
 
 function scheduleHidePanel() {
@@ -1577,6 +1610,7 @@ panelLists.addEventListener('mouseenter', showPanel);
 panelLists.addEventListener('mouseleave', scheduleHidePanel);
 
 applyPinState();
+updateBackupStatus();
 
 // Restore the last active panel (Notes / Tasks / Schedule)
 {
