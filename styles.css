@@ -18,13 +18,13 @@ body {
 
 /* ── Status message ── */
 #status-message {
-  margin: var(--gap) 0 var(--gap) var(--gap);
+  margin: 20px 0 var(--gap) var(--gap);
   font-weight: bold;
 }
 
 /* ── Button container ── */
 #button-container {
-  margin-top: 20px;
+  margin-top: var(--gap);
   margin-left: 10px;
   margin-right: 5px;
   display: flex;
@@ -453,6 +453,15 @@ textarea:focus {
   z-index: 50;
 }
 
+/* ── Last Backed Up status ── */
+#last-backup-status {
+  font-size: 11px;
+  color: #6b4e7a;
+  text-align: center;
+  padding: 4px 0 6px;
+  flex-shrink: 0;
+}
+
 /* ── Pin button ── */
 #panel-pin {
   position: absolute;
@@ -823,6 +832,15 @@ body.panel-pinned {
   color: #f0e8ff;
   border-radius: 2px;
   padding: 0 1px;
+}
+
+/* ── Highlight syntax (==text==) ── */
+#preview mark {
+  background-color: #4a3000;
+  color: #f5d76e;
+  border-radius: 2px;
+  padding: 0 2px;
+  font-style: normal;
 }
 
 /* ── Clickable Math Formulas ── */
