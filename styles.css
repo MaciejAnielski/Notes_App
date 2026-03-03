@@ -6,6 +6,7 @@
 html, body {
   height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
@@ -136,14 +137,18 @@ button {
 textarea::-webkit-scrollbar,
 #preview::-webkit-scrollbar,
 #panel-lists::-webkit-scrollbar,
-#todoList::-webkit-scrollbar {
+#todoList::-webkit-scrollbar,
+#files-container::-webkit-scrollbar,
+#todo-container::-webkit-scrollbar {
   display: none;
 }
 
 textarea,
 #preview,
 #panel-lists,
-#todoList {
+#todoList,
+#files-container,
+#todo-container {
   scrollbar-width: none; /* Firefox */
 }
 
