@@ -42,7 +42,7 @@ const todoList = document.getElementById('todoList');
 const statusDiv = document.getElementById('status-message');
 const deleteSelectedBtn = document.getElementById('delete-selected');
 const exportSelectedBtn = document.getElementById('export-selected');
-const backupSelectedBtn = document.getElementById('backup-selected');
+const findBtn = document.getElementById('find-btn');
 
 function getVisibleNotes() {
   const raw = searchBox.value.trim().toLowerCase();
@@ -1138,6 +1138,11 @@ function updateFileList() {
         span.style.cursor = 'pointer';
         span.onclick = () => {
           loadNote(fileName);
+          if (window.matchMedia('(max-width: 650px)').matches) {
+            const overlay = document.getElementById('mobile-overlay');
+            document.getElementById('panel-lists').classList.remove('mobile-open-left');
+            if (overlay) overlay.classList.remove('active');
+          }
         };
         li.appendChild(span);
         noteMap[fileName] = li;
@@ -1205,6 +1210,12 @@ function updateTodoList() {
         title.style.cursor = 'pointer';
         title.onclick = () => {
           loadNote(fileName);
+          if (window.matchMedia('(max-width: 650px)').matches) {
+            const overlay = document.getElementById('mobile-overlay');
+            const rightPanel = document.getElementById('mobile-right-panel');
+            if (rightPanel) rightPanel.classList.remove('mobile-open-right');
+            if (overlay) overlay.classList.remove('active');
+          }
         };
         noteLi.appendChild(title);
 
@@ -1536,6 +1547,12 @@ function renderSchedule() {
     nameSpan.textContent = stripMarkdownText(item.text);
     nameSpan.addEventListener('click', () => {
       loadNote(item.fileName);
+      if (window.matchMedia('(max-width: 650px)').matches) {
+        const overlay = document.getElementById('mobile-overlay');
+        const rightPanel = document.getElementById('mobile-right-panel');
+        if (rightPanel) rightPanel.classList.remove('mobile-open-right');
+        if (overlay) overlay.classList.remove('active');
+      }
       setTimeout(() => {
         if (isPreview) {
           highlightTextInPreview(stripMarkdownText(item.text));
@@ -1619,8 +1636,8 @@ setupMobileButtonGroup(deleteBtn, deleteNote);
 deleteAllBtn.addEventListener('click', deleteAllNotes);
 deleteSelectedBtn.addEventListener('click', deleteSelectedNotes);
 exportSelectedBtn.addEventListener('click', exportSelectedNotes);
-backupSelectedBtn.addEventListener('click', backupSelectedNotes);
-setupMobileButtonGroup(importZipBtn, () => importZipInput.click());
+importZipBtn.addEventListener('click', () => importZipInput.click());
+findBtn.addEventListener('click', openGlobalSearch);
 importZipInput.addEventListener('change', e => {
   if (e.target.files.length > 0) {
     importNotesFromZip(e.target.files[0]);
@@ -1685,10 +1702,29 @@ function cyclePanel() {
 
 panelArrow.addEventListener('click', cyclePanel);
 
-// Clicking any panel title also cycles to the next page
-filesContainer.querySelector('h2').addEventListener('click', cyclePanel);
-todosContainer.querySelector('h2').addEventListener('click', cyclePanel);
-scheduleContainer.querySelector('h2').addEventListener('click', cyclePanel);
+// Clicking any panel title also cycles to the next page (desktop only on mobile, headings switch tabs)
+filesContainer.querySelector('h2').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 650px)').matches) return;
+  cyclePanel();
+});
+todosContainer.querySelector('h2').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 650px)').matches) {
+    todosContainer.classList.remove('active');
+    scheduleContainer.classList.add('active');
+    localStorage.setItem('active_panel', 'schedule');
+    return;
+  }
+  cyclePanel();
+});
+scheduleContainer.querySelector('h2').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 650px)').matches) {
+    scheduleContainer.classList.remove('active');
+    todosContainer.classList.add('active');
+    localStorage.setItem('active_panel', 'tasks');
+    return;
+  }
+  cyclePanel();
+});
 
 // Clicking the backup-status message triggers a full backup
 document.getElementById('last-backup-status').addEventListener('click', downloadAllNotes);
@@ -2402,6 +2438,140 @@ function setupClickableMathFormulas() {
 }
 
 // ── End Clickable Math Formula Evaluation ─────────────────────────────────
+
+// ── Mobile Swipe Navigation ──────────────────────────────────────────────
+// On mobile (≤650px), swipe right to reveal the notes list panel from the left,
+// swipe left to reveal the tasks/schedule panel from the right.
+{
+  const mobileRightPanel = document.getElementById('mobile-right-panel');
+  const mobileOverlay = document.getElementById('mobile-overlay');
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  const SWIPE_THRESHOLD = 50;
+  const SWIPE_MAX_Y = 80;
+
+  function isMobileView() {
+    return window.matchMedia('(max-width: 650px)').matches;
+  }
+
+  // Move todo-container and schedule-container into the right panel on mobile
+  function setupMobilePanels() {
+    if (!isMobileView()) {
+      // Restore containers back to #panel-lists if resized to desktop
+      if (mobileRightPanel.contains(todosContainer)) {
+        panelLists.appendChild(todosContainer);
+        panelLists.appendChild(scheduleContainer);
+      }
+      return;
+    }
+    if (!mobileRightPanel.contains(todosContainer)) {
+      mobileRightPanel.appendChild(todosContainer);
+      mobileRightPanel.appendChild(scheduleContainer);
+    }
+  }
+
+  // Ensure the left panel only shows Notes on mobile
+  function activateNotesInLeftPanel() {
+    filesContainer.classList.add('active');
+    todosContainer.classList.remove('active');
+    scheduleContainer.classList.remove('active');
+  }
+
+  // Ensure one of tasks/schedule is active in right panel
+  function activateRightPanelTab() {
+    const saved = localStorage.getItem('active_panel');
+    if (saved === 'schedule') {
+      todosContainer.classList.remove('active');
+      scheduleContainer.classList.add('active');
+    } else {
+      todosContainer.classList.add('active');
+      scheduleContainer.classList.remove('active');
+    }
+  }
+
+  function openLeftPanel() {
+    if (!isMobileView()) return;
+    setupMobilePanels();
+    activateNotesInLeftPanel();
+    panelLists.classList.add('mobile-open-left');
+    mobileOverlay.classList.add('active');
+    updateBackupStatus();
+  }
+
+  function openRightPanel() {
+    if (!isMobileView()) return;
+    setupMobilePanels();
+    activateRightPanelTab();
+    mobileRightPanel.classList.add('mobile-open-right');
+    mobileOverlay.classList.add('active');
+  }
+
+  function closeMobilePanels() {
+    panelLists.classList.remove('mobile-open-left');
+    mobileRightPanel.classList.remove('mobile-open-right');
+    mobileOverlay.classList.remove('active');
+  }
+
+  mobileOverlay.addEventListener('click', closeMobilePanels);
+
+  // Swipe detection on the content area
+  document.addEventListener('touchstart', e => {
+    if (!isMobileView()) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!isMobileView()) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+    const elapsed = Date.now() - touchStartTime;
+
+    // Ignore slow or vertical drags
+    if (elapsed > 500 || dy > SWIPE_MAX_Y) return;
+    if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+
+    const leftOpen = panelLists.classList.contains('mobile-open-left');
+    const rightOpen = mobileRightPanel.classList.contains('mobile-open-right');
+
+    if (dx > 0) {
+      // Swipe right
+      if (rightOpen) {
+        closeMobilePanels();
+      } else if (!leftOpen) {
+        openLeftPanel();
+      }
+    } else {
+      // Swipe left
+      if (leftOpen) {
+        closeMobilePanels();
+      } else if (!rightOpen) {
+        openRightPanel();
+      }
+    }
+  }, { passive: true });
+
+  // On resize, re-setup panels
+  window.addEventListener('resize', () => {
+    if (isMobileView()) {
+      setupMobilePanels();
+    } else {
+      // Move containers back and close mobile panels
+      closeMobilePanels();
+      if (mobileRightPanel.contains(todosContainer)) {
+        panelLists.appendChild(todosContainer);
+        panelLists.appendChild(scheduleContainer);
+      }
+    }
+  });
+
+  // Initial setup
+  if (isMobileView()) {
+    setupMobilePanels();
+  }
+}
 
 // ── Cross-window sync via storage events ──────────────────────────────────
 // When another tab/window modifies localStorage the 'storage' event fires
