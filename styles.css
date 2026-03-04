@@ -674,11 +674,6 @@ body.panel-pinned {
   align-self: center;
 }
 
-/* Ensure a minimum gap between task text and the status dot in task view */
-#todoList li li .task-status-dot {
-  margin-left: 8px;
-}
-
 /* In markdown preview, dot sits inline at the end of the task text */
 .task-status-dot.dot-inline {
   margin-left: 5px;

@@ -351,7 +351,31 @@ function preprocessMarkdown(text) {
   });
 
   // ── Strip schedule syntax (> YYMMDD HHMM HHMM) from end of lines ──
-  text = text.replace(/\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/gm, '');
+  // For non-list, non-heading "event" lines, insert a blank line after
+  // stripping so they render as separate paragraphs with normal spacing.
+  {
+    const schedRe = /\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/;
+    const schedLines = text.split('\n');
+    const schedOut = [];
+    for (let si = 0; si < schedLines.length; si++) {
+      const line = schedLines[si];
+      if (schedRe.test(line)) {
+        const stripped = line.replace(schedRe, '');
+        schedOut.push(stripped);
+        const trimmed = stripped.trimStart();
+        const isList = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isHeading = trimmed.startsWith('#');
+        const nextLine = schedLines[si + 1];
+        const nextIsBlank = nextLine === undefined || nextLine.trim() === '';
+        if (!isList && !isHeading && !nextIsBlank) {
+          schedOut.push('');
+        }
+      } else {
+        schedOut.push(line);
+      }
+    }
+    text = schedOut.join('\n');
+  }
 
   // ── Highlight syntax ==text== → <mark>text</mark> (skip fenced code blocks) ──
   {
@@ -1270,21 +1294,27 @@ function setupPreviewTaskCheckboxes() {
       }
       const li = cb.closest('li');
       if (li) {
-        const cbParent = cb.parentElement;
-        if (cbParent !== li) {
-          // Loose list: checkbox is inside a block element (e.g. <p>); append
-          // dot at the end of that element so it sits after all task text
-          cbParent.appendChild(dot);
+        // Find the first <br> or block-level element after the checkbox
+        // inside the checkbox's container so the dot stays on the task
+        // text line rather than after any continuation content.
+        const container = cb.parentElement;
+        const boundary = Array.from(container.childNodes).find(n =>
+          (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'BR') ||
+          (n.nodeType === Node.ELEMENT_NODE &&
+           ['P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(n.tagName))
+        );
+        if (boundary) {
+          container.insertBefore(dot, boundary);
+        } else if (container !== li) {
+          container.appendChild(dot);
         } else {
-          // Tight list: find the last inline/text node on the first line and
-          // append the dot right after it, before any block-level children
-          // (sub-lists, blockquotes, etc.) so the dot stays on the task line.
-          const firstBlock = Array.from(li.childNodes).find(n =>
+          // Tight list: also check for block children of the <li> itself
+          const liBlock = Array.from(li.childNodes).find(n =>
             n.nodeType === Node.ELEMENT_NODE &&
             ['P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(n.tagName)
           );
-          if (firstBlock) {
-            li.insertBefore(dot, firstBlock);
+          if (liBlock) {
+            li.insertBefore(dot, liBlock);
           } else {
             li.appendChild(dot);
           }
