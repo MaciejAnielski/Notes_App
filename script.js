@@ -1619,8 +1619,8 @@ panelPin.addEventListener('click', () => {
   applyPinState();
 });
 
-// Arrow click cycles: Notes → Tasks → Schedule → Notes
-panelArrow.addEventListener('click', () => {
+// Cycle panel pages: Notes → Tasks → Schedule → Notes
+function cyclePanel() {
   if (filesContainer.classList.contains('active')) {
     filesContainer.classList.remove('active');
     todosContainer.classList.add('active');
@@ -1634,7 +1634,17 @@ panelArrow.addEventListener('click', () => {
     filesContainer.classList.add('active');
     localStorage.setItem('active_panel', 'files');
   }
-});
+}
+
+panelArrow.addEventListener('click', cyclePanel);
+
+// Clicking any panel title also cycles to the next page
+filesContainer.querySelector('h2').addEventListener('click', cyclePanel);
+todosContainer.querySelector('h2').addEventListener('click', cyclePanel);
+scheduleContainer.querySelector('h2').addEventListener('click', cyclePanel);
+
+// Clicking the backup-status message triggers a full backup
+document.getElementById('last-backup-status').addEventListener('click', downloadAllNotes);
 
 schedulePrevBtn.addEventListener('click', () => {
   scheduleDate.setDate(scheduleDate.getDate() - 1);
