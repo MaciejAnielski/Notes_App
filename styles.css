@@ -942,3 +942,21 @@ body.panel-pinned {
   margin-top: 0.4em;
   font-size: 1em;
 }
+
+/* ── Mobile: centre toolbar and show status message above it ── */
+@media (max-width: 650px) {
+  #button-container {
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-left: 0;
+  }
+
+  #status-message {
+    order: -1;
+    width: 100%;
+    text-align: center;
+    margin-left: 0;
+    padding-right: 0;
+    padding: 4px 0;
+  }
+}
