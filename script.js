@@ -786,6 +786,13 @@ function newNote() {
   localStorage.removeItem('current_file');
   updateFileList();
   updateStatus('', true);
+  if (localStorage.getItem(key) === null) {
+    const pos = ('# ' + today).length;
+    textarea.focus();
+    textarea.setSelectionRange(pos, pos);
+  } else {
+    textarea.focus();
+  }
 }
 
 function deleteNote() {
@@ -1386,6 +1393,22 @@ function getScheduleItems(dateStr) {
   return items;
 }
 
+// Find the first preview element whose text contains `text` and flash a
+// temporary highlight class on it. Used by schedule task clicks and global search.
+function highlightTextInPreview(text, caseSensitive = false) {
+  const needle = caseSensitive ? text : text.toLowerCase();
+  const elements = previewDiv.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th');
+  for (const el of elements) {
+    const haystack = caseSensitive ? el.textContent : el.textContent.toLowerCase();
+    if (haystack.includes(needle)) {
+      el.classList.add('schedule-highlight');
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setTimeout(() => el.classList.remove('schedule-highlight'), 2000);
+      break;
+    }
+  }
+}
+
 // Strip all markdown formatting from a text string for plain-text display.
 // Handles wiki-links, markdown links, bullets, ordered lists, bold/italic,
 // inline code, and removes stray square-bracket characters.
@@ -1511,7 +1534,21 @@ function renderSchedule() {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'schedule-item-name';
     nameSpan.textContent = stripMarkdownText(item.text);
-    nameSpan.addEventListener('click', () => loadNote(item.fileName));
+    nameSpan.addEventListener('click', () => {
+      loadNote(item.fileName);
+      setTimeout(() => {
+        if (isPreview) {
+          highlightTextInPreview(stripMarkdownText(item.text));
+        } else {
+          const lines = textarea.value.split('\n');
+          if (item.lineIndex >= 0 && item.lineIndex < lines.length) {
+            const startOffset = lines.slice(0, item.lineIndex).reduce((acc, l) => acc + l.length + 1, 0);
+            textarea.setSelectionRange(startOffset, startOffset + lines[item.lineIndex].length);
+            textarea.focus();
+          }
+        }
+      }, 50);
+    });
     block.appendChild(nameSpan);
 
     scheduleGrid.appendChild(block);
@@ -1839,17 +1876,21 @@ function gsSelectResult(index) {
 
   loadNote(result.noteName);
 
-  // Select the match in the textarea after load
+  // Select / highlight the match after load
   setTimeout(() => {
-    const query  = gsSearchInput.value;
+    const query = gsSearchInput.value;
     const caseSensitive = gsCaseCheckbox.checked;
-    const content = textarea.value;
-    const hay   = caseSensitive ? content : content.toLowerCase();
-    const ndl   = caseSensitive ? query : query.toLowerCase();
-    const idx   = hay.indexOf(ndl);
-    if (idx !== -1) {
-      textarea.setSelectionRange(idx, idx + query.length);
-      textarea.focus();
+    if (isPreview) {
+      highlightTextInPreview(query, caseSensitive);
+    } else {
+      const content = textarea.value;
+      const hay = caseSensitive ? content : content.toLowerCase();
+      const ndl = caseSensitive ? query : query.toLowerCase();
+      const idx = hay.indexOf(ndl);
+      if (idx !== -1) {
+        textarea.setSelectionRange(idx, idx + query.length);
+        textarea.focus();
+      }
     }
   }, 50);
 }

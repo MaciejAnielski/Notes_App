@@ -901,6 +901,14 @@ body.panel-pinned {
   padding: 0 1px;
 }
 
+/* ── Schedule / search navigation highlight (flashes then fades) ── */
+#preview .schedule-highlight {
+  background-color: #3a1060;
+  border-radius: 3px;
+  outline: 2px solid #9b6fcf;
+  transition: background-color 1.5s ease, outline-color 1.5s ease;
+}
+
 /* ── Highlight syntax (==text==) ── */
 #preview mark {
   background-color: #4a3000;
