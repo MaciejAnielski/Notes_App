@@ -44,6 +44,11 @@ button {
   cursor: pointer;
 }
 
+/* Toolbar main buttons: fixed minimum width so shorter labels stay tidy */
+#button-container .button-group > button:not(.sub-button) {
+  min-width: 72px;
+}
+
 .button-group {
   position: relative;
   display: inline-block;
@@ -467,6 +472,31 @@ textarea:focus {
   text-align: center;
   padding: 4px 0 6px;
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+#last-backup-status:hover {
+  color: #a272b0;
+}
+
+/* ── Panel section headings ── */
+#files-container h2,
+#todo-container h2,
+#schedule-container h2 {
+  text-align: center;
+  cursor: pointer;
+  margin: 4px 0 8px;
+  color: #a272b0;
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+#files-container h2:hover,
+#todo-container h2:hover,
+#schedule-container h2:hover {
+  color: #c89fdf;
 }
 
 /* ── Pin button ── */
