@@ -78,12 +78,30 @@ button {
   top: 100%;
   left: 0;
   z-index: 10;
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 3px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  padding: 2px 0;
 }
 
 .sub-button {
   display: block;
   width: 100%;
+  background: none;
+  border: none;
+  color: #9a8aaa;
+  padding: 3px 14px;
+  margin: 0;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  border-radius: 0;
+}
+
+.sub-button:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #e8dcf4;
 }
 
 /* ── Search boxes ── */
