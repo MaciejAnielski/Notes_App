@@ -17,18 +17,21 @@ body {
   flex-direction: column;
 }
 
-/* ── Button container — sits above status, Word-style menu bar ── */
+/* ── Button container — Word-style menu bar ── */
 #button-container {
-  margin: 5px 0 0 6px;
+  margin: 5px 6px 5px 6px;
   display: flex;
   align-items: center;
   gap: 2px;
 }
 
-/* ── Status message ── */
+/* ── Status message — right-aligned in the toolbar row ── */
 #status-message {
-  margin: 3px 0 var(--gap) var(--gap);
+  margin-left: auto;
+  padding-right: 10px;
+  font-size: 13px;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 /* ── Buttons (global baseline) ── */
