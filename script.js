@@ -665,14 +665,14 @@ function toggleView() {
   if (isPreview) {
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
-    toggleViewBtn.textContent = 'Preview Markdown';
+    toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
   } else {
     renderPreview();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
-    toggleViewBtn.textContent = 'Edit Markdown';
+    toggleViewBtn.textContent = 'Edit';
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
   }

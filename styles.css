@@ -17,21 +17,21 @@ body {
   flex-direction: column;
 }
 
+/* ── Button container — sits above status, Word-style menu bar ── */
+#button-container {
+  margin: 5px 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* ── Status message ── */
 #status-message {
-  margin: 20px 0 var(--gap) var(--gap);
+  margin: 3px 0 var(--gap) var(--gap);
   font-weight: bold;
 }
 
-/* ── Button container ── */
-#button-container {
-  margin-top: var(--gap);
-  margin-left: 10px;
-  margin-right: 5px;
-  display: flex;
-}
-
-/* ── Buttons ── */
+/* ── Buttons (global baseline) ── */
 button {
   background-color: #2e2e2e;
   color: #e8dcf4;
@@ -44,9 +44,20 @@ button {
   cursor: pointer;
 }
 
-/* Toolbar main buttons: fixed minimum width so shorter labels stay tidy */
+/* ── Toolbar buttons: minimalist, borderless, Word-style ── */
 #button-container .button-group > button:not(.sub-button) {
-  min-width: 72px;
+  background: none;
+  border: none;
+  color: #9a8aaa;
+  padding: 3px 10px;
+  margin: 0;
+  font-size: 13px;
+  border-radius: 3px;
+}
+
+#button-container .button-group > button:not(.sub-button):hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #e8dcf4;
 }
 
 .button-group {
@@ -64,6 +75,7 @@ button {
   top: 100%;
   left: 0;
   z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 .sub-button {
@@ -485,11 +497,6 @@ textarea:focus {
 #schedule-container h2 {
   text-align: center;
   cursor: pointer;
-  margin: 4px 0 8px;
-  color: #a272b0;
-  font-size: 15px;
-  font-weight: bold;
-  letter-spacing: 0.04em;
   user-select: none;
 }
 
