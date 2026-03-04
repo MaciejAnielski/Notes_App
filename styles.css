@@ -674,9 +674,15 @@ body.panel-pinned {
   align-self: center;
 }
 
-/* In markdown preview, dot sits inline after the task text */
+/* Ensure a minimum gap between task text and the status dot in task view */
+#todoList li li .task-status-dot {
+  margin-left: 8px;
+}
+
+/* In markdown preview, dot sits inline at the end of the task text */
 .task-status-dot.dot-inline {
   margin-left: 5px;
+  vertical-align: middle;
 }
 
 .dot-unscheduled { background-color: #e8dcf4; }
