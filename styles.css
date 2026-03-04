@@ -177,7 +177,8 @@ textarea::-webkit-scrollbar,
 #panel-lists::-webkit-scrollbar,
 #todoList::-webkit-scrollbar,
 #files-container::-webkit-scrollbar,
-#todo-container::-webkit-scrollbar {
+#todo-container::-webkit-scrollbar,
+#mobile-right-panel::-webkit-scrollbar {
   display: none;
 }
 
@@ -186,8 +187,18 @@ textarea,
 #panel-lists,
 #todoList,
 #files-container,
-#todo-container {
+#todo-container,
+#mobile-right-panel {
   scrollbar-width: none; /* Firefox */
+}
+
+/* Hidden on desktop — only visible on mobile via swipe */
+#mobile-right-panel {
+  display: none;
+}
+
+#mobile-overlay {
+  display: none;
 }
 
 /* ── Textarea & preview ── */
@@ -958,5 +969,114 @@ body.panel-pinned {
     margin-left: 0;
     padding-right: 0;
     padding: 4px 0;
+  }
+
+  /* Hide arrow button on mobile — replaced by swipe */
+  #panel-arrow {
+    display: none !important;
+  }
+
+  /* Hide pin button on mobile */
+  #panel-pin {
+    display: none !important;
+  }
+
+  /* ── Swipe navigation: Notes list slides from left ── */
+  #panel-lists {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: auto;
+    width: 80vw;
+    max-width: 320px;
+    height: 100%;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    display: flex !important;
+    flex-direction: column;
+    border-left: none;
+    border-right: 1px solid #333;
+    z-index: 150;
+  }
+
+  #panel-lists.visible,
+  #panel-lists.pinned {
+    transform: translateX(-100%);
+  }
+
+  #panel-lists.mobile-open-left,
+  #panel-lists.mobile-open-left.visible,
+  #panel-lists.mobile-open-left.pinned {
+    transform: translateX(0);
+  }
+
+  /* ── Right panel (tasks/schedule) slides from right ── */
+  #mobile-right-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 80vw;
+    max-width: 320px;
+    height: 100%;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    background-color: #1e1e1e;
+    border-left: 1px solid #333;
+    z-index: 150;
+    padding: var(--gap) calc(var(--gap) * 2);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  #mobile-right-panel.mobile-open-right {
+    transform: translateX(0);
+  }
+
+  /* Overlay backdrop when a panel is open */
+  #mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 140;
+  }
+
+  #mobile-overlay.active {
+    display: block;
+  }
+
+  /* Remove body padding-right override on mobile */
+  body.panel-pinned {
+    padding-right: 0;
+  }
+
+  /* ── Find/Replace: bottom sheet on mobile ── */
+  #global-search-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 55vh;
+    border-radius: 12px 12px 0 0;
+    border: 1px solid #555;
+    border-bottom: none;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  #global-search-panel .gs-row {
+    padding: 8px 10px;
+  }
+
+  #gs-search-input,
+  #gs-replace-input {
+    font-size: 16px;
+    padding: 8px 10px;
   }
 }
