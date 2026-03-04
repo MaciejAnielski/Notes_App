@@ -614,6 +614,7 @@ body.panel-pinned {
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: none;
+  padding-top: 20px;
 }
 
 #schedule-timeline-wrapper::-webkit-scrollbar {

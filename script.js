@@ -535,7 +535,17 @@ function preprocessMarkdown(text) {
 function setupNoteLinks(container = previewDiv) {
   container.querySelectorAll('a').forEach(a => {
     const href = a.getAttribute('href');
-    if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) {
+    if (!href) {
+      return;
+    }
+    // External links: open in new tab
+    if (/^[a-zA-Z]+:/.test(href)) {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+      return;
+    }
+    // Anchor links: don't modify
+    if (href.startsWith('#')) {
       return;
     }
     const noteName = decodeURIComponent(href).replace(/_/g, ' ').trim();
