@@ -772,6 +772,7 @@ function deleteNote() {
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
+  updateStatus(`Deleted "${name}".`, true);
 }
 
 function deleteAllNotes() {
@@ -788,6 +789,7 @@ function deleteAllNotes() {
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
+  updateStatus(`Deleted ${keys.length} note${keys.length === 1 ? '' : 's'}.`, true);
 }
 
 function downloadAllNotes() {
@@ -817,6 +819,7 @@ function downloadAllNotes() {
     link.download = 'all_notes.zip';
     link.click();
     URL.revokeObjectURL(link.href);
+    updateStatus(`Backed up ${count} note${count === 1 ? '' : 's'}.`, true);
   });
 }
 
@@ -969,6 +972,7 @@ function exportNote() {
   link.download = name + '.html';
   link.click();
   URL.revokeObjectURL(link.href);
+  updateStatus(`Exported "${name}".`, true);
 }
 
 function exportAllNotes() {
@@ -988,6 +992,7 @@ function exportAllNotes() {
   link.download = 'notes_notebook.html';
   link.click();
   URL.revokeObjectURL(link.href);
+  updateStatus(`Exported ${entries.length} note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
 function deleteSelectedNotes() {
@@ -1006,6 +1011,7 @@ function deleteSelectedNotes() {
     }
   });
   updateFileList();
+  updateStatus(`Deleted ${notes.length} note${notes.length === 1 ? '' : 's'}.`, true);
 }
 
 function backupSelectedNotes() {
@@ -1029,6 +1035,7 @@ function backupSelectedNotes() {
     link.download = 'selected_notes.zip';
     link.click();
     URL.revokeObjectURL(link.href);
+    updateStatus(`Backed up ${notes.length} note${notes.length === 1 ? '' : 's'}.`, true);
   });
 }
 
@@ -1045,6 +1052,7 @@ function exportSelectedNotes() {
   link.download = 'notes_notebook.html';
   link.click();
   URL.revokeObjectURL(link.href);
+  updateStatus(`Exported ${entries.length} note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
 function importNotesFromZip(file) {
@@ -1059,9 +1067,10 @@ function importNotesFromZip(file) {
       }
     });
     return Promise.all(promises);
-  }).then(() => {
+  }).then((results) => {
     updateFileList();
     importZipInput.value = '';
+    updateStatus(`Imported ${results.length} note${results.length === 1 ? '' : 's'}.`, true);
   }).catch(err => {
     alert('Error importing zip: ' + err.message);
   });
@@ -1264,13 +1273,15 @@ function setupPreviewTaskCheckboxes() {
         const cbParent = cb.parentElement;
         if (cbParent !== li) {
           // Loose list: checkbox is inside a block element (e.g. <p>); append
-          // dot to that same element so it stays on the task line
+          // dot at the end of that element so it sits after all task text
           cbParent.appendChild(dot);
         } else {
-          // Tight list: insert dot before the first block-level child so it
-          // stays on the task line rather than after any continuation text
-          const firstBlock = Array.from(li.children).find(el =>
-            ['P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(el.tagName)
+          // Tight list: find the last inline/text node on the first line and
+          // append the dot right after it, before any block-level children
+          // (sub-lists, blockquotes, etc.) so the dot stays on the task line.
+          const firstBlock = Array.from(li.childNodes).find(n =>
+            n.nodeType === Node.ELEMENT_NODE &&
+            ['P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(n.tagName)
           );
           if (firstBlock) {
             li.insertBefore(dot, firstBlock);
@@ -1630,6 +1641,9 @@ panelLists.addEventListener('mouseleave', scheduleHidePanel);
 applyPinState();
 updateBackupStatus();
 
+// Refresh "Last Backed Up" message every hour so it stays current
+setInterval(updateBackupStatus, 3600000);
+
 // Restore the last active panel (Notes / Tasks / Schedule)
 {
   const savedPanel = localStorage.getItem('active_panel');
@@ -1790,8 +1804,16 @@ function gsSelectResult(index) {
   }, 50);
 }
 
-// Ctrl+F intercept
+// Global keyboard shortcuts
 document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault();
+    newNote();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+    e.preventDefault();
+    toggleView();
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
     e.preventDefault();
     openGlobalSearch();
@@ -2289,6 +2311,39 @@ function setupClickableMathFormulas() {
 }
 
 // ── End Clickable Math Formula Evaluation ─────────────────────────────────
+
+// ── Cross-window sync via storage events ──────────────────────────────────
+// When another tab/window modifies localStorage the 'storage' event fires
+// here, keeping note contents, file list, and backup status in sync.
+window.addEventListener('storage', e => {
+  if (e.key === 'last_backup_time') {
+    updateBackupStatus();
+    return;
+  }
+  if (e.key && e.key.startsWith('md_')) {
+    const changedNote = e.key.slice(3);
+    if (changedNote === currentFileName) {
+      if (e.newValue === null) {
+        // Note was deleted in another window
+        textarea.value = '';
+        currentFileName = null;
+        localStorage.removeItem('current_file');
+        if (isPreview) {
+          previewDiv.innerHTML = '';
+        }
+        updateStatus('Note deleted in another window.', false);
+      } else {
+        // Note content changed in another window — refresh
+        textarea.value = e.newValue;
+        if (isPreview) renderPreview();
+        updateStatus('Note updated from another window.', true);
+      }
+    }
+    updateFileList();
+    return;
+  }
+});
+// ── End cross-window sync ─────────────────────────────────────────────────
 
 const savedChain = localStorage.getItem('linked_chain');
 if (savedChain) {
