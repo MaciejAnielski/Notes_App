@@ -1263,17 +1263,27 @@ function setupPreviewTaskCheckboxes() {
       if (li) {
         const cbParent = cb.parentElement;
         if (cbParent !== li) {
-          // Loose list: checkbox is inside a block element (e.g. <p>); append
-          // dot to that same element so it stays on the task line
-          cbParent.appendChild(dot);
-        } else {
-          // Tight list: insert dot before the first block-level child so it
-          // stays on the task line rather than after any continuation text
-          const firstBlock = Array.from(li.children).find(el =>
-            ['P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(el.tagName)
+          // Loose list: checkbox is inside a block element (e.g. <p>); insert
+          // dot before the first <br> in that element (if any) so it stays on
+          // the task line rather than after continuation text that follows a
+          // line break inside the same block
+          const firstBrInParent = Array.from(cbParent.children).find(
+            el => el.tagName === 'BR'
           );
-          if (firstBlock) {
-            li.insertBefore(dot, firstBlock);
+          if (firstBrInParent) {
+            cbParent.insertBefore(dot, firstBrInParent);
+          } else {
+            cbParent.appendChild(dot);
+          }
+        } else {
+          // Tight list: insert dot before the first <br> or block-level child
+          // so it stays on the task line rather than after any continuation
+          // text or sub-list that follows a line break
+          const firstBoundary = Array.from(li.children).find(el =>
+            ['BR', 'P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE'].includes(el.tagName)
+          );
+          if (firstBoundary) {
+            li.insertBefore(dot, firstBoundary);
           } else {
             li.appendChild(dot);
           }
