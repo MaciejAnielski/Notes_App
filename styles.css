@@ -477,7 +477,7 @@ body.panel-pinned #panel-arrow {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--gap) calc(var(--gap) * 2) calc(var(--gap) * 2) var(--gap);
+  padding: 0 var(--gap) var(--gap) var(--gap);
   box-sizing: border-box;
 }
 
