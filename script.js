@@ -2488,7 +2488,9 @@ function formatMathResult(value) {
 function saveFormulaResult(mathExpr, resultStr) {
   if (!currentFileName || currentFileName === PROJECTS_NOTE) return;
   const content = textarea.value;
-  const { index, type } = mathExpr;
+  const { type } = mathExpr;
+  const index = findCurrentFormulaIndex(content, mathExpr);
+  if (index === -1) return;
   let newContent;
 
   if (type === 'block') {
@@ -2520,12 +2522,50 @@ function saveFormulaResult(mathExpr, resultStr) {
   autoSaveTimer = null;
 }
 
+// Find the current character index of a math expression in the given content.
+// mathExpr.tex is the original (unsaved) inner TeX, trimmed. After saving, the
+// inner content grows with the result appended, so we match any formula whose
+// trimmed inner content starts with the base tex (up to and including "=").
+function findCurrentFormulaIndex(content, mathExpr) {
+  const texBase = mathExpr.tex.replace(/=\s*$/, '=').trimEnd();
+  let i = 0;
+  while (i < content.length) {
+    if (content[i] === '\\') { i += 2; continue; }
+    if (content[i] !== '$') { i++; continue; }
+    if (mathExpr.type === 'block') {
+      if (content.slice(i, i + 2) !== '$$') { i++; continue; }
+      const start = i + 2;
+      const end = content.indexOf('$$', start);
+      if (end === -1) { i++; continue; }
+      const inner = content.slice(start, end).trim();
+      if (inner.startsWith(texBase)) return i;
+      i = end + 2;
+    } else {
+      if (content.slice(i, i + 2) === '$$') { i += 2; continue; } // skip block
+      const start = i + 1;
+      let j = start;
+      while (j < content.length) {
+        if (content[j] === '\\') { j += 2; continue; }
+        if (content[j] === '$') break;
+        j++;
+      }
+      if (j >= content.length) { i++; continue; }
+      const inner = content.slice(start, j).trim();
+      if (inner.startsWith(texBase)) return i;
+      i = j + 1;
+    }
+  }
+  return -1;
+}
+
 // Remove a previously saved result from the note's markdown source, reverting
 // the formula back to a bare trailing "=".
 function unsaveFormulaResult(mathExpr) {
   if (!currentFileName || currentFileName === PROJECTS_NOTE) return;
   const content = textarea.value;
-  const { index, type } = mathExpr;
+  const { type } = mathExpr;
+  const index = findCurrentFormulaIndex(content, mathExpr);
+  if (index === -1) return;
   let newContent;
 
   if (type === 'block') {
