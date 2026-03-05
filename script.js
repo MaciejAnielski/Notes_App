@@ -98,7 +98,7 @@ function saveChain() {
 function handleRenameAfterReplace(noteName, newContent) {
   const firstLine = newContent.split(/\n/)[0].trim();
   if (!firstLine.startsWith('#')) return;
-  const newTitle = firstLine.replace(/^#+\s*/, '').trim();
+  const newTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
   if (!newTitle || newTitle === noteName) return;
   if (localStorage.getItem('md_' + newTitle) !== null) return;
   localStorage.removeItem('md_' + noteName);
@@ -172,7 +172,7 @@ function refreshProjectsNote() {
 function getNoteTitle() {
   const firstLine = textarea.value.split(/\n/)[0].trim();
   if (firstLine.startsWith('#')) {
-    return firstLine.replace(/^#+\s*/, '').trim();
+    return firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
   }
   return null;
 }
@@ -387,6 +387,18 @@ function preprocessMarkdown(text) {
       }
     }
     text = schedOut.join('\n');
+  }
+
+  // ── Auto-collapse headings: strip trailing ">" and inject collapse marker ──
+  {
+    const collapseLines = text.split('\n');
+    text = collapseLines.map(line => {
+      const trimmed = line.trimStart();
+      if (!/^#{1,6}\s/.test(trimmed)) return line;    // not a heading
+      if (!/\s*>\s*$/.test(line)) return line;         // no trailing >
+      const stripped = line.replace(/\s*>\s*$/, '');
+      return stripped + '<span class="collapse-marker" style="display:none"></span>';
+    }).join('\n');
   }
 
   // ── Highlight syntax ==text== → <mark>text</mark> (skip fenced code blocks) ──
@@ -617,7 +629,7 @@ function setupCollapsibleHeadings(container) {
   headings.forEach(heading => {
     const level = headingLevel(heading);
     const details = document.createElement('details');
-    details.open = true;
+    details.open = !heading.querySelector('.collapse-marker');
     const summary = document.createElement('summary');
 
     // Move heading's content into summary, keep heading tag for styling
@@ -1438,8 +1450,9 @@ function highlightTextInPreview(text, caseSensitive = false) {
 function stripMarkdownText(text) {
   // Strip wiki-links [[text]] → text
   text = text.replace(/\[\[([^\]]+)\]\]/g, '$1');
-  // Strip heading markers at line start
+  // Strip heading markers at line start, and trailing collapse marker (>)
   text = text.replace(/^#+\s*/, '');
+  text = text.replace(/\s*>\s*$/, '');
   // Strip bullet / ordered-list markers at line start
   text = text.replace(/^\s*[-*+]\s+/, '');
   text = text.replace(/^\s*\d+[.)]\s+/, '');
