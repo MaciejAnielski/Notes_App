@@ -25,6 +25,11 @@ body {
   gap: 2px;
 }
 
+/* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
+#button-container .button-group {
+  flex-shrink: 0;
+}
+
 /* ── Bottom status area — wraps status message and backup label ── */
 #bottom-status-area {
   position: relative;
