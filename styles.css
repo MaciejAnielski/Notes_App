@@ -108,16 +108,23 @@ button {
 #searchBox,
 #searchTasksBox {
   display: block;
-  background-color: #2e2e2e;
+  background: none;
   color: #e8dcf4;
-  border: 1px solid #555;
-  border-radius: 4px;
+  border: none;
+  border-radius: 0;
   width: 100%;
   box-sizing: border-box;
   padding: 5px;
   margin: var(--gap) 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
+  outline: none;
+}
+
+#searchBox:focus,
+#searchTasksBox:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 /* ── File list ── */
@@ -125,6 +132,9 @@ button {
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #fileList li {
@@ -175,6 +185,7 @@ button {
 textarea::-webkit-scrollbar,
 #preview::-webkit-scrollbar,
 #panel-lists::-webkit-scrollbar,
+#fileList::-webkit-scrollbar,
 #todoList::-webkit-scrollbar,
 #files-container::-webkit-scrollbar,
 #todo-container::-webkit-scrollbar,
@@ -185,6 +196,7 @@ textarea::-webkit-scrollbar,
 textarea,
 #preview,
 #panel-lists,
+#fileList,
 #todoList,
 #files-container,
 #todo-container,
@@ -391,6 +403,13 @@ textarea:focus {
 #todo-container ul {
   list-style: none;
   padding-left: 0;
+  margin: 0;
+}
+
+#todoList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #todo-container li {
@@ -521,6 +540,7 @@ body.panel-pinned #panel-arrow {
   text-align: center;
   padding: 1px 0;
   margin-top: auto;
+  margin-bottom: 10pt;
   flex-shrink: 0;
 }
 
@@ -531,7 +551,7 @@ body.panel-pinned #panel-arrow {
   text-align: center;
   cursor: pointer;
   user-select: none;
-  margin-top: 0;
+  margin-top: 10px;
 }
 
 #files-container h2:hover,
@@ -589,7 +609,7 @@ body.panel-pinned {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 #schedule-container.active {
