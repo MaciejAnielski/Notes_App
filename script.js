@@ -1846,22 +1846,29 @@ function checkToolbarOverflow() {
   }
 }
 
-toolsToggleBtn.addEventListener('click', () => {
-  const isOpen = toolsOverflowRow.classList.toggle('open');
-  toolsToggleGroup.classList.toggle('active', isOpen);
+// Open overflow row on hover
+let toolsCloseTimer = null;
+
+function openToolsOverflow() {
+  clearTimeout(toolsCloseTimer);
+  toolsOverflowRow.classList.add('open');
+  toolsToggleGroup.classList.add('active');
+}
+
+function closeToolsOverflow() {
+  toolsOverflowRow.classList.remove('open');
+  toolsToggleGroup.classList.remove('active');
+}
+
+toolsToggleGroup.addEventListener('mouseenter', openToolsOverflow);
+toolsToggleGroup.addEventListener('mouseleave', () => {
+  toolsCloseTimer = setTimeout(closeToolsOverflow, 80);
 });
 
-// Close overflow row on outside click
-document.addEventListener('click', e => {
-  if (
-    !toolsToggleGroup.contains(e.target) &&
-    !toolsOverflowRow.contains(e.target) &&
-    toolsOverflowRow.classList.contains('open')
-  ) {
-    toolsOverflowRow.classList.remove('open');
-    toolsToggleGroup.classList.remove('active');
-  }
+toolsOverflowRow.addEventListener('mouseenter', () => {
+  clearTimeout(toolsCloseTimer);
 });
+toolsOverflowRow.addEventListener('mouseleave', closeToolsOverflow);
 
 // Observe toolbar width changes
 const toolbarResizeObserver = new ResizeObserver(() => checkToolbarOverflow());
