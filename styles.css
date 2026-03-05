@@ -135,6 +135,8 @@ button {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  border-top: 1px solid #a272b0;
+  padding-top: var(--gap);
 }
 
 #fileList li {
