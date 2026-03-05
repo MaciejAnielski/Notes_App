@@ -25,13 +25,29 @@ body {
   gap: 2px;
 }
 
-/* ── Status message — right-aligned to the editor's content edge ── */
+/* ── Bottom status area — wraps status message and backup label ── */
+#bottom-status-area {
+  position: relative;
+  margin-top: auto;
+  flex-shrink: 0;
+  text-align: center;
+  padding: 1px 0;
+  margin-bottom: 0;
+}
+
+/* ── Status message — overlays backup label temporarily ── */
 #status-message {
-  margin-left: auto;
-  padding-right: calc(var(--gap) * 2);
-  font-size: 13px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 11px;
   font-family: Arial, sans-serif;
+  text-align: center;
   white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
 }
 
 /* ── Buttons (global baseline) ── */
@@ -541,9 +557,6 @@ body.panel-pinned #panel-arrow {
   color: #6b4e7a;
   text-align: center;
   padding: 1px 0;
-  margin-top: auto;
-  margin-bottom: 0px;
-  flex-shrink: 0;
 }
 
 /* ── Panel section headings ── */
@@ -1071,14 +1084,6 @@ body.panel-pinned {
     margin-left: 0;
   }
 
-  #status-message {
-    order: -1;
-    width: 100%;
-    text-align: center;
-    margin-left: 0;
-    padding-right: 0;
-    padding: 4px 0;
-  }
 
   /* Hide arrow button on mobile — replaced by swipe */
   #panel-arrow {
