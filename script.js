@@ -1806,9 +1806,6 @@ scheduleContainer.querySelector('h2').addEventListener('click', () => {
   cyclePanel();
 });
 
-// Clicking the backup-status message triggers a full backup
-document.getElementById('last-backup-status').addEventListener('click', downloadAllNotes);
-
 schedulePrevBtn.addEventListener('click', () => {
   scheduleDate.setDate(scheduleDate.getDate() - 7);
   renderSchedule();
