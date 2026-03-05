@@ -1826,10 +1826,18 @@ function checkToolbarOverflow() {
     toolsOverflowRow.classList.remove('open');
   }
 
-  // Force reflow so scrollWidth is accurate
+  // Force reflow so layout is accurate before measuring
   void buttonContainer.offsetWidth;
 
-  const overflows = buttonContainer.scrollWidth > buttonContainer.clientWidth + 1;
+  // scrollWidth doesn't work with overflow:visible; compare bounding rects instead
+  const containerRight = buttonContainer.getBoundingClientRect().right;
+  const visibleChildren = Array.from(buttonContainer.children).filter(
+    el => el !== toolsToggleGroup && getComputedStyle(el).display !== 'none'
+  );
+  const lastChild = visibleChildren[visibleChildren.length - 1];
+  const overflows = lastChild
+    ? lastChild.getBoundingClientRect().right > containerRight + 1
+    : false;
 
   if (overflows) {
     // Move collapsibles to the overflow row and show the Tools toggle
