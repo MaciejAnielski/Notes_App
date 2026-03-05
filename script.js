@@ -61,9 +61,16 @@ function getVisibleNotes() {
   return notes;
 }
 
+let statusTimeout = null;
+
 function updateStatus(message, success) {
   statusDiv.textContent = message;
   statusDiv.style.color = success ? 'green' : 'red';
+  statusDiv.style.opacity = '1';
+  if (statusTimeout) clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => {
+    statusDiv.style.opacity = '0';
+  }, 3000);
 }
 
 function updateBackupStatus() {
