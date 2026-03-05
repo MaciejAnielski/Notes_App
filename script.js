@@ -1842,7 +1842,7 @@ function checkToolbarOverflow() {
   if (overflows) {
     // Move collapsibles to the overflow row and show the Tools toggle
     collapsibles.forEach(el => toolsOverflowRow.appendChild(el));
-    toolsToggleGroup.style.display = '';
+    toolsToggleGroup.style.display = 'inline-block';
   }
 }
 
