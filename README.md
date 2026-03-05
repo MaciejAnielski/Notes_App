@@ -16,14 +16,17 @@ A personal markdown notes app that runs entirely in the browser. All data is sto
 8. [Clickable Math Formula Evaluation](#clickable-math-formula-evaluation)
 9. [Footnotes](#footnotes)
 10. [Tables](#tables)
-11. [Tab Indentation](#tab-indentation)
-12. [Searching and Filtering Notes](#searching-and-filtering-notes)
-13. [Global Search and Replace](#global-search-and-replace)
-14. [The Side Panel](#the-side-panel)
-15. [Projects Note](#projects-note)
-16. [Import and Export](#import-and-export)
-17. [Keyboard Shortcuts](#keyboard-shortcuts)
-18. [Storage and Persistence](#storage-and-persistence)
+11. [Highlighted Text](#highlighted-text)
+12. [Tab Indentation](#tab-indentation)
+13. [Searching and Filtering Notes](#searching-and-filtering-notes)
+14. [Global Search and Replace](#global-search-and-replace)
+15. [The Side Panel](#the-side-panel)
+16. [Projects Note](#projects-note)
+17. [Import and Export](#import-and-export)
+18. [Mobile Navigation](#mobile-navigation)
+19. [Cross-Window Sync](#cross-window-sync)
+20. [Keyboard Shortcuts](#keyboard-shortcuts)
+21. [Storage and Persistence](#storage-and-persistence)
 
 ---
 
@@ -50,6 +53,7 @@ The editor supports standard markdown via the **marked** library:
 - **Ordered / unordered lists** — `1.` or `-` / `*` / `+`
 - **Horizontal rules** — `---`
 - **Inline code** — `` `code` ``
+- **Highlighted text** — `==highlighted==` (see [Highlighted Text](#highlighted-text))
 
 Line breaks are enabled — a single newline in the source creates a `<br>` in the output.
 
@@ -64,10 +68,12 @@ Click **Preview Markdown** to render the current note. The button text changes t
 Preview mode is fully interactive:
 
 - **Collapsible headings** — every heading becomes a toggle. Click a heading to collapse or expand everything beneath it (down to the next heading of equal or higher rank). All sections start expanded. A small `›` / `⌄` indicator appears after each heading.
+- **Auto-collapsed headings** — append a `>` to the end of any heading line in your markdown to make it start collapsed in preview mode. The `>` is stripped from the rendered output. For example, `## Details >` renders as "Details" but starts collapsed.
 - **Task checkboxes** — checking or unchecking a task in the preview updates the markdown source and saves immediately (see [Task Lists](#task-lists)).
 - **Note links** — clicking an internal link navigates to that note (see [Linking Between Notes](#linking-between-notes)).
 - **Auto-aligned tables** — numeric columns are right-aligned, text columns left-aligned, automatically (see [Tables](#tables)).
 - **Clickable math formulas** — formulas ending with `=` can be clicked to compute a result (see [Clickable Math Formula Evaluation](#clickable-math-formula-evaluation)).
+- **Highlighted text** — `==text==` is rendered with a highlight background (see [Highlighted Text](#highlighted-text)).
 - **MathJax rendering** — inline and display math expressions are typeset by MathJax 3 (see [Math Formulas](#math-formulas)).
 
 ---
@@ -209,7 +215,8 @@ Adjacent single-letter variables are treated as implicit multiplication: `$ma$` 
 - Results are shown to a **maximum of 10 significant figures**, with trailing zeros removed.
 - Very large (>= 10^10) or very small (< 10^-4) values use scientific notation.
 - If the expression cannot be evaluated (undefined variables, unsupported syntax, division by zero, etc.) the result is displayed as `= ?`.
-- Click the formula again to re-evaluate (useful after editing variable definitions and re-entering preview).
+- **Results are saved** — when you click a formula, the computed result is written back into the markdown source (e.g. `$c =` becomes `$c = 5$`), so results persist across preview renders and page reloads.
+- **Click again to unsave** — clicking a formula that already shows a result removes the result from both the display and the markdown source, reverting it to a bare trailing `=`.
 
 ### Supported LaTeX constructs
 
@@ -292,6 +299,18 @@ Write standard markdown tables:
 ```
 
 In preview mode, columns are **auto-aligned** based on the content of the first data row. Columns whose first cell contains a numeric value (ignoring currency symbols, commas, percent signs, and spaces) are right-aligned; all other columns are left-aligned. Header cells are aligned to match.
+
+---
+
+## Highlighted Text
+
+Wrap text in double equals signs to highlight it:
+
+```
+This is ==important== information.
+```
+
+In preview mode, `==text==` is rendered as `<mark>text</mark>`, which displays with a highlighted background. Highlighting is not applied inside fenced code blocks.
 
 ---
 
@@ -391,6 +410,7 @@ A collapsible panel on the right side of the screen with three tabs, cycled by c
 ### Schedule tab
 
 - A day-view timeline (7 AM – 7 PM) showing scheduled items.
+- **Week row** — a compact week calendar is displayed above the timeline. Each day shows a letter (M–S), the date number, and a colour-coded dot indicating the busiest task status for that day (red for overdue, amber for today, green for future). Click any day in the week row to jump directly to it. The currently selected day and today are visually highlighted; weekend days are dimmed.
 - Navigate days with `‹` / `›` or click the date to return to today.
 - Checkboxes on task items can be toggled directly.
 
@@ -425,7 +445,7 @@ The Projects note is always rendered in preview mode and cannot be edited direct
 
 ## Import and Export
 
-All import/export buttons are in the toolbar at the top. Hover over a main button to reveal additional options underneath.
+All import/export buttons are in the toolbar at the top. Hover over a main button to reveal additional options underneath. When the browser window is too narrow to fit all toolbar buttons, the overflowing buttons collapse into a **Tools** dropdown. Hover over the Tools button to reveal them.
 
 | Action | Button | Format | Scope |
 |--------|--------|--------|-------|
@@ -442,6 +462,30 @@ All import/export buttons are in the toolbar at the top. Hover over a main butto
 **Exported HTML** files are self-contained and include inline CSS styled to match the app's dark theme. MathJax is loaded from CDN so math renders in the export. The "all notes" notebook export includes a sidebar table of contents with links to each note, and internal note links are rewritten as in-page anchors.
 
 **Importing** a `.zip` file reads every `.md` file inside it and saves each one as a note (using the filename minus the `.md` extension as the note name).
+
+---
+
+## Mobile Navigation
+
+On narrow screens (650 px or less), the side panels are hidden by default and accessible via swipe gestures:
+
+- **Swipe right** — reveals the Notes list panel from the left edge.
+- **Swipe left** — reveals the Tasks / Schedule panel from the right edge.
+- Tap the **overlay** behind an open panel to close it.
+
+The toolbar buttons also adapt for touch: on mobile, sub-button menus are triggered by a single tap rather than hover.
+
+---
+
+## Cross-Window Sync
+
+If you have the app open in multiple browser tabs or windows, changes are synchronised automatically via `storage` events:
+
+- Editing a note in one tab updates it in any other tab that has the same note open.
+- Deleting a note in one tab removes it from all other tabs.
+- Creating a backup in one tab updates the backup status indicator in every tab.
+
+No manual refresh is required — changes appear instantly.
 
 ---
 
@@ -466,5 +510,7 @@ All data is stored in the browser's `localStorage`. Each note is saved under the
 | `is_preview` | Whether preview mode was active |
 | `panel_pinned` | Whether the side panel was pinned open |
 | `linked_chain` | The breadcrumb navigation chain (JSON array) |
+| `active_panel` | The last active side panel tab (`files`, `tasks`, or `schedule`) |
+| `last_backup_time` | Timestamp (ms) of the most recent backup, used for the backup status indicator |
 
 Because everything lives in localStorage, your notes are tied to the browser profile and domain you use. To move notes between browsers or devices, use the backup/import workflow described in [Import and Export](#import-and-export).
