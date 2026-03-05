@@ -427,27 +427,32 @@ textarea:focus {
   margin-top: 8px;
 }
 
-/* ── Arrow button — peeks at middle-right edge ── */
+/* ── Arrow button — invisible hover zone at middle-right edge ── */
 #panel-arrow {
   position: fixed;
   top: 50%;
   right: 0;
-  transform: translateY(-50%) translateX(50%);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #2e2e2e;
-  color: #e8dcf4;
-  border: 1px solid #555;
-  font-size: 22px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 80px;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  border: none;
+  font-size: 0;
   line-height: 1;
-  cursor: pointer;
+  cursor: default;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   z-index: 100;
   transition: none;
+}
+
+/* Hide the arrow entirely when panel is pinned */
+body.panel-pinned #panel-arrow {
+  display: none;
 }
 
 /* ════════════════════════════════════════════
@@ -509,18 +514,13 @@ textarea:focus {
   z-index: 50;
 }
 
-/* ── Last Backed Up status ── */
+/* ── Last Backed Up status — bottom-center of editor section ── */
 #last-backup-status {
   font-size: 11px;
   color: #6b4e7a;
   text-align: center;
-  padding: 4px 0 6px;
+  padding: 4px 0;
   flex-shrink: 0;
-  cursor: pointer;
-}
-
-#last-backup-status:hover {
-  color: #a272b0;
 }
 
 /* ── Panel section headings ── */
@@ -892,14 +892,24 @@ body.panel-pinned {
   flex-shrink: 0;
 }
 
-/* Panel buttons inherit the app's default button style */
+/* Panel buttons — borderless, text-only style */
 #gs-find-btn,
 #gs-replace-btn,
 #gs-replace-all-btn {
-  padding: 5px 10px;
+  background: none;
+  border: none;
+  color: #9a8aaa;
+  padding: 3px 8px;
   font-size: 13px;
   margin-right: 0;
   flex-shrink: 0;
+}
+
+#gs-find-btn:hover,
+#gs-replace-btn:hover,
+#gs-replace-all-btn:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #e8dcf4;
 }
 
 #gs-close {

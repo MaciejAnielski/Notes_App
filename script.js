@@ -360,11 +360,23 @@ function preprocessMarkdown(text) {
     for (let si = 0; si < schedLines.length; si++) {
       const line = schedLines[si];
       if (schedRe.test(line)) {
-        const stripped = line.replace(schedRe, '');
-        schedOut.push(stripped);
+        let stripped = line.replace(schedRe, '');
         const trimmed = stripped.trimStart();
-        const isList = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
-        const isHeading = trimmed.startsWith('#');
+        const isTask    = /^- \[[ xX]\]\s/.test(trimmed);
+        const isList    = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isHeading = /^#+\s/.test(trimmed);
+        // Mirror the schedule panel's 🗓️ icon for all event lines (non-task).
+        // Insert after the syntax marker so the emoji scales with heading size.
+        if (!isTask) {
+          if (isHeading) {
+            stripped = stripped.replace(/(#+\s)/, '$1🗓️ ');
+          } else if (isList) {
+            stripped = stripped.replace(/^(\s*(?:[-*+]|\d+[.)]) )/, '$1🗓️ ');
+          } else {
+            stripped = stripped.replace(/^(\s*)/, '$1🗓️ ');
+          }
+        }
+        schedOut.push(stripped);
         const nextLine = schedLines[si + 1];
         const nextIsBlank = nextLine === undefined || nextLine.trim() === '';
         if (!isList && !isHeading && !nextIsBlank) {
@@ -1805,9 +1817,6 @@ scheduleContainer.querySelector('h2').addEventListener('click', () => {
   }
   cyclePanel();
 });
-
-// Clicking the backup-status message triggers a full backup
-document.getElementById('last-backup-status').addEventListener('click', downloadAllNotes);
 
 schedulePrevBtn.addEventListener('click', () => {
   scheduleDate.setDate(scheduleDate.getDate() - 7);
