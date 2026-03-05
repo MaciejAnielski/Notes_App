@@ -362,11 +362,19 @@ function preprocessMarkdown(text) {
       if (schedRe.test(line)) {
         let stripped = line.replace(schedRe, '');
         const trimmed = stripped.trimStart();
-        const isList = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
-        const isHeading = trimmed.startsWith('#');
-        // Mirror the schedule panel's 🗓️ icon: prepend it for plain event lines
-        if (!isList && !isHeading) {
-          stripped = stripped.replace(/^(\s*)/, '$1🗓️ ');
+        const isTask    = /^- \[[ xX]\]\s/.test(trimmed);
+        const isList    = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isHeading = /^#+\s/.test(trimmed);
+        // Mirror the schedule panel's 🗓️ icon for all event lines (non-task).
+        // Insert after the syntax marker so the emoji scales with heading size.
+        if (!isTask) {
+          if (isHeading) {
+            stripped = stripped.replace(/(#+\s)/, '$1🗓️ ');
+          } else if (isList) {
+            stripped = stripped.replace(/^(\s*(?:[-*+]|\d+[.)]) )/, '$1🗓️ ');
+          } else {
+            stripped = stripped.replace(/^(\s*)/, '$1🗓️ ');
+          }
         }
         schedOut.push(stripped);
         const nextLine = schedLines[si + 1];
