@@ -694,10 +694,6 @@ body.panel-pinned {
 .schedule-week-dot.dot-done     { background: #4caf79; }
 .schedule-week-dot.dot-overdue  { background: #e05c5c; }
 
-/* On selected cell show white dot so it remains visible over the purple circle */
-.schedule-week-cell.selected .schedule-week-dot:not(.dot-empty) {
-  background: rgba(255, 255, 255, 0.75);
-}
 
 #schedule-timeline-wrapper {
   flex: 1;
