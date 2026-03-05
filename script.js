@@ -1476,6 +1476,21 @@ function getWeekStart(d) {
   return date;
 }
 
+function getWeekDotStatus(dateStr, d) {
+  const items = getScheduleItems(dateStr);
+  if (items.length === 0) return null;
+  const tasks = items.filter(it => it.isTask);
+  if (tasks.length === 0) return 'event';
+  const dayMidnight = new Date(d);
+  dayMidnight.setHours(0, 0, 0, 0);
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const isPast = dayMidnight < todayMidnight;
+  if (isPast && tasks.some(t => !t.isCompleted)) return 'overdue';
+  if (tasks.every(t => t.isCompleted)) return 'done';
+  return 'pending';
+}
+
 function renderWeekRow() {
   const weekRowEl = document.getElementById('schedule-week-row');
   if (!weekRowEl) return;
@@ -1512,12 +1527,15 @@ function renderWeekRow() {
     cell.appendChild(letterEl);
     cell.appendChild(numEl);
 
-    const dayItems = getScheduleItems(toYYMMDD(d));
-    if (dayItems.length > 0) {
-      const dot = document.createElement('span');
-      dot.className = 'schedule-week-dot';
-      cell.appendChild(dot);
+    const dot = document.createElement('span');
+    dot.className = 'schedule-week-dot';
+    const dotStatus = getWeekDotStatus(toYYMMDD(d), d);
+    if (dotStatus) {
+      dot.classList.add('dot-' + dotStatus);
+    } else {
+      dot.classList.add('dot-empty');
     }
+    cell.appendChild(dot);
 
     cell.addEventListener('click', () => {
       scheduleDate = new Date(d);

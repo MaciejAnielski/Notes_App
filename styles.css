@@ -684,17 +684,19 @@ body.panel-pinned {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #a272b0;
   margin-top: 1px;
   flex-shrink: 0;
 }
 
-.schedule-week-cell.today .schedule-week-dot {
-  background: #e05c5c;
-}
+.schedule-week-dot.dot-empty    { background: transparent; }
+.schedule-week-dot.dot-event    { background: #a272b0; }
+.schedule-week-dot.dot-pending  { background: #d4a24a; }
+.schedule-week-dot.dot-done     { background: #4caf79; }
+.schedule-week-dot.dot-overdue  { background: #e05c5c; }
 
-.schedule-week-cell.selected .schedule-week-dot {
-  background: rgba(255, 255, 255, 0.6);
+/* On selected cell show white dot so it remains visible over the purple circle */
+.schedule-week-cell.selected .schedule-week-dot:not(.dot-empty) {
+  background: rgba(255, 255, 255, 0.75);
 }
 
 #schedule-timeline-wrapper {
