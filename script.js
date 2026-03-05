@@ -1805,6 +1805,62 @@ importZipInput.addEventListener('change', e => {
     importNotesFromZip(e.target.files[0]);
   }
 });
+// ── Tools overflow menu ────────────────────────────────────────────────────
+const toolsToggleGroup = document.getElementById('tools-toggle-group');
+const toolsToggleBtn   = document.getElementById('tools-toggle');
+const toolsOverflowRow = document.getElementById('tools-overflow-row');
+const buttonContainer  = document.getElementById('button-container');
+
+function checkToolbarOverflow() {
+  // Collect collapsible groups wherever they currently live
+  const collapsibles = Array.from(
+    document.querySelectorAll('.tools-collapsible')
+  );
+
+  // Move all collapsibles back into the toolbar (before the Tools toggle) for measurement
+  const needsReturn = collapsibles.some(el => el.parentElement !== buttonContainer);
+  if (needsReturn) {
+    collapsibles.forEach(el => buttonContainer.insertBefore(el, toolsToggleGroup));
+    toolsToggleGroup.style.display = 'none';
+    toolsToggleGroup.classList.remove('active');
+    toolsOverflowRow.classList.remove('open');
+  }
+
+  // Force reflow so scrollWidth is accurate
+  void buttonContainer.offsetWidth;
+
+  const overflows = buttonContainer.scrollWidth > buttonContainer.clientWidth + 1;
+
+  if (overflows) {
+    // Move collapsibles to the overflow row and show the Tools toggle
+    collapsibles.forEach(el => toolsOverflowRow.appendChild(el));
+    toolsToggleGroup.style.display = '';
+  }
+}
+
+toolsToggleBtn.addEventListener('click', () => {
+  const isOpen = toolsOverflowRow.classList.toggle('open');
+  toolsToggleGroup.classList.toggle('active', isOpen);
+});
+
+// Close overflow row on outside click
+document.addEventListener('click', e => {
+  if (
+    !toolsToggleGroup.contains(e.target) &&
+    !toolsOverflowRow.contains(e.target) &&
+    toolsOverflowRow.classList.contains('open')
+  ) {
+    toolsOverflowRow.classList.remove('open');
+    toolsToggleGroup.classList.remove('active');
+  }
+});
+
+// Observe toolbar width changes
+const toolbarResizeObserver = new ResizeObserver(() => checkToolbarOverflow());
+toolbarResizeObserver.observe(buttonContainer);
+checkToolbarOverflow();
+// ── End Tools overflow menu ────────────────────────────────────────────────
+
 searchBox.addEventListener('input', updateFileList);
 searchTasksBox.addEventListener('input', updateTodoList);
 textarea.addEventListener('input', () => {
