@@ -36,28 +36,33 @@
                 <button id="delete-all" class="sub-button">All</button>
             </div>
         </div>
-        <div class="button-group">
+        <div class="button-group tools-collapsible">
             <button id="export-note">Export</button>
             <div class="sub-buttons">
                 <button id="export-selected" class="sub-button">Filtered</button>
                 <button id="export-all-html" class="sub-button">All</button>
             </div>
         </div>
-        <div class="button-group">
+        <div class="button-group tools-collapsible">
             <button id="import-zip">Import</button>
+            <input type="file" id="import-zip-input" accept=".zip" style="display:none;">
         </div>
-        <input type="file" id="import-zip-input" accept=".zip" style="display:none;">
-        <div class="button-group">
+        <div class="button-group tools-collapsible">
             <button id="download-all">Backup</button>
         </div>
-        <div class="button-group">
+        <div class="button-group tools-collapsible">
             <button id="find-btn">Find</button>
+        </div>
+        <div class="button-group" id="tools-toggle-group">
+            <button id="tools-toggle">Tools</button>
         </div>
         <div class="button-group">
             <button id="toggle-view">View</button>
         </div>
 
     </div>
+
+    <div id="tools-overflow-row"></div>
 
     <div id="content-area">
       <div id="editor-section">

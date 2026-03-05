@@ -64,7 +64,8 @@ button {
 }
 
 /* ── Toolbar buttons: minimalist, borderless, Word-style ── */
-#button-container .button-group > button:not(.sub-button) {
+#button-container .button-group > button:not(.sub-button),
+#tools-overflow-row .button-group > button:not(.sub-button) {
   background: none;
   border: none;
   color: #9a8aaa;
@@ -74,9 +75,36 @@ button {
   border-radius: 3px;
 }
 
-#button-container .button-group > button:not(.sub-button):hover {
+#button-container .button-group > button:not(.sub-button):hover,
+#tools-overflow-row .button-group > button:not(.sub-button):hover {
   background-color: rgba(255, 255, 255, 0.07);
   color: #e8dcf4;
+}
+
+/* Active state for Tools toggle button when overflow row is open */
+#tools-toggle-group.active > button {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #e8dcf4;
+}
+
+/* ── Tools toggle button: hidden by default, shown when toolbar overflows ── */
+#tools-toggle-group {
+  display: none;
+}
+
+/* ── Tools overflow row: appears beneath toolbar when Tools is clicked ── */
+#tools-overflow-row {
+  display: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-top: 1px solid #2a2a2a;
+}
+
+#tools-overflow-row.open {
+  display: flex;
 }
 
 .button-group {
@@ -1080,9 +1108,12 @@ body.panel-pinned {
 /* ── Mobile: centre toolbar and show status message above it ── */
 @media (max-width: 650px) {
   #button-container {
-    flex-wrap: wrap;
     justify-content: center;
     margin-left: 0;
+  }
+
+  #tools-overflow-row {
+    justify-content: center;
   }
 
 
