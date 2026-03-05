@@ -2470,10 +2470,48 @@ function formatMathResult(value) {
   return precise.toString();
 }
 
+// Persist the evaluated result back into the note's markdown source so it is
+// visible the next time the note is previewed without requiring another click.
+function saveFormulaResult(mathExpr, resultStr) {
+  if (!currentFileName || currentFileName === PROJECTS_NOTE) return;
+  const content = textarea.value;
+  const { index, type } = mathExpr;
+  let newContent;
+
+  if (type === 'block') {
+    const innerStart = index + 2;
+    const innerEnd = content.indexOf('$$', innerStart);
+    if (innerEnd === -1) return;
+    const inner = content.slice(innerStart, innerEnd);
+    const newInner = inner.replace(/=\s*$/, `= ${resultStr}`);
+    if (newInner === inner) return;
+    newContent = content.slice(0, innerStart) + newInner + content.slice(innerEnd);
+  } else {
+    const innerStart = index + 1;
+    let j = innerStart;
+    while (j < content.length) {
+      if (content[j] === '\\') { j += 2; continue; }
+      if (content[j] === '$') break;
+      j++;
+    }
+    if (j >= content.length) return;
+    const inner = content.slice(innerStart, j);
+    const newInner = inner.replace(/=\s*$/, `= ${resultStr}`);
+    if (newInner === inner) return;
+    newContent = content.slice(0, innerStart) + newInner + content.slice(j);
+  }
+
+  textarea.value = newContent;
+  localStorage.setItem('md_' + currentFileName, newContent);
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+}
+
 // Attach a click handler to a rendered MathJax container. On click, the
 // formula (minus the trailing "=") is evaluated and the result is displayed
-// inline immediately after the container.
-function makeFormulaClickable(container, texSource, varMap) {
+// inline immediately after the container. The result is also saved into the
+// note so it persists across preview renders.
+function makeFormulaClickable(container, texSource, varMap, mathExpr) {
   container.classList.add('math-evaluable');
   container.title = 'Click to evaluate';
 
@@ -2501,6 +2539,11 @@ function makeFormulaClickable(container, texSource, varMap) {
     } else {
       resultEl.textContent = result === null ? '?' : formatMathResult(result);
     }
+
+    // Save the result into the note's markdown source
+    if (result !== null && mathExpr) {
+      saveFormulaResult(mathExpr, formatMathResult(result));
+    }
   });
 }
 
@@ -2517,11 +2560,12 @@ function setupClickableMathFormulas() {
   containers.forEach((container, idx) => {
     // MathJax 3 stores the original TeX in the <math alttext="…"> attribute
     let texSource = container.querySelector('math')?.getAttribute('alttext') ?? '';
+    const mathExpr = idx < mathExprs.length ? mathExprs[idx] : null;
     // Fallback: correlate by document order if alttext is unavailable
-    if (!texSource && idx < mathExprs.length) texSource = mathExprs[idx].tex;
+    if (!texSource && mathExpr) texSource = mathExpr.tex;
 
     if (texSource.trim().endsWith('=')) {
-      makeFormulaClickable(container, texSource.trim(), varMap);
+      makeFormulaClickable(container, texSource.trim(), varMap, mathExpr);
     }
   });
 }
