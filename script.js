@@ -360,11 +360,15 @@ function preprocessMarkdown(text) {
     for (let si = 0; si < schedLines.length; si++) {
       const line = schedLines[si];
       if (schedRe.test(line)) {
-        const stripped = line.replace(schedRe, '');
-        schedOut.push(stripped);
+        let stripped = line.replace(schedRe, '');
         const trimmed = stripped.trimStart();
         const isList = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
         const isHeading = trimmed.startsWith('#');
+        // Mirror the schedule panel's 🗓️ icon: prepend it for plain event lines
+        if (!isList && !isHeading) {
+          stripped = stripped.replace(/^(\s*)/, '$1🗓️ ');
+        }
+        schedOut.push(stripped);
         const nextLine = schedLines[si + 1];
         const nextIsBlank = nextLine === undefined || nextLine.trim() === '';
         if (!isList && !isHeading && !nextIsBlank) {
