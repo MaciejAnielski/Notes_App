@@ -436,7 +436,7 @@ textarea:focus {
 }
 
 #todoList > li {
-  margin-top: 20px;
+  margin-bottom: 20px;
   padding-top: var(--gap);
   border-top: 1px solid #a272b0;
 }
