@@ -542,7 +542,7 @@ body.panel-pinned #panel-arrow {
   text-align: center;
   padding: 1px 0;
   margin-top: auto;
-  margin-bottom: 10pt;
+  margin-bottom: 0px;
   flex-shrink: 0;
 }
 
