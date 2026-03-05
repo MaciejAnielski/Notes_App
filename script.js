@@ -133,36 +133,83 @@ function getSeason(mm) {
 }
 
 function generateProjectsNoteContent() {
-  const grouped = {};
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const currentFullYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1; // 1-12
+
+  const SEASON_END_MONTH = { Winter: 2, Spring: 5, Summer: 8, Autumn: 11 };
+
+  function isYearPast(yy) {
+    return (2000 + parseInt(yy, 10)) < currentFullYear;
+  }
+
+  function isSeasonPast(yy, season) {
+    const fullYear = 2000 + parseInt(yy, 10);
+    if (fullYear < currentFullYear) return true;
+    if (fullYear > currentFullYear) return false;
+    return SEASON_END_MONTH[season] < currentMonth;
+  }
+
+  const active = {}, completed = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key.startsWith('md_')) continue;
     const name = key.slice(3);
     if (name === PROJECTS_NOTE) continue;
-    const match = name.match(/^(\d{2})(\d{2})\d{2} Project .+$/);
+    const match = name.match(/^(\d{2})(\d{2})(\d{2}) Project .+$/);
     if (!match) continue;
-    const yy = match[1], mm = match[2], season = getSeason(mm);
-    if (!grouped[yy]) grouped[yy] = {};
-    if (!grouped[yy][season]) grouped[yy][season] = [];
-    grouped[yy][season].push(name);
+    const yy = match[1], mm = match[2], dd = match[3];
+    const season = getSeason(mm);
+    const projectDate = new Date(2000 + parseInt(yy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+    const isCompleted = projectDate < today;
+    const target = isCompleted ? completed : active;
+    if (!target[yy]) target[yy] = {};
+    if (!target[yy][season]) target[yy][season] = [];
+    target[yy][season].push(name);
   }
-  for (const yy of Object.keys(grouped))
-    for (const s of Object.keys(grouped[yy]))
-      grouped[yy][s].sort();
 
-  const years = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  for (const grp of [active, completed])
+    for (const yy of Object.keys(grp))
+      for (const s of Object.keys(grp[yy]))
+        grp[yy][s].sort();
+
+  const hasActive = Object.keys(active).length > 0;
+  const hasCompleted = Object.keys(completed).length > 0;
+
   const lines = ['# Projects', ''];
-  if (years.length === 0) {
+  if (!hasActive && !hasCompleted) {
     lines.push('*No project notes found. Create a note titled `YYMMDD Project Name`.*', '');
   } else {
-    for (const yy of years) {
-      lines.push(`## 20${yy}`, '');
-      for (const season of SEASON_ORDER) {
-        const notes = grouped[yy][season];
-        if (!notes || !notes.length) continue;
-        lines.push(`### ${season}`, '');
-        for (const name of notes) lines.push(`- [[${name}]]`);
-        lines.push('');
+    if (hasActive) {
+      const activeYears = Object.keys(active).sort((a, b) => b.localeCompare(a));
+      for (const yy of activeYears) {
+        const yCollapse = isYearPast(yy) ? ' >' : '';
+        lines.push(`## 20${yy}${yCollapse}`, '');
+        for (const season of SEASON_ORDER) {
+          const notes = active[yy][season];
+          if (!notes || !notes.length) continue;
+          const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
+          lines.push(`### ${season}${sCollapse}`, '');
+          for (const name of notes) lines.push(`- [[${name}]]`);
+          lines.push('');
+        }
+      }
+    }
+    if (hasCompleted) {
+      lines.push('## Completed >', '');
+      const completedYears = Object.keys(completed).sort((a, b) => b.localeCompare(a));
+      for (const yy of completedYears) {
+        const yCollapse = isYearPast(yy) ? ' >' : '';
+        lines.push(`### 20${yy}${yCollapse}`, '');
+        for (const season of SEASON_ORDER) {
+          const notes = completed[yy][season];
+          if (!notes || !notes.length) continue;
+          const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
+          lines.push(`#### ${season}${sCollapse}`, '');
+          for (const name of notes) lines.push(`- [[${name}]]`);
+          lines.push('');
+        }
       }
     }
   }
@@ -864,7 +911,7 @@ function deleteAllNotes() {
   currentFileName = null;
   localStorage.removeItem('current_file');
   updateFileList();
-  updateStatus(`Deleted ${keys.length} note${keys.length === 1 ? '' : 's'}.`, true);
+  updateStatus(`Deleted ${keys.length} Note${keys.length === 1 ? '' : 's'}.`, true);
 }
 
 function downloadAllNotes() {
@@ -894,7 +941,7 @@ function downloadAllNotes() {
     link.download = 'all_notes.zip';
     link.click();
     URL.revokeObjectURL(link.href);
-    updateStatus(`Backed up ${count} note${count === 1 ? '' : 's'}.`, true);
+    updateStatus(`Backed Up ${count} Note${count === 1 ? '' : 's'}.`, true);
   });
 }
 
@@ -1067,7 +1114,7 @@ function exportAllNotes() {
   link.download = 'notes_notebook.html';
   link.click();
   URL.revokeObjectURL(link.href);
-  updateStatus(`Exported ${entries.length} note${entries.length === 1 ? '' : 's'}.`, true);
+  updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
 function deleteSelectedNotes() {
@@ -1086,7 +1133,7 @@ function deleteSelectedNotes() {
     }
   });
   updateFileList();
-  updateStatus(`Deleted ${notes.length} note${notes.length === 1 ? '' : 's'}.`, true);
+  updateStatus(`Deleted ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
 }
 
 function backupSelectedNotes() {
@@ -1110,7 +1157,7 @@ function backupSelectedNotes() {
     link.download = 'selected_notes.zip';
     link.click();
     URL.revokeObjectURL(link.href);
-    updateStatus(`Backed up ${notes.length} note${notes.length === 1 ? '' : 's'}.`, true);
+    updateStatus(`Backed Up ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
   });
 }
 
@@ -1127,7 +1174,7 @@ function exportSelectedNotes() {
   link.download = 'notes_notebook.html';
   link.click();
   URL.revokeObjectURL(link.href);
-  updateStatus(`Exported ${entries.length} note${entries.length === 1 ? '' : 's'}.`, true);
+  updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
 function importNotesFromZip(file) {
@@ -1145,7 +1192,7 @@ function importNotesFromZip(file) {
   }).then((results) => {
     updateFileList();
     importZipInput.value = '';
-    updateStatus(`Imported ${results.length} note${results.length === 1 ? '' : 's'}.`, true);
+    updateStatus(`Imported ${results.length} Note${results.length === 1 ? '' : 's'}.`, true);
   }).catch(err => {
     alert('Error importing zip: ' + err.message);
   });
@@ -2832,12 +2879,12 @@ window.addEventListener('storage', e => {
         if (isPreview) {
           previewDiv.innerHTML = '';
         }
-        updateStatus('Note deleted in another window.', false);
+        updateStatus('Note Deleted In Another Window.', false);
       } else {
         // Note content changed in another window — refresh
         textarea.value = e.newValue;
         if (isPreview) renderPreview();
-        updateStatus('Note updated from another window.', true);
+        updateStatus('Note Updated From Another Window.', true);
       }
     }
     updateFileList();
