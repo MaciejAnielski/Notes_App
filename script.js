@@ -62,14 +62,17 @@ function getVisibleNotes() {
 }
 
 let statusTimeout = null;
+const backupStatusEl = document.getElementById('last-backup-status');
 
 function updateStatus(message, success) {
   statusDiv.textContent = message;
   statusDiv.style.color = success ? 'green' : 'red';
   statusDiv.style.opacity = '1';
+  backupStatusEl.style.opacity = '0';
   if (statusTimeout) clearTimeout(statusTimeout);
   statusTimeout = setTimeout(() => {
     statusDiv.style.opacity = '0';
+    backupStatusEl.style.opacity = '1';
   }, 3000);
 }
 
