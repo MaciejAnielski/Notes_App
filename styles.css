@@ -620,6 +620,83 @@ body.panel-pinned {
   user-select: none;
 }
 
+/* ── Schedule week row ── */
+#schedule-week-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 4px 2px 8px;
+  border-bottom: 1px solid #333;
+  margin-bottom: 6px;
+}
+
+.schedule-week-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 4px 2px;
+  border-radius: 8px;
+  min-width: 30px;
+  user-select: none;
+}
+
+.schedule-week-cell:hover .schedule-week-day-num {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.schedule-week-day-letter {
+  font-size: 10px;
+  color: #888;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.schedule-week-day-num {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e8e8e8;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.1s;
+}
+
+.schedule-week-cell.weekend .schedule-week-day-letter,
+.schedule-week-cell.weekend .schedule-week-day-num {
+  color: #777;
+}
+
+.schedule-week-cell.today .schedule-week-day-num {
+  background: #e05c5c;
+  color: #fff;
+}
+
+.schedule-week-cell.selected:not(.today) .schedule-week-day-num {
+  background: #a272b0;
+  color: #fff;
+}
+
+.schedule-week-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a272b0;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.schedule-week-cell.today .schedule-week-dot {
+  background: #e05c5c;
+}
+
+.schedule-week-cell.selected .schedule-week-dot {
+  background: rgba(255, 255, 255, 0.6);
+}
+
 #schedule-timeline-wrapper {
   flex: 1;
   overflow-y: auto;

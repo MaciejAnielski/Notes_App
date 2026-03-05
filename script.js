@@ -1467,9 +1467,71 @@ function updateNowIndicator() {
   indicator.style.top = top + 'px';
 }
 
+function getWeekStart(d) {
+  const date = new Date(d);
+  const day = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function renderWeekRow() {
+  const weekRowEl = document.getElementById('schedule-week-row');
+  if (!weekRowEl) return;
+  weekRowEl.innerHTML = '';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selected = new Date(scheduleDate);
+  selected.setHours(0, 0, 0, 0);
+  const weekStart = getWeekStart(scheduleDate);
+  const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+
+    const cell = document.createElement('div');
+    cell.className = 'schedule-week-cell';
+    if (i >= 5) cell.classList.add('weekend');
+
+    const isToday = d.getTime() === today.getTime();
+    const isSelected = d.getTime() === selected.getTime();
+    if (isToday) cell.classList.add('today');
+    if (isSelected) cell.classList.add('selected');
+
+    const letterEl = document.createElement('span');
+    letterEl.className = 'schedule-week-day-letter';
+    letterEl.textContent = DAY_LETTERS[i];
+
+    const numEl = document.createElement('span');
+    numEl.className = 'schedule-week-day-num';
+    numEl.textContent = d.getDate();
+
+    cell.appendChild(letterEl);
+    cell.appendChild(numEl);
+
+    const dayItems = getScheduleItems(toYYMMDD(d));
+    if (dayItems.length > 0) {
+      const dot = document.createElement('span');
+      dot.className = 'schedule-week-dot';
+      cell.appendChild(dot);
+    }
+
+    cell.addEventListener('click', () => {
+      scheduleDate = new Date(d);
+      renderSchedule();
+    });
+
+    weekRowEl.appendChild(cell);
+  }
+}
+
 function renderSchedule() {
   if (!scheduleGrid) return;
   if (scheduleNowTimer) { clearInterval(scheduleNowTimer); scheduleNowTimer = null; }
+  renderWeekRow();
   scheduleGrid.innerHTML = '';
   scheduleDateLabel.textContent = formatScheduleDate(scheduleDate);
 
@@ -1730,11 +1792,11 @@ scheduleContainer.querySelector('h2').addEventListener('click', () => {
 document.getElementById('last-backup-status').addEventListener('click', downloadAllNotes);
 
 schedulePrevBtn.addEventListener('click', () => {
-  scheduleDate.setDate(scheduleDate.getDate() - 1);
+  scheduleDate.setDate(scheduleDate.getDate() - 7);
   renderSchedule();
 });
 scheduleNextBtn.addEventListener('click', () => {
-  scheduleDate.setDate(scheduleDate.getDate() + 1);
+  scheduleDate.setDate(scheduleDate.getDate() + 7);
   renderSchedule();
 });
 scheduleDateLabel.addEventListener('click', () => {
