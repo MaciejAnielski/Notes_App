@@ -2699,6 +2699,7 @@ function saveFormulaResult(mathExpr, resultStr) {
 // trimmed inner content starts with the base tex (up to and including "=").
 function findCurrentFormulaIndex(content, mathExpr) {
   const texBase = mathExpr.tex.replace(/=\s*$/, '=').trimEnd();
+  const candidates = [];
   let i = 0;
   while (i < content.length) {
     if (content[i] === '\\') { i += 2; continue; }
@@ -2709,7 +2710,7 @@ function findCurrentFormulaIndex(content, mathExpr) {
       const end = content.indexOf('$$', start);
       if (end === -1) { i++; continue; }
       const inner = content.slice(start, end).trim();
-      if (inner.startsWith(texBase)) return i;
+      if (inner.startsWith(texBase)) candidates.push(i);
       i = end + 2;
     } else {
       if (content.slice(i, i + 2) === '$$') { i += 2; continue; } // skip block
@@ -2722,11 +2723,20 @@ function findCurrentFormulaIndex(content, mathExpr) {
       }
       if (j >= content.length) { i++; continue; }
       const inner = content.slice(start, j).trim();
-      if (inner.startsWith(texBase)) return i;
+      if (inner.startsWith(texBase)) candidates.push(i);
       i = j + 1;
     }
   }
-  return -1;
+  if (candidates.length === 0) return -1;
+  // When multiple formulas match (e.g. same variable used more than once),
+  // pick the candidate closest to the original index stored in mathExpr.
+  let best = candidates[0];
+  let bestDist = Math.abs(best - mathExpr.index);
+  for (let c = 1; c < candidates.length; c++) {
+    const dist = Math.abs(candidates[c] - mathExpr.index);
+    if (dist < bestDist) { best = candidates[c]; bestDist = dist; }
+  }
+  return best;
 }
 
 // Remove a previously saved result from the note's markdown source, reverting
