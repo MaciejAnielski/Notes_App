@@ -44,6 +44,28 @@ const deleteSelectedBtn = document.getElementById('delete-selected');
 const exportSelectedBtn = document.getElementById('export-selected');
 const findBtn = document.getElementById('find-btn');
 
+// Helper: close mobile panel overlay (notes list or tasks/schedule panel)
+function closeMobilePanel(panelSide) {
+  if (!window.matchMedia('(max-width: 650px)').matches) return;
+  const overlay = document.getElementById('mobile-overlay');
+  if (panelSide === 'left') {
+    document.getElementById('panel-lists').classList.remove('mobile-open-left');
+  } else {
+    const rightPanel = document.getElementById('mobile-right-panel');
+    if (rightPanel) rightPanel.classList.remove('mobile-open-right');
+  }
+  if (overlay) overlay.classList.remove('active');
+}
+
+// Helper: determine task status dot CSS class based on schedule date
+function getTaskDotClass(scheduleDateStr) {
+  if (!scheduleDateStr) return 'dot-unscheduled';
+  const todayStr = toYYMMDD(new Date());
+  if (scheduleDateStr < todayStr) return 'dot-overdue';
+  if (scheduleDateStr === todayStr) return 'dot-today';
+  return 'dot-future';
+}
+
 function getVisibleNotes() {
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
@@ -636,6 +658,14 @@ function setupNoteLinks(container = previewDiv) {
         a.setAttribute('href', `${match.scheme}:ofe|u|${href}`);
         a.removeAttribute('target');
         a.removeAttribute('rel');
+      } else if (/\.html?$/i.test(urlPath)) {
+        // HTML files: strip SharePoint preview/sharing wrappers and open directly
+        let directUrl = href;
+        // Remove sharing path segments like /:x:/r/ or /:x:/s/ or /:x:/g/
+        directUrl = directUrl.replace(/(\.sharepoint\.com(?:\/sites\/[^/]+)?)\/:.\/:(?:r|s|g)\//i, '$1/');
+        a.setAttribute('href', directUrl);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
       } else {
         a.setAttribute('target', '_blank');
         a.setAttribute('rel', 'noopener noreferrer');
@@ -818,7 +848,12 @@ function autoSaveNote() {
     return;
   }
 
-  localStorage.setItem('md_' + name, textarea.value);
+  try {
+    localStorage.setItem('md_' + name, textarea.value);
+  } catch (e) {
+    updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
+    return;
+  }
   currentFileName = name;
   localStorage.setItem('current_file', name);
   updateFileList();
@@ -1242,11 +1277,7 @@ function updateFileList() {
         span.style.cursor = 'pointer';
         span.onclick = () => {
           loadNote(fileName);
-          if (window.matchMedia('(max-width: 650px)').matches) {
-            const overlay = document.getElementById('mobile-overlay');
-            document.getElementById('panel-lists').classList.remove('mobile-open-left');
-            if (overlay) overlay.classList.remove('active');
-          }
+          closeMobilePanel('left');
         };
         li.appendChild(span);
         noteMap[fileName] = li;
@@ -1314,12 +1345,7 @@ function updateTodoList() {
         title.style.cursor = 'pointer';
         title.onclick = () => {
           loadNote(fileName);
-          if (window.matchMedia('(max-width: 650px)').matches) {
-            const overlay = document.getElementById('mobile-overlay');
-            const rightPanel = document.getElementById('mobile-right-panel');
-            if (rightPanel) rightPanel.classList.remove('mobile-open-right');
-            if (overlay) overlay.classList.remove('active');
-          }
+          closeMobilePanel('right');
         };
         noteLi.appendChild(title);
 
@@ -1346,19 +1372,7 @@ function updateTodoList() {
           const schedDateMatch = t.line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
           const dot = document.createElement('span');
           dot.className = 'task-status-dot';
-          if (schedDateMatch) {
-            const todayStr = toYYMMDD(new Date());
-            const taskDateStr = schedDateMatch[1];
-            if (taskDateStr < todayStr) {
-              dot.classList.add('dot-overdue');
-            } else if (taskDateStr === todayStr) {
-              dot.classList.add('dot-today');
-            } else {
-              dot.classList.add('dot-future');
-            }
-          } else {
-            dot.classList.add('dot-unscheduled');
-          }
+          dot.classList.add(getTaskDotClass(schedDateMatch ? schedDateMatch[1] : null));
           todoLi.appendChild(dot);
 
           innerUl.appendChild(todoLi);
@@ -1411,19 +1425,7 @@ function setupPreviewTaskCheckboxes() {
       const dot = document.createElement('span');
       dot.className = 'task-status-dot dot-inline';
       const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
-      if (schedDateMatch) {
-        const todayStr = toYYMMDD(new Date());
-        const taskDateStr = schedDateMatch[1];
-        if (taskDateStr < todayStr) {
-          dot.classList.add('dot-overdue');
-        } else if (taskDateStr === todayStr) {
-          dot.classList.add('dot-today');
-        } else {
-          dot.classList.add('dot-future');
-        }
-      } else {
-        dot.classList.add('dot-unscheduled');
-      }
+      dot.classList.add(getTaskDotClass(schedDateMatch ? schedDateMatch[1] : null));
       const li = cb.closest('li');
       if (li) {
         // Find the first <br> or block-level element after the checkbox
@@ -1493,6 +1495,7 @@ function getScheduleItems(dateStr) {
     if (!key.startsWith('md_')) continue;
     const fileName = key.slice(3);
     const content = localStorage.getItem(key);
+    if (!content) continue;
     content.split(/\n/).forEach((line, idx) => {
       const m = line.match(re);
       if (!m || m[1] !== dateStr) return;
@@ -1746,12 +1749,7 @@ function renderSchedule() {
     nameSpan.textContent = stripMarkdownText(item.text);
     nameSpan.addEventListener('click', () => {
       loadNote(item.fileName);
-      if (window.matchMedia('(max-width: 650px)').matches) {
-        const overlay = document.getElementById('mobile-overlay');
-        const rightPanel = document.getElementById('mobile-right-panel');
-        if (rightPanel) rightPanel.classList.remove('mobile-open-right');
-        if (overlay) overlay.classList.remove('active');
-      }
+      closeMobilePanel('right');
       setTimeout(() => {
         if (isPreview) {
           highlightTextInPreview(stripMarkdownText(item.text));
@@ -2192,8 +2190,15 @@ function gsSelectResult(index) {
       // not always the first one returned by indexOf.
       const idx = result.matchIndex;
       if (idx !== -1) {
-        textarea.setSelectionRange(idx, idx + query.length);
         textarea.focus();
+        textarea.setSelectionRange(idx, idx + query.length);
+        // Scroll the textarea so the match is visible near the center
+        const textBefore = textarea.value.substring(0, idx);
+        const lineNumber = textBefore.split('\n').length;
+        const style = window.getComputedStyle(textarea);
+        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+        const targetScroll = (lineNumber * lineHeight) - (textarea.clientHeight / 2);
+        textarea.scrollTop = Math.max(0, targetScroll);
       }
     }
   }, 50);
@@ -2595,7 +2600,7 @@ function evaluateLatexExpr(texExpr, varMap) {
     const jsExpr = latexToJsExpr(substituted);
     // eslint-disable-next-line no-new-func
     const result = new Function(`"use strict"; return (${jsExpr})`)();
-    if (typeof result === 'number' && (isFinite(result) || !isFinite(result))) {
+    if (typeof result === 'number') {
       return result;
     }
     return null;
@@ -3004,7 +3009,7 @@ window.addEventListener('storage', e => {
 
 const savedChain = localStorage.getItem('linked_chain');
 if (savedChain) {
-  try { linkedNoteChain = JSON.parse(savedChain); } catch(e) {}
+  try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
 if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {
   loadNote(lastFile, true);
