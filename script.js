@@ -1485,19 +1485,33 @@ function getScheduleItems(dateStr) {
   return items;
 }
 
-// Find the first preview element whose text contains `text` and flash a
+// Find the preview element whose text contains `text` and flash a
 // temporary highlight class on it. Used by schedule task clicks and global search.
-function highlightTextInPreview(text, caseSensitive = false) {
+// `occurrenceIndex` (0-based) skips earlier matching elements so the correct
+// instance is highlighted when the same term appears multiple times in a note.
+function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0) {
   const needle = caseSensitive ? text : text.toLowerCase();
   const elements = previewDiv.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th');
+  let seen = 0;
+  let lastMatch = null;
   for (const el of elements) {
     const haystack = caseSensitive ? el.textContent : el.textContent.toLowerCase();
     if (haystack.includes(needle)) {
-      el.classList.add('schedule-highlight');
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setTimeout(() => el.classList.remove('schedule-highlight'), 2000);
-      break;
+      if (seen === occurrenceIndex) {
+        el.classList.add('schedule-highlight');
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        setTimeout(() => el.classList.remove('schedule-highlight'), 2000);
+        return;
+      }
+      lastMatch = el;
+      seen++;
     }
+  }
+  // Fallback: highlight the last found element if occurrenceIndex is out of range
+  if (lastMatch) {
+    lastMatch.classList.add('schedule-highlight');
+    lastMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setTimeout(() => lastMatch.classList.remove('schedule-highlight'), 2000);
   }
 }
 
@@ -2146,13 +2160,14 @@ function gsSelectResult(index) {
   setTimeout(() => {
     const query = gsSearchInput.value;
     const caseSensitive = gsCaseCheckbox.checked;
+    // Determine which occurrence within this note this result represents
+    const occurrenceIndex = gsCurrentResults.slice(0, index).filter(r => r.noteName === result.noteName).length;
     if (isPreview) {
-      highlightTextInPreview(query, caseSensitive);
+      highlightTextInPreview(query, caseSensitive, occurrenceIndex);
     } else {
-      const content = textarea.value;
-      const hay = caseSensitive ? content : content.toLowerCase();
-      const ndl = caseSensitive ? query : query.toLowerCase();
-      const idx = hay.indexOf(ndl);
+      // Use result.matchIndex directly so the correct occurrence is selected,
+      // not always the first one returned by indexOf.
+      const idx = result.matchIndex;
       if (idx !== -1) {
         textarea.setSelectionRange(idx, idx + query.length);
         textarea.focus();
