@@ -619,6 +619,29 @@ function setupNoteLinks(container = previewDiv) {
     if (!href) {
       return;
     }
+    // SharePoint links: rewrite to desktop app protocol
+    if (/^https?:\/\/[^/]*\.sharepoint\.com\//i.test(href)) {
+      const sharepointProtocols = [
+        { exts: /\.(docx?|docm|dotx?|dotm)$/i, scheme: 'ms-word' },
+        { exts: /\.(xlsx?|xlsm|xlsb|xltx?|xltm)$/i, scheme: 'ms-excel' },
+        { exts: /\.(pptx?|pptm|potx?|potm|ppsx?|ppsm)$/i, scheme: 'ms-powerpoint' },
+        { exts: /\.one$/i, scheme: 'ms-onenote' },
+        { exts: /\.(vsdx?|vsdm|vssx?|vssm|vstx?|vstm)$/i, scheme: 'ms-visio' },
+        { exts: /\.(accdb|mdb)$/i, scheme: 'ms-access' },
+      ];
+      // Strip query string and fragment for extension matching
+      const urlPath = href.split('?')[0].split('#')[0];
+      const match = sharepointProtocols.find(p => p.exts.test(urlPath));
+      if (match) {
+        a.setAttribute('href', `${match.scheme}:ofe|u|${href}`);
+        a.removeAttribute('target');
+        a.removeAttribute('rel');
+      } else {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      }
+      return;
+    }
     // External links: open in new tab
     if (/^[a-zA-Z]+:/.test(href)) {
       a.setAttribute('target', '_blank');
