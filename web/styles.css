@@ -7,6 +7,8 @@ html, body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
@@ -15,6 +17,10 @@ body {
   font-family: Arial, sans-serif;
   display: flex;
   flex-direction: column;
+  /* iOS safe area support */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* ── Button container — Word-style menu bar ── */
@@ -279,6 +285,8 @@ textarea {
   font-family: Arial, sans-serif;
   flex: 1;
   min-height: 0;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 textarea:focus {
@@ -299,6 +307,8 @@ textarea:focus {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 #preview p {
@@ -1147,6 +1157,9 @@ body.panel-pinned {
     border-left: none;
     border-right: 1px solid #333;
     z-index: 150;
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   #panel-lists.visible,
@@ -1178,6 +1191,9 @@ body.panel-pinned {
     padding: var(--gap) calc(var(--gap) * 2);
     box-sizing: border-box;
     overflow: hidden;
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   #mobile-right-panel.mobile-open-right {
@@ -1218,6 +1234,7 @@ body.panel-pinned {
     border: 1px solid #555;
     border-bottom: none;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   #global-search-panel .gs-row {
@@ -1228,5 +1245,21 @@ body.panel-pinned {
   #gs-replace-input {
     font-size: 16px;
     padding: 8px 10px;
+  }
+
+  /* iOS safe area for bottom status */
+  #bottom-status-area {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Prevent iOS tap highlight flash */
+  button, a, input[type="checkbox"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Minimum touch target size for iOS accessibility */
+  #button-container .button-group > button:not(.sub-button) {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
