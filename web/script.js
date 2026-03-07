@@ -44,9 +44,14 @@ const deleteSelectedBtn = document.getElementById('delete-selected');
 const exportSelectedBtn = document.getElementById('export-selected');
 const findBtn = document.getElementById('find-btn');
 
+// Cached media query for mobile breakpoint — avoids creating a new
+// MediaQueryList on every call to isMobileView / closeMobilePanel.
+const mobileMediaQuery = window.matchMedia('(max-width: 650px)');
+const mobileTouchQuery = window.matchMedia('(hover: none) and (max-width: 650px)');
+
 // Helper: close mobile panel overlay (notes list or tasks/schedule panel)
 function closeMobilePanel(panelSide) {
-  if (!window.matchMedia('(max-width: 650px)').matches) return;
+  if (!mobileMediaQuery.matches) return;
   const overlay = document.getElementById('mobile-overlay');
   if (panelSide === 'left') {
     document.getElementById('panel-lists').classList.remove('mobile-open-left');
@@ -1257,6 +1262,7 @@ function importNotesFromZip(file) {
 }
 
 function updateFileList() {
+  invalidateScheduleCache();
   refreshProjectsNote();
   fileList.innerHTML = '';
   const raw = searchBox.value.trim().toLowerCase();
@@ -1487,8 +1493,12 @@ function toYYMMDD(d) {
   return yy + mm + dd;
 }
 
-function getScheduleItems(dateStr) {
-  const items = [];
+// Cache for parsed schedule items keyed by date string.
+// Invalidated whenever notes change (updateFileList / updateTodoList).
+let _scheduleCache = null;
+
+function _buildScheduleCache() {
+  const cache = {};
   const re = />\s*(\d{6})\s+(\d{4})\s+(\d{4})\s*$/;
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -1498,18 +1508,37 @@ function getScheduleItems(dateStr) {
     if (!content) continue;
     content.split(/\n/).forEach((line, idx) => {
       const m = line.match(re);
-      if (!m || m[1] !== dateStr) return;
+      if (!m) return;
+      const dateStr = m[1];
+      if (!cache[dateStr]) cache[dateStr] = [];
       const trimmed = line.trim();
       const isTask = /^- \[[ xX]\]/.test(trimmed);
       const isCompleted = /^- \[[xX]\]/.test(trimmed);
       let text = trimmed.replace(re, '');
       if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
-      items.push({ fileName, lineIndex: idx, text: text.trim(), startTime: m[2], endTime: m[3], isTask, isCompleted });
+      cache[dateStr].push({ fileName, lineIndex: idx, text: text.trim(), startTime: m[2], endTime: m[3], isTask, isCompleted });
     });
   }
-  items.sort((a, b) => a.startTime.localeCompare(b.startTime));
-  return items;
+  // Sort items for each date by start time
+  for (const dateStr of Object.keys(cache)) {
+    cache[dateStr].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }
+  return cache;
 }
+
+function invalidateScheduleCache() {
+  _scheduleCache = null;
+}
+
+function getScheduleCache() {
+  if (!_scheduleCache) _scheduleCache = _buildScheduleCache();
+  return _scheduleCache;
+}
+
+function getScheduleItems(dateStr) {
+  return getScheduleCache()[dateStr] || [];
+}
+
 
 // Find the preview element whose text contains `text` and flash a
 // temporary highlight class on it. Used by schedule task clicks and global search.
@@ -1776,6 +1805,7 @@ function renderSchedule() {
 }
 
 function toggleScheduleTask(fileName, lineIndex, checked) {
+  invalidateScheduleCache();
   const key = 'md_' + fileName;
   const content = localStorage.getItem(key);
   if (!content) return;
@@ -1802,7 +1832,7 @@ function setupMobileButtonGroup(button, action) {
   let expanded = false;
 
   button.addEventListener('click', e => {
-    const isMobileTouch = window.matchMedia('(hover: none) and (max-width: 650px)').matches;
+    const isMobileTouch = mobileTouchQuery.matches;
     if (isMobileTouch) {
       if (!expanded) {
         e.preventDefault();
@@ -1972,11 +2002,11 @@ panelArrow.addEventListener('click', cyclePanel);
 
 // Clicking any panel title also cycles to the next page (desktop only on mobile, headings switch tabs)
 filesContainer.querySelector('h2').addEventListener('click', () => {
-  if (window.matchMedia('(max-width: 650px)').matches) return;
+  if (mobileMediaQuery.matches) return;
   cyclePanel();
 });
 todosContainer.querySelector('h2').addEventListener('click', () => {
-  if (window.matchMedia('(max-width: 650px)').matches) {
+  if (mobileMediaQuery.matches) {
     todosContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
     localStorage.setItem('active_panel', 'schedule');
@@ -1985,7 +2015,7 @@ todosContainer.querySelector('h2').addEventListener('click', () => {
   cyclePanel();
 });
 scheduleContainer.querySelector('h2').addEventListener('click', () => {
-  if (window.matchMedia('(max-width: 650px)').matches) {
+  if (mobileMediaQuery.matches) {
     scheduleContainer.classList.remove('active');
     todosContainer.classList.add('active');
     localStorage.setItem('active_panel', 'tasks');
@@ -2863,7 +2893,7 @@ function setupClickableMathFormulas() {
   const SWIPE_MAX_Y = 80;
 
   function isMobileView() {
-    return window.matchMedia('(max-width: 650px)').matches;
+    return mobileMediaQuery.matches;
   }
 
   // Move todo-container and schedule-container into the right panel on mobile
