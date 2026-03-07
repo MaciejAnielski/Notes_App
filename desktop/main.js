@@ -15,11 +15,19 @@ function createWindow() {
     minWidth: 400,
     minHeight: 300,
     title: 'Notes App',
+    backgroundColor: '#1e1e1e',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      spellcheck: false
     }
+  });
+
+  // Show window once content is ready to avoid white flash on startup
+  win.once('ready-to-show', () => {
+    win.show();
   });
 
   win.loadFile(getWebPath());
