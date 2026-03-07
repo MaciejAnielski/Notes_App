@@ -1,8 +1,18 @@
 // Preload script for Electron
-// Exposes safe APIs to the renderer process via contextBridge if needed
+// Exposes safe APIs to the renderer process via contextBridge
 
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  platform: process.platform
+  platform: process.platform,
+  notes: {
+    get: (name) => ipcRenderer.invoke('notes:get', name),
+    set: (name, content) => ipcRenderer.invoke('notes:set', name, content),
+    remove: (name) => ipcRenderer.invoke('notes:remove', name),
+    list: () => ipcRenderer.invoke('notes:list'),
+    clear: () => ipcRenderer.invoke('notes:clear'),
+    onExternalChange: (callback) => {
+      ipcRenderer.on('notes:changed', (_event, data) => callback(data));
+    }
+  }
 });
