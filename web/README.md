@@ -1,12 +1,15 @@
 # Notes App
 
-A personal markdown notes app that runs entirely in the browser. All data is stored in localStorage — there is no server, no account, no installation. Open `index.html` in any modern browser and start writing.
+A personal markdown note-taking app available as a **web app**, **desktop app** (Electron), and **iOS app** (Capacitor).
+
+All three platforms share the same core source code in `web/`.
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
+1. [Installation Guide](#installation-guide)
+2. [Getting Started](#getting-started)
 2. [The Interface](#the-interface)
 3. [Writing Notes](#writing-notes)
 4. [Preview Mode](#preview-mode)
@@ -30,6 +33,37 @@ A personal markdown notes app that runs entirely in the browser. All data is sto
 22. [Storage and Persistence](#storage-and-persistence)
 
 ---
+
+## Installation Guide
+
+### Web
+
+Open `web/index.html` directly in a browser, or serve it:
+
+```bash
+cd web
+python3 -m http.server 8000
+```
+
+### Desktop (Electron)
+
+```bash
+cd desktop
+bash setup.sh    # installs deps + symlinks web/
+npm start        # launches the desktop app
+```
+
+Requires: Node.js 18+
+
+### iOS (Capacitor)
+
+```bash
+cd ios
+bash setup.sh    # installs deps, copies web files, adds iOS platform
+npm run open     # opens Xcode
+```
+
+Requires: Node.js 18+, Xcode 15+, macOS
 
 ## Getting Started
 
@@ -67,7 +101,7 @@ The central area where you write markdown or view the rendered preview. A status
 
 ### Side panel
 
-A collapsible panel on the right edge with three tabs — **Notes**, **Tasks**, and **Schedule**. Click the `›` arrow at the right edge of the screen to cycle through tabs, or click it again to close the panel. See [The Side Panel](#the-side-panel) for full details.
+A collapsible panel on the right edge with three tabs — **Notes**, **Tasks**, and **Schedule**. Move your mouse to the centre right-right of the app window and the side panel should appear. You can pin it by clicking the icon on the top right of the panel so that it doesn't disappear. Cycle through panel pages by clicking on the **Notes**, **Tasks**, and **Schedule** headings. See [The Side Panel](#the-side-panel) for full details.
 
 ---
 
@@ -111,7 +145,7 @@ Preview mode is fully interactive:
 
 ## The Side Panel
 
-A collapsible panel on the right side of the screen with three tabs, cycled by clicking the `›` arrow at the screen's right edge:
+A collapsible panel on the right side of the screen with three tabs, cycled by clicking on the panel headings:
 
 ### Notes tab
 
@@ -130,7 +164,7 @@ A collapsible panel on the right side of the screen with three tabs, cycled by c
 
 - A day-view timeline (7 AM – 7 PM) showing scheduled items.
 - **Week row** — a compact week calendar is displayed above the timeline. Each day shows a letter (M–S), the date number, and a colour-coded dot indicating the busiest task status for that day (red for overdue, amber for today, green for future). Click any day in the week row to jump directly to it. The currently selected day and today are visually highlighted; weekend days are dimmed.
-- Navigate days with `‹` / `›` or click the date to return to today.
+- Navigate between weeks with `‹` / `›` or click the date to return to today.
 - Checkboxes on task items can be toggled directly.
 
 ### Pinning the panel

@@ -6,13 +6,15 @@
     "build": "cp -r ../web/* www/",
     "sync": "npx cap sync ios",
     "open": "npx cap open ios",
-    "start": "npm run build && npm run sync && npm run open"
+    "start": "npm run build && npm run sync && npm run open",
+    "postinstall": "node patches/fix-native-run-simulator.js"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",
-    "@capacitor/ios": "^6.0.0"
+    "@capacitor/ios": "^6.2.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0"
+    "@capacitor/cli": "^8.2.0",
+    "typescript": "^5.9.3"
   }
 }

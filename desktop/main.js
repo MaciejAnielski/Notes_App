@@ -1,6 +1,13 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
+function getWebPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'web', 'index.html');
+  }
+  return path.join(__dirname, '..', 'web', 'index.html');
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -15,8 +22,7 @@ function createWindow() {
     }
   });
 
-  // Load the web app from the sibling web/ directory
-  win.loadFile(path.join(__dirname, 'web', 'index.html'));
+  win.loadFile(getWebPath());
 }
 
 app.whenReady().then(() => {

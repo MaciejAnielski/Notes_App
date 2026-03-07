@@ -2,34 +2,64 @@
   "name": "notes-app-desktop",
   "version": "1.0.0",
   "description": "Notes App - Desktop (Electron)",
+  "author": "Maciej Anielski <maciej@anielski.co.uk>",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build-mac": "electron-builder --mac",
+    "build-win": "electron-builder --win",
+    "build-linux": "electron-builder --linux",
+    "dist": "electron-builder --publish=never"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.notesapp.desktop",
     "productName": "Notes App",
     "files": [
       "main.js",
-      "preload.js",
-      "web/**/*"
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../web",
+        "to": "web",
+        "filter": ["**/*"]
+      }
     ],
     "directories": {
+      "buildResources": "build",
       "output": "dist"
     },
     "mac": {
-      "target": "dmg"
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "build/icon.icns"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Office"
+    },
+    "dmg": {
+      "title": "Notes App",
+      "background": "build/background.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
