@@ -71,18 +71,14 @@ function getTaskDotClass(scheduleDateStr) {
   return 'dot-future';
 }
 
-function getVisibleNotes() {
+async function getVisibleNotes() {
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
   const notes = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) {
-      const name = key.slice(3);
-      const content = localStorage.getItem(key).toLowerCase();
-      if (matches(name.toLowerCase(), content)) {
-        notes.push(name);
-      }
+  const allNotes = await NoteStorage.getAllNotes();
+  for (const { name, content } of allNotes) {
+    if (matches(name.toLowerCase(), content.toLowerCase())) {
+      notes.push(name);
     }
   }
   return notes;
@@ -132,14 +128,14 @@ function saveChain() {
   localStorage.setItem('linked_chain', JSON.stringify(linkedNoteChain));
 }
 
-function handleRenameAfterReplace(noteName, newContent) {
+async function handleRenameAfterReplace(noteName, newContent) {
   const firstLine = newContent.split(/\n/)[0].trim();
   if (!firstLine.startsWith('#')) return;
   const newTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
   if (!newTitle || newTitle === noteName) return;
-  if (localStorage.getItem('md_' + newTitle) !== null) return;
-  localStorage.removeItem('md_' + noteName);
-  localStorage.setItem('md_' + newTitle, newContent);
+  if (await NoteStorage.getNote(newTitle) !== null) return;
+  await NoteStorage.removeNote(noteName);
+  await NoteStorage.setNote(newTitle, newContent);
   if (currentFileName === noteName) {
     currentFileName = newTitle;
     localStorage.setItem('current_file', newTitle);
@@ -159,7 +155,7 @@ function getSeason(mm) {
   return 'Autumn';
 }
 
-function generateProjectsNoteContent() {
+async function generateProjectsNoteContent() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const currentFullYear = today.getFullYear();
@@ -179,10 +175,8 @@ function generateProjectsNoteContent() {
   }
 
   const active = {}, completed = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key.startsWith('md_')) continue;
-    const name = key.slice(3);
+  const allNames = await NoteStorage.getAllNoteNames();
+  for (const name of allNames) {
     if (name === PROJECTS_NOTE) continue;
     const match = name.match(/^(\d{2})(\d{2})(\d{2}) Project .+$/);
     if (!match) continue;
@@ -243,10 +237,11 @@ function generateProjectsNoteContent() {
   return lines.join('\n');
 }
 
-function refreshProjectsNote() {
-  const newContent = generateProjectsNoteContent();
-  if (localStorage.getItem('md_' + PROJECTS_NOTE) === newContent) return;
-  localStorage.setItem('md_' + PROJECTS_NOTE, newContent);
+async function refreshProjectsNote() {
+  const newContent = await generateProjectsNoteContent();
+  const existing = await NoteStorage.getNote(PROJECTS_NOTE);
+  if (existing === newContent) return;
+  await NoteStorage.setNote(PROJECTS_NOTE, newContent);
   if (currentFileName === PROJECTS_NOTE) {
     textarea.value = newContent;
     renderPreview();
@@ -640,7 +635,10 @@ function preprocessMarkdown(text) {
   return text;
 }
 
-function setupNoteLinks(container = previewDiv) {
+async function setupNoteLinks(container = previewDiv) {
+  // Pre-fetch all note names for existence checks
+  const allNames = new Set(await NoteStorage.getAllNoteNames());
+
   container.querySelectorAll('a').forEach(a => {
     const href = a.getAttribute('href');
     if (!href) {
@@ -688,7 +686,7 @@ function setupNoteLinks(container = previewDiv) {
       return;
     }
     const noteName = decodeURIComponent(href).replace(/_/g, ' ').trim();
-    const exists = localStorage.getItem('md_' + noteName) !== null;
+    const exists = allNames.has(noteName);
 
     a.href = '#';
 
@@ -698,15 +696,15 @@ function setupNoteLinks(container = previewDiv) {
       a.title = `Create note "${noteName}"`;
     }
 
-    a.addEventListener('click', e => {
+    a.addEventListener('click', async e => {
       e.preventDefault();
-      if (localStorage.getItem('md_' + noteName) !== null) {
+      if (await NoteStorage.getNote(noteName) !== null) {
         // Note exists — navigate into it
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
           linkedNoteChain.unshift(currentFileName);
           saveChain();
         }
-        loadNote(noteName, true);
+        await loadNote(noteName, true);
       } else {
         // Note doesn't exist — create it and navigate to it
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
@@ -714,8 +712,8 @@ function setupNoteLinks(container = previewDiv) {
           saveChain();
         }
         const newContent = `# ${noteName}\n\n`;
-        localStorage.setItem('md_' + noteName, newContent);
-        loadNote(noteName, true);
+        await NoteStorage.setNote(noteName, newContent);
+        await loadNote(noteName, true);
         updateStatus(`Created Note "${noteName}".`, true);
       }
     });
@@ -795,10 +793,10 @@ function alignTableColumns(container) {
   });
 }
 
-function renderPreview() {
+async function renderPreview() {
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
-  setupNoteLinks(previewDiv);
+  await setupNoteLinks(previewDiv);
   setupCollapsibleHeadings(previewDiv);
   alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
@@ -829,7 +827,7 @@ function toggleView() {
 
 toggleViewBtn.addEventListener('click', toggleView);
 
-function autoSaveNote() {
+async function autoSaveNote() {
   if (currentFileName === PROJECTS_NOTE) return;
   const name = getNoteTitle();
   if (!name) {
@@ -839,13 +837,13 @@ function autoSaveNote() {
   if (currentFileName && currentFileName !== name) {
     // Remove the old entry when the note title changes to avoid leaving
     // partially typed titles in storage.
-    localStorage.removeItem('md_' + currentFileName);
+    await NoteStorage.removeNote(currentFileName);
   }
 
   // If another note already exists with the new name, do not overwrite it.
-  if (localStorage.getItem('md_' + name) !== null && currentFileName !== name) {
+  if (await NoteStorage.getNote(name) !== null && currentFileName !== name) {
     if (isNoteBodyEmpty()) {
-      loadNote(name);
+      await loadNote(name);
       updateStatus(`Opened Existing Note "${name}".`, true);
     } else {
       updateStatus(`File Not Saved. A File Named "${name}" Already Exists. Please Rename.`, false);
@@ -854,25 +852,25 @@ function autoSaveNote() {
   }
 
   try {
-    localStorage.setItem('md_' + name, textarea.value);
+    await NoteStorage.setNote(name, textarea.value);
   } catch (e) {
     updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
     return;
   }
   currentFileName = name;
   localStorage.setItem('current_file', name);
-  updateFileList();
+  await updateFileList();
   updateStatus('File Saved Successfully.', true);
 }
 
-function loadNote(name, fromLink = false) {
+async function loadNote(name, fromLink = false) {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
   if (!fromLink) {
     linkedNoteChain = [];
     saveChain();
   }
-  const content = localStorage.getItem('md_' + name);
+  const content = await NoteStorage.getNote(name);
   if (content === null) {
     alert('File not found.');
     return;
@@ -906,10 +904,10 @@ function loadNote(name, fromLink = false) {
   updateFileList();
 }
 
-function newNote() {
+async function newNote() {
   const today = getFormattedDate();
-  const key = 'md_' + today;
-  if (localStorage.getItem(key) === null) {
+  const existing = await NoteStorage.getNote(today);
+  if (existing === null) {
     textarea.value = '# ' + today + '\n\n';
   } else {
     textarea.value = '';
@@ -928,9 +926,9 @@ function newNote() {
   saveChain();
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateFileList();
+  await updateFileList();
   updateStatus('', true);
-  if (localStorage.getItem(key) === null) {
+  if (existing === null) {
     const pos = ('# ' + today).length;
     textarea.focus();
     textarea.setSelectionRange(pos, pos);
@@ -939,73 +937,61 @@ function newNote() {
   }
 }
 
-function deleteNote() {
+async function deleteNote() {
   const name = currentFileName || getNoteTitle();
   if (!name) {
     alert('No note selected.');
     return;
   }
-  if (localStorage.getItem('md_' + name) === null) {
+  if (await NoteStorage.getNote(name) === null) {
     alert('File not found.');
     return;
   }
 
-  localStorage.removeItem('md_' + name);
+  await NoteStorage.removeNote(name);
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateFileList();
+  await updateFileList();
   updateStatus(`Deleted "${name}".`, true);
 }
 
-function deleteAllNotes() {
+async function deleteAllNotes() {
   if (!confirm('Delete all notes?')) return;
-  const keys = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) keys.push(key);
-  }
-  keys.forEach(k => localStorage.removeItem(k));
+  const count = await NoteStorage.clear();
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateFileList();
-  updateStatus(`Deleted ${keys.length} Note${keys.length === 1 ? '' : 's'}.`, true);
+  await updateFileList();
+  updateStatus(`Deleted ${count} Note${count === 1 ? '' : 's'}.`, true);
 }
 
-function downloadAllNotes() {
+async function downloadAllNotes() {
   localStorage.setItem('last_backup_time', Date.now().toString());
   updateBackupStatus();
   const zip = new JSZip();
-  let count = 0;
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) {
-      const fileName = key.slice(3) + '.md';
-      const content = localStorage.getItem(key);
-      zip.file(fileName, content);
-      count++;
-    }
-  }
-
-  if (count === 0) {
+  const allNotes = await NoteStorage.getAllNotes();
+  if (allNotes.length === 0) {
     alert('No notes found.');
     return;
   }
 
-  zip.generateAsync({ type: 'blob' }).then(function(content) {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(content);
-    link.download = 'all_notes.zip';
-    link.click();
-    URL.revokeObjectURL(link.href);
-    updateStatus(`Backed Up ${count} Note${count === 1 ? '' : 's'}.`, true);
-  });
+  for (const { name, content } of allNotes) {
+    zip.file(name + '.md', content);
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'all_notes.zip';
+  link.click();
+  URL.revokeObjectURL(link.href);
+  updateStatus(`Backed Up ${allNotes.length} Note${allNotes.length === 1 ? '' : 's'}.`, true);
 }
 
 function generateHtmlContent(title, markdown) {
@@ -1160,14 +1146,8 @@ function exportNote() {
   updateStatus(`Exported "${name}".`, true);
 }
 
-function exportAllNotes() {
-  const entries = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) {
-      entries.push({ name: key.slice(3), content: localStorage.getItem(key) });
-    }
-  }
+async function exportAllNotes() {
+  const entries = await NoteStorage.getAllNotes();
   if (entries.length === 0) { alert('No notes found.'); return; }
   entries.sort((a, b) => b.name.localeCompare(a.name));
   const html = generateNotebookHtml(entries);
@@ -1180,56 +1160,57 @@ function exportAllNotes() {
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
-function deleteSelectedNotes() {
-  const notes = getVisibleNotes();
+async function deleteSelectedNotes() {
+  const notes = await getVisibleNotes();
   if (notes.length === 0) {
     alert('No notes match the filter.');
     return;
   }
   if (!confirm('Delete visible notes?')) return;
-  notes.forEach(name => {
-    localStorage.removeItem('md_' + name);
+  for (const name of notes) {
+    await NoteStorage.removeNote(name);
     if (currentFileName === name) {
       textarea.value = '';
       currentFileName = null;
       localStorage.removeItem('current_file');
     }
-  });
-  updateFileList();
+  }
+  await updateFileList();
   updateStatus(`Deleted ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
 }
 
-function backupSelectedNotes() {
+async function backupSelectedNotes() {
   localStorage.setItem('last_backup_time', Date.now().toString());
   updateBackupStatus();
-  const notes = getVisibleNotes();
+  const notes = await getVisibleNotes();
   if (notes.length === 0) {
     alert('No notes match the filter.');
     return;
   }
   const zip = new JSZip();
-  notes.forEach(name => {
-    const content = localStorage.getItem('md_' + name);
+  for (const name of notes) {
+    const content = await NoteStorage.getNote(name);
     if (content !== null) {
       zip.file(name + '.md', content);
     }
-  });
-  zip.generateAsync({ type: 'blob' }).then(content => {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(content);
-    link.download = 'selected_notes.zip';
-    link.click();
-    URL.revokeObjectURL(link.href);
-    updateStatus(`Backed Up ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
-  });
+  }
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'selected_notes.zip';
+  link.click();
+  URL.revokeObjectURL(link.href);
+  updateStatus(`Backed Up ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
 }
 
-function exportSelectedNotes() {
-  const notes = getVisibleNotes();
+async function exportSelectedNotes() {
+  const notes = await getVisibleNotes();
   if (notes.length === 0) { alert('No notes match the filter.'); return; }
-  const entries = notes
-    .map(name => ({ name, content: localStorage.getItem('md_' + name) }))
-    .filter(e => e.content !== null);
+  const entries = [];
+  for (const name of notes) {
+    const content = await NoteStorage.getNote(name);
+    if (content !== null) entries.push({ name, content });
+  }
   const html = generateNotebookHtml(entries);
   const blob = new Blob([html], { type: 'text/html' });
   const link = document.createElement('a');
@@ -1240,54 +1221,49 @@ function exportSelectedNotes() {
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
-function importNotesFromZip(file) {
-  JSZip.loadAsync(file).then(zip => {
-    const promises = [];
+async function importNotesFromZip(file) {
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const entries = [];
     zip.forEach((relativePath, zipEntry) => {
       if (!zipEntry.dir && relativePath.endsWith('.md')) {
-        const name = relativePath.replace(/\.md$/, '');
-        promises.push(zipEntry.async('string').then(content => {
-          localStorage.setItem('md_' + name, content);
-        }));
+        entries.push({ name: relativePath.replace(/\.md$/, ''), zipEntry });
       }
     });
-    return Promise.all(promises);
-  }).then((results) => {
-    updateFileList();
+    for (const { name, zipEntry } of entries) {
+      const content = await zipEntry.async('string');
+      await NoteStorage.setNote(name, content);
+    }
+    await updateFileList();
     importZipInput.value = '';
-    updateStatus(`Imported ${results.length} Note${results.length === 1 ? '' : 's'}.`, true);
-  }).catch(err => {
+    updateStatus(`Imported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
+  } catch (err) {
     alert('Error importing zip: ' + err.message);
-  });
+  }
 }
 
-function updateFileList() {
+async function updateFileList() {
   invalidateScheduleCache();
-  refreshProjectsNote();
+  await refreshProjectsNote();
   fileList.innerHTML = '';
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
 
   const noteMap = {};
+  const allNotes = await NoteStorage.getAllNotes();
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) {
-      const fileName = key.slice(3);
-      const content = localStorage.getItem(key).toLowerCase();
-
-      if (matches(fileName.toLowerCase(), content)) {
-        const li = document.createElement('li');
-        const span = document.createElement('span');
-        span.textContent = fileName;
-        span.style.cursor = 'pointer';
-        span.onclick = () => {
-          loadNote(fileName);
-          closeMobilePanel('left');
-        };
-        li.appendChild(span);
-        noteMap[fileName] = li;
-      }
+  for (const { name: fileName, content } of allNotes) {
+    if (matches(fileName.toLowerCase(), content.toLowerCase())) {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.textContent = fileName;
+      span.style.cursor = 'pointer';
+      span.onclick = () => {
+        loadNote(fileName);
+        closeMobilePanel('left');
+      };
+      li.appendChild(span);
+      noteMap[fileName] = li;
     }
   }
 
@@ -1321,20 +1297,19 @@ function updateFileList() {
 
   items.forEach(li => fileList.appendChild(li));
 
-  updateTodoList();
+  await updateTodoList();
 }
 
-function updateTodoList() {
+async function updateTodoList() {
   todoList.innerHTML = '';
 
   const query = searchTasksBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(query, makeTaskTermPredicate);
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('md_')) {
-      const fileName = key.slice(3);
-      const lines = localStorage.getItem(key).split(/\n/);
+  const allNotes = await NoteStorage.getAllNotes();
+  for (const { name: fileName, content: noteContent } of allNotes) {
+    {
+      const lines = noteContent.split(/\n/);
       const todos = lines
         .map((line, idx) => ({ line, idx }))
         .filter(obj => obj.line.trim().startsWith('- [ ]'))
@@ -1390,7 +1365,7 @@ function updateTodoList() {
     }
   }
   styleTaskListItems(todoList);
-  setupNoteLinks(todoList);
+  await setupNoteLinks(todoList);
   if (window.MathJax) {
     MathJax.typesetPromise([todoList]);
   }
@@ -1410,17 +1385,17 @@ function setupPreviewTaskCheckboxes() {
   checkboxes.forEach((cb, i) => {
     cb.disabled = false;
     cb.dataset.lineIndex = taskIndices[i];
-    cb.onchange = () => {
+    cb.onchange = async () => {
       const lineIdx = parseInt(cb.dataset.lineIndex, 10);
       const currentLines = textarea.value.split(/\n/);
       if (lineIdx >= 0 && lineIdx < currentLines.length) {
         currentLines[lineIdx] = currentLines[lineIdx].replace(/- \[[ xX]\]/, cb.checked ? '- [x]' : '- [ ]');
         textarea.value = currentLines.join('\n');
         if (currentFileName) {
-          localStorage.setItem('md_' + currentFileName, textarea.value);
+          await NoteStorage.setNote(currentFileName, textarea.value);
         }
         renderPreview();
-        updateTodoList();
+        await updateTodoList();
       }
     };
 
@@ -1464,14 +1439,13 @@ function setupPreviewTaskCheckboxes() {
   });
 }
 
-function toggleTaskStatus(fileName, lineIndex) {
-  const key = 'md_' + fileName;
-  const content = localStorage.getItem(key);
+async function toggleTaskStatus(fileName, lineIndex) {
+  const content = await NoteStorage.getNote(fileName);
   if (!content) return;
   const lines = content.split(/\n/);
   if (lineIndex >= 0 && lineIndex < lines.length) {
     lines[lineIndex] = lines[lineIndex].replace(/- \[ \]/, '- [x]');
-    localStorage.setItem(key, lines.join('\n'));
+    await NoteStorage.setNote(fileName, lines.join('\n'));
     if (currentFileName === fileName) {
       textarea.value = lines.join('\n');
       if (isPreview) {
@@ -1479,7 +1453,7 @@ function toggleTaskStatus(fileName, lineIndex) {
       }
     }
   }
-  updateTodoList();
+  await updateTodoList();
 }
 
 function formatScheduleDate(d) {
@@ -1497,14 +1471,11 @@ function toYYMMDD(d) {
 // Invalidated whenever notes change (updateFileList / updateTodoList).
 let _scheduleCache = null;
 
-function _buildScheduleCache() {
+async function _buildScheduleCache() {
   const cache = {};
   const re = />\s*(\d{6})\s+(\d{4})\s+(\d{4})\s*$/;
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key.startsWith('md_')) continue;
-    const fileName = key.slice(3);
-    const content = localStorage.getItem(key);
+  const allNotes = await NoteStorage.getAllNotes();
+  for (const { name: fileName, content } of allNotes) {
     if (!content) continue;
     content.split(/\n/).forEach((line, idx) => {
       const m = line.match(re);
@@ -1530,13 +1501,14 @@ function invalidateScheduleCache() {
   _scheduleCache = null;
 }
 
-function getScheduleCache() {
-  if (!_scheduleCache) _scheduleCache = _buildScheduleCache();
+async function getScheduleCache() {
+  if (!_scheduleCache) _scheduleCache = await _buildScheduleCache();
   return _scheduleCache;
 }
 
-function getScheduleItems(dateStr) {
-  return getScheduleCache()[dateStr] || [];
+async function getScheduleItems(dateStr) {
+  const cache = await getScheduleCache();
+  return cache[dateStr] || [];
 }
 
 
@@ -1627,8 +1599,8 @@ function getWeekStart(d) {
   return date;
 }
 
-function getWeekDotStatus(dateStr, d) {
-  const items = getScheduleItems(dateStr);
+async function getWeekDotStatus(dateStr, d) {
+  const items = await getScheduleItems(dateStr);
   if (items.length === 0) return null;
   const tasks = items.filter(it => it.isTask);
   if (tasks.length === 0) return 'event';
@@ -1642,7 +1614,7 @@ function getWeekDotStatus(dateStr, d) {
   return 'pending';
 }
 
-function renderWeekRow() {
+async function renderWeekRow() {
   const weekRowEl = document.getElementById('schedule-week-row');
   if (!weekRowEl) return;
   weekRowEl.innerHTML = '';
@@ -1680,7 +1652,7 @@ function renderWeekRow() {
 
     const dot = document.createElement('span');
     dot.className = 'schedule-week-dot';
-    const dotStatus = getWeekDotStatus(toYYMMDD(d), d);
+    const dotStatus = await getWeekDotStatus(toYYMMDD(d), d);
     if (dotStatus) {
       dot.classList.add('dot-' + dotStatus);
     } else {
@@ -1697,15 +1669,15 @@ function renderWeekRow() {
   }
 }
 
-function renderSchedule() {
+async function renderSchedule() {
   if (!scheduleGrid) return;
   if (scheduleNowTimer) { clearInterval(scheduleNowTimer); scheduleNowTimer = null; }
-  renderWeekRow();
+  await renderWeekRow();
   scheduleGrid.innerHTML = '';
   scheduleDateLabel.textContent = formatScheduleDate(scheduleDate);
 
   const dateStr = toYYMMDD(scheduleDate);
-  const items = getScheduleItems(dateStr);
+  const items = await getScheduleItems(dateStr);
 
   const ROW_H = 40;
   const START_H = 7;
@@ -1804,21 +1776,20 @@ function renderSchedule() {
   }
 }
 
-function toggleScheduleTask(fileName, lineIndex, checked) {
+async function toggleScheduleTask(fileName, lineIndex, checked) {
   invalidateScheduleCache();
-  const key = 'md_' + fileName;
-  const content = localStorage.getItem(key);
+  const content = await NoteStorage.getNote(fileName);
   if (!content) return;
   const lines = content.split(/\n/);
   if (lineIndex >= 0 && lineIndex < lines.length) {
     lines[lineIndex] = lines[lineIndex].replace(/- \[[ xX]\]/, checked ? '- [x]' : '- [ ]');
-    localStorage.setItem(key, lines.join('\n'));
+    await NoteStorage.setNote(fileName, lines.join('\n'));
     if (currentFileName === fileName) {
       textarea.value = lines.join('\n');
       if (isPreview || projectsViewActive) renderPreview();
     }
   }
-  updateTodoList(); // also calls renderSchedule() at its end
+  await updateTodoList(); // also calls renderSchedule() at its end
 }
 
 function setupMobileButtonGroup(button, action) {
@@ -2111,17 +2082,14 @@ function closeGlobalSearch() {
   globalSearchPanel.classList.add('gs-hidden');
 }
 
-function gsGetAllMatches(query, caseSensitive) {
+async function gsGetAllMatches(query, caseSensitive) {
   const results = [];
   if (!query) return results;
   const needle  = caseSensitive ? query : query.toLowerCase();
   const CONTEXT = 55;
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key.startsWith('md_')) continue;
-    const noteName   = key.slice(3);
-    const rawContent = localStorage.getItem(key);
+  const allNotes = await NoteStorage.getAllNotes();
+  for (const { name: noteName, content: rawContent } of allNotes) {
     const haystack   = caseSensitive ? rawContent : rawContent.toLowerCase();
 
     let pos = 0;
@@ -2185,7 +2153,7 @@ function gsRenderResults(results, query) {
   });
 }
 
-function gsSelectResult(index) {
+async function gsSelectResult(index) {
   if (gsSelectedIndex >= 0) {
     const prev = gsResults.querySelector(`[data-index="${gsSelectedIndex}"]`);
     if (prev) prev.classList.remove('gs-active');
@@ -2202,10 +2170,10 @@ function gsSelectResult(index) {
 
   // Flush any unsaved edits before navigating
   if (currentFileName) {
-    localStorage.setItem('md_' + currentFileName, textarea.value);
+    await NoteStorage.setNote(currentFileName, textarea.value);
   }
 
-  loadNote(result.noteName);
+  await loadNote(result.noteName);
 
   // Select / highlight the match after load
   setTimeout(() => {
@@ -2255,10 +2223,10 @@ document.addEventListener('keydown', e => {
 
 gsCloseBtn.addEventListener('click', closeGlobalSearch);
 
-function gsRunFind() {
+async function gsRunFind() {
   const query = gsSearchInput.value;
   if (!query) { gsSetStatus('Enter a search term.', false); return; }
-  gsCurrentResults = gsGetAllMatches(query, gsCaseCheckbox.checked);
+  gsCurrentResults = await gsGetAllMatches(query, gsCaseCheckbox.checked);
   gsRenderResults(gsCurrentResults, query);
 }
 
@@ -2288,7 +2256,7 @@ gsCaseCheckbox.addEventListener('change', () => {
 });
 
 // Replace in the currently selected note (first occurrence)
-gsReplaceBtn.addEventListener('click', () => {
+gsReplaceBtn.addEventListener('click', async () => {
   if (gsSelectedIndex < 0) {
     gsSetStatus('Select a result first.', false);
     return;
@@ -2299,7 +2267,7 @@ gsReplaceBtn.addEventListener('click', () => {
   if (!query) return;
 
   const result  = gsCurrentResults[gsSelectedIndex];
-  let content   = localStorage.getItem('md_' + result.noteName);
+  let content   = await NoteStorage.getNote(result.noteName);
   if (content === null) { gsSetStatus(`Note not found.`, false); return; }
 
   const hay = caseSensitive ? content : content.toLowerCase();
@@ -2308,27 +2276,27 @@ gsReplaceBtn.addEventListener('click', () => {
   if (idx === -1) { gsSetStatus('Match no longer found (content changed).', false); return; }
 
   content = content.slice(0, idx) + replacement + content.slice(idx + query.length);
-  localStorage.setItem('md_' + result.noteName, content);
+  await NoteStorage.setNote(result.noteName, content);
   if (currentFileName === result.noteName) {
     textarea.value = content;
     if (isPreview) renderPreview();
   }
 
-  handleRenameAfterReplace(result.noteName, content);
-  updateFileList();
-  gsCurrentResults = gsGetAllMatches(query, caseSensitive);
+  await handleRenameAfterReplace(result.noteName, content);
+  await updateFileList();
+  gsCurrentResults = await gsGetAllMatches(query, caseSensitive);
   gsRenderResults(gsCurrentResults, query);
   gsSetStatus(`Replaced 1 match in \u201c${result.noteName}\u201d.`, true);
 });
 
 // Replace all occurrences across all notes
-gsReplaceAllBtn.addEventListener('click', () => {
+gsReplaceAllBtn.addEventListener('click', async () => {
   const query   = gsSearchInput.value;
   const replacement = gsReplaceInput.value;
   const caseSensitive = gsCaseCheckbox.checked;
   if (!query) { gsSetStatus('Enter a search term.', false); return; }
 
-  const fresh = gsGetAllMatches(query, caseSensitive);
+  const fresh = await gsGetAllMatches(query, caseSensitive);
   if (fresh.length === 0) { gsSetStatus('No matches to replace.', false); return; }
 
   const affected   = [...new Set(fresh.map(r => r.noteName))];
@@ -2344,23 +2312,23 @@ gsReplaceAllBtn.addEventListener('click', () => {
   const regex   = new RegExp(escaped, flags);
   let totalReplaced = 0;
 
-  affected.forEach(noteName => {
-    let content = localStorage.getItem('md_' + noteName);
-    if (content === null) return;
+  for (const noteName of affected) {
+    let content = await NoteStorage.getNote(noteName);
+    if (content === null) continue;
     const matches = content.match(regex);
-    if (!matches) return;
+    if (!matches) continue;
     totalReplaced += matches.length;
     const newContent = content.replace(regex, replacement);
-    localStorage.setItem('md_' + noteName, newContent);
+    await NoteStorage.setNote(noteName, newContent);
     if (currentFileName === noteName) {
       textarea.value = newContent;
       if (isPreview) renderPreview();
     }
-    handleRenameAfterReplace(noteName, newContent);
-  });
+    await handleRenameAfterReplace(noteName, newContent);
+  }
 
-  updateFileList();
-  gsCurrentResults = gsGetAllMatches(query, caseSensitive);
+  await updateFileList();
+  gsCurrentResults = await gsGetAllMatches(query, caseSensitive);
   gsRenderResults(gsCurrentResults, query);
   gsSetStatus(
     `Replaced ${totalReplaced} match${totalReplaced === 1 ? '' : 'es'} ` +
@@ -2718,7 +2686,7 @@ function saveFormulaResult(mathExpr, resultStr) {
   }
 
   textarea.value = newContent;
-  localStorage.setItem('md_' + currentFileName, newContent);
+  NoteStorage.setNote(currentFileName, newContent);
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
 }
@@ -2803,7 +2771,7 @@ function unsaveFormulaResult(mathExpr) {
   }
 
   textarea.value = newContent;
-  localStorage.setItem('md_' + currentFileName, newContent);
+  NoteStorage.setNote(currentFileName, newContent);
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
 }
@@ -3045,18 +3013,91 @@ window.addEventListener('storage', e => {
     return;
   }
 });
+
+// ── External file change sync (Desktop/iOS) ──────────────────────────────
+// When running in Electron, the main process watches the iCloud notes folder
+// and sends 'notes:changed' events when files are modified externally.
+if (window.electronAPI?.notes?.onExternalChange) {
+  window.electronAPI.notes.onExternalChange(async () => {
+    invalidateScheduleCache();
+    if (currentFileName) {
+      const content = await NoteStorage.getNote(currentFileName);
+      if (content === null) {
+        textarea.value = '';
+        currentFileName = null;
+        localStorage.removeItem('current_file');
+        if (isPreview) previewDiv.innerHTML = '';
+        updateStatus('Note Deleted Externally.', false);
+      } else if (content !== textarea.value) {
+        textarea.value = content;
+        if (isPreview) renderPreview();
+        updateStatus('Note Updated From Another Device.', true);
+      }
+    }
+    await updateFileList();
+  });
+}
+
+// On iOS (Capacitor), check for file changes when app resumes from background.
+if (window.Capacitor?.isNativePlatform()) {
+  document.addEventListener('resume', async () => {
+    invalidateScheduleCache();
+    if (currentFileName) {
+      const content = await NoteStorage.getNote(currentFileName);
+      if (content === null) {
+        textarea.value = '';
+        currentFileName = null;
+        localStorage.removeItem('current_file');
+        if (isPreview) previewDiv.innerHTML = '';
+        updateStatus('Note Deleted Externally.', false);
+      } else if (content !== textarea.value) {
+        textarea.value = content;
+        if (isPreview) renderPreview();
+        updateStatus('Note Updated From Another Device.', true);
+      }
+    }
+    await updateFileList();
+  });
+}
 // ── End cross-window sync ─────────────────────────────────────────────────
 
 const savedChain = localStorage.getItem('linked_chain');
 if (savedChain) {
   try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
-if (lastFile && localStorage.getItem('md_' + lastFile) !== null) {
-  loadNote(lastFile, true);
-} else {
-  newNote();
-}
 
-if (savedPreview && !isPreview) {
-  toggleView();
-}
+// Async initialization — load last file or create new note
+(async () => {
+  // Migrate localStorage notes to iCloud on first launch (desktop/iOS only)
+  if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
+    const iCloudNames = await NoteStorage.getAllNoteNames();
+    if (iCloudNames.length === 0) {
+      // Check if there are localStorage notes to migrate
+      const lsNotes = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('md_')) {
+          lsNotes.push({ name: key.slice(3), content: localStorage.getItem(key) });
+        }
+      }
+      if (lsNotes.length > 0) {
+        for (const { name, content } of lsNotes) {
+          await NoteStorage.setNote(name, content);
+        }
+        // Clear migrated notes from localStorage
+        lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
+        updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
+      }
+    }
+  }
+
+  if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
+    await loadNote(lastFile, true);
+  } else {
+    await newNote();
+  }
+
+  if (savedPreview && !isPreview) {
+    toggleView();
+  }
+})();

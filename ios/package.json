@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Notes App - iOS (Capacitor)",
   "scripts": {
-    "build": "cp -r ../web/* www/",
+    "build": "cp -r ../web/* www/ && cp icloud-bridge.js www/",
     "sync": "npx cap sync ios",
     "open": "npx cap open ios",
     "start": "npm run build && npm run sync && npm run open",
