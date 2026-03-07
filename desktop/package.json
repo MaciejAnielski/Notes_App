@@ -1,0 +1,35 @@
+{
+  "name": "notes-app-desktop",
+  "version": "1.0.0",
+  "description": "Notes App - Desktop (Electron)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.notesapp.desktop",
+    "productName": "Notes App",
+    "files": [
+      "main.js",
+      "preload.js",
+      "web/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
