@@ -1,0 +1,18 @@
+{
+  "name": "notes-app-ios",
+  "version": "1.0.0",
+  "description": "Notes App - iOS (Capacitor)",
+  "scripts": {
+    "build": "cp -r ../web/* www/",
+    "sync": "npx cap sync ios",
+    "open": "npx cap open ios",
+    "start": "npm run build && npm run sync && npm run open"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}
