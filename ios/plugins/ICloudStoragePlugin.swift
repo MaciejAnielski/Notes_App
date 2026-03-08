@@ -1,5 +1,7 @@
 import Foundation
 import Capacitor
+import UIKit
+import UniformTypeIdentifiers
 
 /// Native Capacitor plugin that provides iCloud Drive file I/O for notes.
 ///
@@ -20,7 +22,8 @@ public class ICloudStoragePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "remove", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "list", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openFilesLocation", returnType: CAPPluginReturnPromise)
     ]
 
     private let containerID = "iCloud.com.notesapp.ios"
@@ -160,6 +163,28 @@ public class ICloudStoragePlugin: CAPPlugin, CAPBridgedPlugin {
                 // Continue with what we managed to delete
             }
             call.resolve(["count": count])
+        }
+    }
+
+    /// Opens a document picker pre-navigated to the notes directory,
+    /// letting the user browse the folder in Files app.
+    @objc func openFilesLocation(_ call: CAPPluginCall) {
+        let dirURL = notesDirectory()
+        DispatchQueue.main.async {
+            guard let rootVC = self.bridge?.viewController else {
+                call.reject("No root view controller available")
+                return
+            }
+            let picker: UIDocumentPickerViewController
+            if #available(iOS 14.0, *) {
+                picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.folder])
+            } else {
+                picker = UIDocumentPickerViewController(documentTypes: ["public.folder"], in: .open)
+            }
+            picker.directoryURL = dirURL
+            picker.modalPresentationStyle = .fullScreen
+            rootVC.present(picker, animated: true, completion: nil)
+            call.resolve()
         }
     }
 }

@@ -9,4 +9,5 @@ CAP_PLUGIN(ICloudStoragePlugin, "ICloudStorage",
     CAP_PLUGIN_METHOD(list, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(clear, CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(isAvailable, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(openFilesLocation, CAPPluginReturnPromise);
 )

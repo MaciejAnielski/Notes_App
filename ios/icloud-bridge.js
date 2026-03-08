@@ -76,6 +76,20 @@
       } catch {
         return 0;
       }
+    },
+
+    async openFilesLocation() {
+      await ICloudStorage.openFilesLocation();
+    }
+  };
+
+  // Expose a top-level helper so script.js can call it without knowing
+  // about the Capacitor plugin directly.
+  window.iosOpenFilesLocation = async () => {
+    try {
+      await window.CapacitorNoteStorage.openFilesLocation();
+    } catch (e) {
+      console.warn('iosOpenFilesLocation failed:', e);
     }
   };
 })();
