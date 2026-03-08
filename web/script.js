@@ -1150,8 +1150,11 @@ async function loadNote(name, fromLink = false) {
 
 async function newNote() {
   const today = getFormattedDate();
-  const existing = await NoteStorage.getNote(today);
-  if (existing === null) {
+  // Check the in-memory file list instead of making a slow native bridge
+  // round-trip to iCloud.  The list is kept in sync by updateFileList().
+  const existsInList = Array.from(fileList.querySelectorAll('span'))
+    .some(s => s.textContent === today);
+  if (!existsInList) {
     textarea.value = '# ' + today + '\n\n';
   } else {
     textarea.value = '';
@@ -3698,6 +3701,11 @@ if (savedChain) {
   // flex layout keeps the toolbar visible and the editor fills the remaining
   // space above the keyboard.
   if (window.visualViewport) {
+    // Capture the full viewport height before the keyboard has a chance to
+    // open.  window.innerHeight can drift once we start resizing the body,
+    // so a stable reference is essential for the keyboard-offset math.
+    const fullViewportHeight = window.innerHeight;
+
     const adjustForKeyboard = () => {
       const vv = window.visualViewport;
       // Set body height to the visual viewport height so the flex column
@@ -3708,7 +3716,7 @@ if (savedChain) {
       // Move the find/replace panel above the on-screen keyboard so it
       // remains visible while typing.  When the keyboard is gone the panel
       // falls back to its default CSS position (bottom: 0).
-      gsKeyboardOffset = Math.max(0, window.innerHeight - vv.height);
+      gsKeyboardOffset = Math.max(0, fullViewportHeight - vv.height);
       globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
     };
 
