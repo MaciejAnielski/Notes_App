@@ -55,6 +55,7 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Reads a UTF-8 file relative to the iCloud container Documents folder.
+    /// Uses NSFileCoordinator to ensure cloud-only files are downloaded first.
     /// Call parameters:
     ///   - path (String, required): relative path inside the container, e.g. "Notes App/foo.md"
     /// Resolves `{ data: String }` on success.
@@ -69,17 +70,34 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             let fileURL = base.appendingPathComponent(path)
-            do {
-                let content = try String(contentsOf: fileURL, encoding: .utf8)
-                call.resolve(["data": content])
-            } catch {
-                call.reject("File not found: \(path)", nil, error)
+
+            // Trigger download if the file is cloud-only (.icloud placeholder).
+            if !FileManager.default.fileExists(atPath: fileURL.path) {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
+            }
+
+            var coordinatorError: NSError?
+            var content: String?
+            var readError: Error?
+            let coordinator = NSFileCoordinator()
+            coordinator.coordinate(readingItemAt: fileURL, options: [], error: &coordinatorError) { url in
+                do {
+                    content = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    readError = error
+                }
+            }
+            if let err = coordinatorError ?? readError {
+                call.reject("File not found: \(path)", nil, err)
+            } else {
+                call.resolve(["data": content ?? ""])
             }
         }
     }
 
     /// Writes a UTF-8 file relative to the iCloud container Documents folder.
     /// Intermediate directories are created automatically.
+    /// Uses NSFileCoordinator so the iCloud daemon is notified of changes.
     /// Call parameters:
     ///   - path (String, required): relative path inside the container
     ///   - data (String, required): file content
@@ -98,7 +116,20 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 let dir = fileURL.deletingLastPathComponent()
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                try data.write(to: fileURL, atomically: true, encoding: .utf8)
+
+                var coordinatorError: NSError?
+                var writeError: Error?
+                let coordinator = NSFileCoordinator()
+                coordinator.coordinate(writingItemAt: fileURL, options: .forReplacing, error: &coordinatorError) { url in
+                    do {
+                        try data.write(to: url, atomically: true, encoding: .utf8)
+                    } catch {
+                        writeError = error
+                    }
+                }
+                if let err = coordinatorError ?? writeError {
+                    throw err
+                }
                 call.resolve()
             } catch {
                 call.reject("Write failed: \(path)", nil, error)
@@ -107,7 +138,7 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Deletes a file from the iCloud container.  Resolves even if the file
-    /// does not exist.
+    /// does not exist.  Uses NSFileCoordinator so the iCloud daemon is notified.
     /// Call parameters:
     ///   - path (String, required): relative path inside the container
     @objc func deleteFile(_ call: CAPPluginCall) {
@@ -121,7 +152,15 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             let fileURL = base.appendingPathComponent(path)
-            try? FileManager.default.removeItem(at: fileURL)
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                call.resolve()
+                return
+            }
+            var coordinatorError: NSError?
+            let coordinator = NSFileCoordinator()
+            coordinator.coordinate(writingItemAt: fileURL, options: .forDeleting, error: &coordinatorError) { url in
+                try? FileManager.default.removeItem(at: url)
+            }
             call.resolve()
         }
     }
