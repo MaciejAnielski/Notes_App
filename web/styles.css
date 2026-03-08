@@ -111,6 +111,12 @@ button {
   color: #e8dcf4;
 }
 
+/* Busy state — dimmed and non-interactive while an async action runs */
+button.btn-busy {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 /* Active state for Tools toggle button when overflow row is open */
 #tools-toggle-group.active > button {
   background-color: rgba(255, 255, 255, 0.07);

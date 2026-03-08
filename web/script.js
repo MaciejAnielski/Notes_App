@@ -90,6 +90,28 @@ async function getVisibleNotes() {
   return notes;
 }
 
+// ── Button busy guard ────────────────────────────────────────────────────
+// Prevents double-taps on action buttons (new, delete, export, backup)
+// from queuing duplicate async operations.  While an action is running the
+// buttons are visually dimmed and clicks are ignored.
+let _buttonBusy = false;
+
+function withBusyGuard(asyncFn) {
+  return async function (...args) {
+    if (_buttonBusy) return;
+    _buttonBusy = true;
+    // Dim all action buttons while the operation runs
+    const buttons = document.querySelectorAll('#button-container button, #tools-overflow-row button');
+    buttons.forEach(b => b.classList.add('btn-busy'));
+    try {
+      await asyncFn.apply(this, args);
+    } finally {
+      _buttonBusy = false;
+      buttons.forEach(b => b.classList.remove('btn-busy'));
+    }
+  };
+}
+
 let statusTimeout = null;
 const backupStatusEl = document.getElementById('last-backup-status');
 // Set by the iOS Capacitor block; called by the status-area click handler.
@@ -1064,10 +1086,19 @@ async function autoSaveNote() {
     updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
     return;
   }
+  const nameChanged = currentFileName !== name;
   _lastSavedContent = textarea.value;
   currentFileName = name;
   localStorage.setItem('current_file', name);
-  await updateFileList();
+  // Only rebuild the full file list when the note name changed (new note
+  // or title rename).  Content-only saves just need the todo/schedule
+  // panels refreshed, which is much cheaper on iOS since we can pass the
+  // single updated note without re-reading every file from iCloud.
+  if (nameChanged) {
+    await updateFileList();
+  } else {
+    await updateTodoList();
+  }
   const useICloud = !!(window.electronAPI?.notes ||
     (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
   updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
@@ -1114,7 +1145,7 @@ async function loadNote(name, fromLink = false) {
     if (isPreview) renderPreview();
   }
 
-  updateFileList();
+  await updateFileList();
 }
 
 async function newNote() {
@@ -1139,7 +1170,13 @@ async function newNote() {
   saveChain();
   currentFileName = null;
   localStorage.removeItem('current_file');
-  await updateFileList();
+  // Record the initial content so the sync handler can detect unsaved
+  // edits if a remote change arrives before the first auto-save.
+  _lastSavedContent = textarea.value;
+  // Immediately deselect the active item in the file list for instant
+  // visual feedback, then refresh the full list in the background.
+  const activeItem = fileList.querySelector('.active-file');
+  if (activeItem) activeItem.classList.remove('active-file');
   updateStatus('', true);
   if (existing === null) {
     const pos = ('# ' + today).length;
@@ -1148,6 +1185,8 @@ async function newNote() {
   } else {
     textarea.focus();
   }
+  // Deferred: full list refresh happens after the UI has already responded.
+  await updateFileList();
 }
 
 async function deleteNote() {
@@ -1647,16 +1686,18 @@ async function _doUpdateFileList() {
 
   items.forEach(li => fileList.appendChild(li));
 
-  await updateTodoList();
+  // Pass the already-fetched notes to updateTodoList to avoid a second
+  // round-trip through the native bridge on iOS.
+  await updateTodoList(allNotes);
 }
 
-async function updateTodoList() {
+async function updateTodoList(cachedNotes) {
   todoList.innerHTML = '';
 
   const query = searchTasksBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(query, makeTaskTermPredicate);
 
-  const allNotes = await NoteStorage.getAllNotes();
+  const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name: fileName, content: noteContent } of allNotes) {
     {
       const lines = noteContent.split(/\n/);
@@ -2176,21 +2217,21 @@ function setupMobileButtonGroup(button, action) {
   });
 }
 
-setupMobileButtonGroup(newNoteBtn, newNote);
-downloadAllBtn.addEventListener('click', downloadAllNotes);
-setupMobileButtonGroup(exportNoteBtn, exportNote);
-exportAllHtmlBtn.addEventListener('click', exportAllNotes);
-setupMobileButtonGroup(deleteBtn, deleteNote);
-deleteAllBtn.addEventListener('click', deleteAllNotes);
-deleteSelectedBtn.addEventListener('click', deleteSelectedNotes);
-exportSelectedBtn.addEventListener('click', exportSelectedNotes);
+setupMobileButtonGroup(newNoteBtn, withBusyGuard(newNote));
+downloadAllBtn.addEventListener('click', withBusyGuard(downloadAllNotes));
+setupMobileButtonGroup(exportNoteBtn, withBusyGuard(exportNote));
+exportAllHtmlBtn.addEventListener('click', withBusyGuard(exportAllNotes));
+setupMobileButtonGroup(deleteBtn, withBusyGuard(deleteNote));
+deleteAllBtn.addEventListener('click', withBusyGuard(deleteAllNotes));
+deleteSelectedBtn.addEventListener('click', withBusyGuard(deleteSelectedNotes));
+exportSelectedBtn.addEventListener('click', withBusyGuard(exportSelectedNotes));
 importZipBtn.addEventListener('click', () => importZipInput.click());
 findBtn.addEventListener('click', openGlobalSearch);
-importZipInput.addEventListener('change', e => {
+importZipInput.addEventListener('change', withBusyGuard(async (e) => {
   if (e.target.files.length > 0) {
-    importNotesFromZip(e.target.files[0]);
+    await importNotesFromZip(e.target.files[0]);
   }
-});
+}));
 // ── Tools overflow menu ────────────────────────────────────────────────────
 const toolsToggleGroup = document.getElementById('tools-toggle-group');
 const toolsToggleBtn   = document.getElementById('tools-toggle');

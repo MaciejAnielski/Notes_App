@@ -56,6 +56,7 @@
     let _availableCache = null;
     let _availableLastCheck = 0;
     const RECHECK_INTERVAL = 30000; // retry every 30s if unavailable
+    let _notesDirCreated = false; // skip redundant mkdir after first call
 
     async function isAvailable() {
       const now = Date.now();
@@ -114,7 +115,10 @@
       async getAllNoteNames() {
         if (!await isAvailable()) return [];
         try {
-          await ICloudPlugin.mkdir({ path: NOTES_DIR });
+          if (!_notesDirCreated) {
+            await ICloudPlugin.mkdir({ path: NOTES_DIR });
+            _notesDirCreated = true;
+          }
           const result = await ICloudPlugin.readdir({ path: NOTES_DIR });
           return result.files
             .map(f => (typeof f === 'string' ? f : f.name))
@@ -128,12 +132,15 @@
 
       async getAllNotes() {
         const names = await this.getAllNoteNames();
-        const notes = [];
-        for (const name of names) {
-          const content = await this.getNote(name);
-          if (content !== null) notes.push({ name, content });
-        }
-        return notes;
+        // Read all notes in parallel to avoid sequential native bridge
+        // round-trips which cause noticeable delays on iOS.
+        const results = await Promise.all(
+          names.map(async name => {
+            const content = await this.getNote(name);
+            return content !== null ? { name, content } : null;
+          })
+        );
+        return results.filter(Boolean);
       },
 
       async clear() {
@@ -334,12 +341,13 @@
 
     async getAllNotes() {
       const names = await this.getAllNoteNames();
-      const notes = [];
-      for (const name of names) {
-        const content = await this.getNote(name);
-        if (content !== null) notes.push({ name, content });
-      }
-      return notes;
+      const results = await Promise.all(
+        names.map(async name => {
+          const content = await this.getNote(name);
+          return content !== null ? { name, content } : null;
+        })
+      );
+      return results.filter(Boolean);
     },
 
     async clear() {
