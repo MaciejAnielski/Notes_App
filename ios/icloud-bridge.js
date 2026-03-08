@@ -121,6 +121,26 @@
         await this.removeNote(name);
       }
       return names.length;
+    },
+
+    async openNotesFolder() {
+      const App = window.Capacitor?.Plugins?.App;
+      if (!App) return;
+      // Try opening the Notes App folder URI in the Files app
+      try {
+        const result = await Filesystem.getUri({
+          path: NOTES_DIR,
+          directory: DIRECTORY
+        });
+        if (result?.uri) {
+          await App.openUrl({ url: result.uri });
+          return;
+        }
+      } catch {}
+      // Fallback: open the Files app root
+      try {
+        await App.openUrl({ url: 'shareddocuments://' });
+      } catch {}
     }
   };
 })();

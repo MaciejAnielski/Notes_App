@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clear: () => ipcRenderer.invoke('notes:clear'),
     onExternalChange: (callback) => {
       ipcRenderer.on('notes:changed', (_event, data) => callback(data));
-    }
+    },
+    getDir: () => ipcRenderer.invoke('notes:getDir'),
+    openFolder: () => ipcRenderer.invoke('notes:openFolder')
   }
 });

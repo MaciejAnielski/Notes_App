@@ -102,8 +102,10 @@ function updateStatus(message, success) {
 function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
   if (!el) return;
+  const isICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   const t = localStorage.getItem('last_backup_time');
-  if (!t) { el.textContent = 'Never Backed Up'; return; }
+  const prefix = isICloud ? 'iCloud · ' : '';
+  if (!t) { el.textContent = isICloud ? 'Saved to iCloud · Never Backed Up' : 'Never Backed Up'; return; }
   const diff = Date.now() - parseInt(t, 10);
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -113,7 +115,7 @@ function updateBackupStatus() {
   else if (mins < 60) ago = `${mins}m Ago`;
   else if (hours < 24) ago = `${hours}h Ago`;
   else                 ago = `${days}d Ago`;
-  el.textContent = `Last Backed Up ${ago}`;
+  el.textContent = `${prefix}Last Backup ${ago}`;
 }
 
 function getFormattedDate() {
@@ -860,7 +862,8 @@ async function autoSaveNote() {
   currentFileName = name;
   localStorage.setItem('current_file', name);
   await updateFileList();
-  updateStatus('File Saved Successfully.', true);
+  const useICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
 }
 
 async function loadNote(name, fromLink = false) {
@@ -3018,8 +3021,12 @@ window.addEventListener('storage', e => {
 // When running in Electron, the main process watches the iCloud notes folder
 // and sends 'notes:changed' events when files are modified externally.
 if (window.electronAPI?.notes?.onExternalChange) {
-  window.electronAPI.notes.onExternalChange(async () => {
+  window.electronAPI.notes.onExternalChange(async (data) => {
     invalidateScheduleCache();
+    // Extract the note name from the changed filename (strip .md extension)
+    const changedNote = data?.filename?.endsWith('.md')
+      ? data.filename.slice(0, -3)
+      : null;
     if (currentFileName) {
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
@@ -3027,12 +3034,17 @@ if (window.electronAPI?.notes?.onExternalChange) {
         currentFileName = null;
         localStorage.removeItem('current_file');
         if (isPreview) previewDiv.innerHTML = '';
-        updateStatus('Note Deleted Externally.', false);
+        updateStatus('iCloud: Current note deleted from another device.', false);
       } else if (content !== textarea.value) {
         textarea.value = content;
         if (isPreview) renderPreview();
-        updateStatus('Note Updated From Another Device.', true);
+        updateStatus('iCloud: Note updated from another device.', true);
+      } else if (changedNote && changedNote !== currentFileName) {
+        // A different note changed — just reflect in file list
+        updateStatus(`iCloud: "${changedNote}" synced.`, true);
       }
+    } else if (changedNote) {
+      updateStatus(`iCloud: "${changedNote}" synced.`, true);
     }
     await updateFileList();
   });
@@ -3042,6 +3054,7 @@ if (window.electronAPI?.notes?.onExternalChange) {
 if (window.Capacitor?.isNativePlatform()) {
   document.addEventListener('resume', async () => {
     invalidateScheduleCache();
+    updateStatus('Checking iCloud\u2026', true);
     if (currentFileName) {
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
@@ -3049,17 +3062,50 @@ if (window.Capacitor?.isNativePlatform()) {
         currentFileName = null;
         localStorage.removeItem('current_file');
         if (isPreview) previewDiv.innerHTML = '';
-        updateStatus('Note Deleted Externally.', false);
+        updateStatus('iCloud: Current note deleted from another device.', false);
       } else if (content !== textarea.value) {
         textarea.value = content;
         if (isPreview) renderPreview();
-        updateStatus('Note Updated From Another Device.', true);
+        updateStatus('iCloud: Note updated from another device.', true);
+      } else {
+        updateStatus('iCloud: Up to date.', true);
       }
+    } else {
+      updateStatus('iCloud: Up to date.', true);
     }
     await updateFileList();
   });
 }
 // ── End cross-window sync ─────────────────────────────────────────────────
+
+// ── Clickable status area — open notes folder ──────────────────────────────
+// On desktop, clicking the bottom status bar opens the iCloud notes folder
+// in Finder. On iOS, it opens the Files app at the Notes App folder.
+(function setupStatusAreaClick() {
+  const bottomArea = document.getElementById('bottom-status-area');
+  if (!bottomArea) return;
+
+  const isDesktop = !!window.electronAPI?.notes?.openFolder;
+  const isIOS = !!(window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.openNotesFolder);
+
+  if (!isDesktop && !isIOS) return;
+
+  bottomArea.style.cursor = 'pointer';
+
+  bottomArea.addEventListener('click', async () => {
+    if (isDesktop) {
+      await window.electronAPI.notes.openFolder();
+    } else if (isIOS) {
+      await window.CapacitorNoteStorage.openNotesFolder();
+    }
+  });
+
+  // Show a tooltip so the user knows it's clickable
+  bottomArea.title = isDesktop
+    ? 'Click to open notes folder in Finder'
+    : 'Click to open Notes App folder in Files';
+})();
+// ── End clickable status area ─────────────────────────────────────────────
 
 const savedChain = localStorage.getItem('linked_chain');
 if (savedChain) {
