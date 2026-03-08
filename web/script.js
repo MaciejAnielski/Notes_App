@@ -1043,6 +1043,18 @@ async function deleteAllNotes() {
   updateStatus(`Deleted ${count} Note${count === 1 ? '' : 's'}.`, true);
 }
 
+// Format date as YYMMDDHHMMSS for backup/export filenames
+function formatTimestamp() {
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yy}${mm}${dd}${hh}${min}${ss}`;
+}
+
 async function downloadAllNotes() {
   localStorage.setItem('last_backup_time', Date.now().toString());
   updateBackupStatus();
@@ -1061,9 +1073,9 @@ async function downloadAllNotes() {
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
     // Save directly to iCloud 001_Backups folder as a real .zip
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const timestamp = formatTimestamp();
     const base64 = await zip.generateAsync({ type: 'base64' });
-    try { await NoteStorage.writeBackup(`backup_${dateStr}.zip`, base64); } catch {}
+    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); } catch {}
   } else {
     // Web fallback: trigger browser download
     const blob = await zip.generateAsync({ type: 'blob' });
@@ -1223,7 +1235,8 @@ async function exportNote() {
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
-    try { await NoteStorage.writeExport(`${name}.html`, html); } catch {}
+    const timestamp = formatTimestamp();
+    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); } catch {}
   } else {
     const blob = new Blob([html], { type: 'text/html' });
     const link = document.createElement('a');
@@ -1244,8 +1257,8 @@ async function exportAllNotes() {
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    try { await NoteStorage.writeExport(`notes_notebook_${dateStr}.html`, html); } catch {}
+    const timestamp = formatTimestamp();
+    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); } catch {}
   } else {
     const blob = new Blob([html], { type: 'text/html' });
     const link = document.createElement('a');
@@ -1295,9 +1308,9 @@ async function backupSelectedNotes() {
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const timestamp = formatTimestamp();
     const base64 = await zip.generateAsync({ type: 'base64' });
-    try { await NoteStorage.writeBackup(`backup_selected_${dateStr}.zip`, base64); } catch {}
+    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); } catch {}
   } else {
     const blob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
@@ -1322,8 +1335,8 @@ async function exportSelectedNotes() {
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    try { await NoteStorage.writeExport(`notes_notebook_${dateStr}.html`, html); } catch {}
+    const timestamp = formatTimestamp();
+    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); } catch {}
   } else {
     const blob = new Blob([html], { type: 'text/html' });
     const link = document.createElement('a');
