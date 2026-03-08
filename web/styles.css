@@ -1154,17 +1154,21 @@ body.panel-pinned {
     display: none !important;
   }
 
-  /* ── Status and backup messages overlay each other (same as desktop) ── */
+  /* ── Status and backup messages — fixed to bottom of viewport on mobile ── */
   #bottom-status-area {
-    position: relative;
-    flex-shrink: 0;
-    /* Use max() so the area is always clear of the home indicator even when
-       env(safe-area-inset-bottom) is unavailable (e.g. Capacitor edge-to-edge). */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background-color: #1e1e1e;
+    text-align: center;
+    padding: 4px 0;
     padding-bottom: max(env(safe-area-inset-bottom), 24px);
   }
 
   #status-message {
-    z-index: 2;
+    z-index: 11;
     bottom: max(env(safe-area-inset-bottom), 24px);
   }
 
