@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     getDir: () => ipcRenderer.invoke('notes:getDir'),
     openFolder: () => ipcRenderer.invoke('notes:openFolder'),
+    forceSync: () => ipcRenderer.invoke('notes:forceSync'),
     writeBackup: (filename, data) => ipcRenderer.invoke('notes:writeBackup', filename, data),
     writeExport: (filename, data) => ipcRenderer.invoke('notes:writeExport', filename, data)
   }

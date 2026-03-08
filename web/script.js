@@ -92,6 +92,8 @@ async function getVisibleNotes() {
 
 let statusTimeout = null;
 const backupStatusEl = document.getElementById('last-backup-status');
+// Set by the iOS Capacitor block; called by the status-area click handler.
+let _forceSyncCallback = null;
 
 // Convert a string to Title Case (capitalize first letter of each word)
 function toTitleCase(str) {
@@ -3280,35 +3282,34 @@ if (window.Capacitor?.isNativePlatform()) {
   startIOSPoll();
   document.addEventListener('resume', startIOSPoll);
   document.addEventListener('pause', stopIOSPoll);
+
+  // Expose for the status-area click handler (defined later in this file).
+  _forceSyncCallback = (showStatus) => checkICloudChanges(showStatus);
 }
 // ── End cross-window sync ─────────────────────────────────────────────────
 
-// ── Clickable status area — open notes folder ──────────────────────────────
-// On desktop, clicking the bottom status bar opens the iCloud notes folder
-// in Finder. On iOS, it opens the Files app at the Notes App folder.
+// ── Clickable status area — force iCloud sync ──────────────────────────────
+// Clicking the bottom status bar triggers a manual sync on all platforms.
 (function setupStatusAreaClick() {
   const bottomArea = document.getElementById('bottom-status-area');
   if (!bottomArea) return;
 
-  const isDesktop = !!window.electronAPI?.notes?.openFolder;
-  const isIOS = !!(window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.openNotesFolder);
+  const isDesktop = !!window.electronAPI?.notes?.forceSync;
+  const isIOS = !!(window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage);
 
   if (!isDesktop && !isIOS) return;
 
   bottomArea.style.cursor = 'pointer';
+  bottomArea.title = 'Tap to sync';
 
   bottomArea.addEventListener('click', async () => {
     if (isDesktop) {
-      await window.electronAPI.notes.openFolder();
-    } else if (isIOS) {
-      await window.CapacitorNoteStorage.openNotesFolder();
+      updateStatus('Syncing\u2026', true);
+      await window.electronAPI.notes.forceSync();
+    } else if (isIOS && _forceSyncCallback) {
+      await _forceSyncCallback(true);
     }
   });
-
-  // Show a tooltip so the user knows it's clickable
-  bottomArea.title = isDesktop
-    ? 'Click to open notes folder in Finder'
-    : 'Click to open Files app';
 })();
 // ── End clickable status area ─────────────────────────────────────────────
 
