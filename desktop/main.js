@@ -4,63 +4,65 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const os = require('os');
 
-// ── iCloud Drive notes folder ──────────────────────────────────────────────
-// On macOS, iCloud Drive is at ~/Library/Mobile Documents/com~apple~CloudDocs/.
-// We store notes in a "Notes App" subfolder. If the iOS app uses its own
-// iCloud container (iCloud~com~notesapp~ios), the desktop app reads/writes
-// from that container's Documents folder so both platforms share the same
-// iCloud-synced files.
+// ── iCloud Drive paths ─────────────────────────────────────────────────────
+// The desktop app uses com~apple~CloudDocs as its PRIMARY storage so notes
+// appear in Finder's iCloud Drive sidebar and can be edited by other apps.
+// It also syncs bidirectionally with the iOS container so both platforms
+// share the same notes.
 const ICLOUD_ROOT = path.join(os.homedir(), 'Library', 'Mobile Documents');
-const ICLOUD_IOS_CONTAINER = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '000_Notes');
-const ICLOUD_IOS_BACKUPS = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '001_Backups');
-const ICLOUD_IOS_EXPORTS = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '002_Exports');
-const ICLOUD_GENERIC = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '000_Notes');
-const ICLOUD_GENERIC_BACKUPS = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '001_Backups');
-const ICLOUD_GENERIC_EXPORTS = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '002_Exports');
+
+// Primary (Finder-visible)
+const CLOUD_DOCS        = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', 'Notes App');
+const CLOUD_DOCS_NOTES  = path.join(CLOUD_DOCS, '000_Notes');
+const CLOUD_DOCS_BACKUPS = path.join(CLOUD_DOCS, '001_Backups');
+const CLOUD_DOCS_EXPORTS = path.join(CLOUD_DOCS, '002_Exports');
+
+// iOS container (for syncing with iOS devices)
+const IOS_CONTAINER_DOCS = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
+const IOS_CONTAINER_NOTES  = path.join(IOS_CONTAINER_DOCS, '000_Notes');
+const IOS_CONTAINER_BACKUPS = path.join(IOS_CONTAINER_DOCS, '001_Backups');
+const IOS_CONTAINER_EXPORTS = path.join(IOS_CONTAINER_DOCS, '002_Exports');
 
 let notesDir = null;
 let backupsDir = null;
 let exportsDir = null;
+let iosNotesDir = null;   // null if iOS container doesn't exist
+let iosBackupsDir = null;
+let iosExportsDir = null;
 let iCloudAvailable = false;
 let fileWatcher = null;
 
-// Determine the notes directory at startup
+// Track writes we initiated so the file watcher doesn't echo them back
+const _ourWrites = new Set(); // filenames currently being written by us
+
+// ── Resolve storage directories ────────────────────────────────────────────
 function resolveNotesDir() {
   if (process.platform !== 'darwin') return;
 
-  // Prefer the iOS iCloud container (shared with iOS app).
-  // Check for the container's Documents folder (parent of "000_Notes") rather
-  // than the 000_Notes subfolder itself, which may not exist yet on first launch.
-  const iosContainerDocuments = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
-  if (fsSync.existsSync(iosContainerDocuments)) {
-    notesDir = ICLOUD_IOS_CONTAINER; // …/Documents/000_Notes
-    backupsDir = ICLOUD_IOS_BACKUPS;
-    exportsDir = ICLOUD_IOS_EXPORTS;
-    // Create subfolders synchronously so subsequent reads/writes work
-    for (const dir of [notesDir, backupsDir, exportsDir]) {
-      if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
-    }
-    iCloudAvailable = true;
-    return;
-  }
+  const cloudDocsRoot = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs');
+  if (!fsSync.existsSync(cloudDocsRoot)) return; // iCloud not signed in
 
-  // Fall back to generic iCloud Drive folder
-  const iCloudDrive = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs');
-  if (fsSync.existsSync(iCloudDrive)) {
-    notesDir = ICLOUD_GENERIC;
-    backupsDir = ICLOUD_GENERIC_BACKUPS;
-    exportsDir = ICLOUD_GENERIC_EXPORTS;
-    // Create folders if they don't exist
-    for (const dir of [notesDir, backupsDir, exportsDir]) {
+  // Primary: CloudDocs (visible in Finder)
+  notesDir = CLOUD_DOCS_NOTES;
+  backupsDir = CLOUD_DOCS_BACKUPS;
+  exportsDir = CLOUD_DOCS_EXPORTS;
+  for (const dir of [notesDir, backupsDir, exportsDir]) {
+    if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
+  }
+  iCloudAvailable = true;
+
+  // Secondary: iOS container (for syncing with iOS devices)
+  if (fsSync.existsSync(IOS_CONTAINER_DOCS)) {
+    iosNotesDir = IOS_CONTAINER_NOTES;
+    iosBackupsDir = IOS_CONTAINER_BACKUPS;
+    iosExportsDir = IOS_CONTAINER_EXPORTS;
+    for (const dir of [iosNotesDir, iosBackupsDir, iosExportsDir]) {
       if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
     }
-    iCloudAvailable = true;
   }
 }
 
 // ── File name sanitization ─────────────────────────────────────────────────
-// Note names may contain characters that are invalid in filenames. We replace
-// them with underscores and append .md.
 const UNSAFE_CHARS = /[/\\:*?"<>|]/g;
 
 function noteNameToFileName(name) {
@@ -70,6 +72,83 @@ function noteNameToFileName(name) {
 function fileNameToNoteName(fileName) {
   if (!fileName.endsWith('.md')) return null;
   return fileName.slice(0, -3);
+}
+
+// ── Bidirectional sync with iOS container ──────────────────────────────────
+// Copy a single file from src dir to dst dir if it is newer or missing.
+async function syncFile(filename, srcDir, dstDir) {
+  const srcPath = path.join(srcDir, filename);
+  const dstPath = path.join(dstDir, filename);
+  try {
+    const srcStat = await fs.stat(srcPath);
+    let needsCopy = false;
+    try {
+      const dstStat = await fs.stat(dstPath);
+      needsCopy = srcStat.mtimeMs > dstStat.mtimeMs + 1000; // 1s tolerance
+    } catch {
+      needsCopy = true; // dst doesn't exist
+    }
+    if (needsCopy) {
+      await fs.mkdir(dstDir, { recursive: true });
+      await fs.copyFile(srcPath, dstPath);
+    }
+  } catch {
+    // Source doesn't exist or read error — skip
+  }
+}
+
+// Full sync between CloudDocs and iOS container (newer file wins).
+async function fullSync() {
+  if (!iosNotesDir) return;
+
+  // Sync notes in both directions
+  const pairs = [
+    [notesDir, iosNotesDir],
+    [backupsDir, iosBackupsDir],
+    [exportsDir, iosExportsDir],
+  ];
+
+  for (const [cloudDir, iosDir] of pairs) {
+    const isMdDir = cloudDir === notesDir;
+    // CloudDocs → iOS container
+    try {
+      const files = await fs.readdir(cloudDir);
+      for (const file of files) {
+        if (isMdDir && !file.endsWith('.md')) continue;
+        await syncFile(file, cloudDir, iosDir);
+      }
+    } catch { /* dir may not exist */ }
+
+    // iOS container → CloudDocs
+    try {
+      const files = await fs.readdir(iosDir);
+      for (const file of files) {
+        if (isMdDir && !file.endsWith('.md')) continue;
+        await syncFile(file, iosDir, cloudDir);
+      }
+    } catch { /* dir may not exist */ }
+  }
+}
+
+// Sync a specific file after a desktop write (write-through to iOS container)
+async function writeThrough(filename, dir, iosDir) {
+  if (!iosDir) return;
+  try {
+    await fs.mkdir(iosDir, { recursive: true });
+    const src = path.join(dir, filename);
+    const dst = path.join(iosDir, filename);
+    await fs.copyFile(src, dst);
+  } catch {
+    // Non-fatal — iOS sync will catch up later
+  }
+}
+
+// Delete a file from the iOS container mirror
+async function deleteMirror(filename, iosDir) {
+  if (!iosDir) return;
+  try {
+    await fs.unlink(path.join(iosDir, filename));
+  } catch { /* may not exist */ }
 }
 
 // ── IPC handlers for note CRUD ─────────────────────────────────────────────
@@ -87,18 +166,26 @@ function registerNoteHandlers() {
   ipcMain.handle('notes:set', async (_event, name, content) => {
     if (!notesDir) return;
     await fs.mkdir(notesDir, { recursive: true });
-    const filePath = path.join(notesDir, noteNameToFileName(name));
-    await fs.writeFile(filePath, content, 'utf-8');
+    const filename = noteNameToFileName(name);
+    _ourWrites.add(filename);
+    try {
+      await fs.writeFile(path.join(notesDir, filename), content, 'utf-8');
+      await writeThrough(filename, notesDir, iosNotesDir);
+    } finally {
+      // Delay clearing so the file watcher event can be filtered
+      setTimeout(() => _ourWrites.delete(filename), 500);
+    }
   });
 
   ipcMain.handle('notes:remove', async (_event, name) => {
     if (!notesDir) return;
-    const filePath = path.join(notesDir, noteNameToFileName(name));
+    const filename = noteNameToFileName(name);
+    _ourWrites.add(filename);
     try {
-      await fs.unlink(filePath);
-    } catch {
-      // File may not exist — ignore
-    }
+      await fs.unlink(path.join(notesDir, filename));
+    } catch { /* may not exist */ }
+    await deleteMirror(filename, iosNotesDir);
+    setTimeout(() => _ourWrites.delete(filename), 500);
   });
 
   ipcMain.handle('notes:list', async () => {
@@ -120,7 +207,10 @@ function registerNoteHandlers() {
       const files = await fs.readdir(notesDir);
       const mdFiles = files.filter(f => f.endsWith('.md'));
       for (const file of mdFiles) {
+        _ourWrites.add(file);
         await fs.unlink(path.join(notesDir, file));
+        await deleteMirror(file, iosNotesDir);
+        setTimeout(() => _ourWrites.delete(file), 500);
       }
       return mdFiles.length;
     } catch {
@@ -129,7 +219,7 @@ function registerNoteHandlers() {
   });
 
   ipcMain.handle('notes:getDir', () => {
-    return { path: notesDir, iCloudAvailable };
+    return { path: notesDir, iCloudAvailable, iosContainerAvailable: !!iosNotesDir };
   });
 
   ipcMain.handle('notes:openFolder', async () => {
@@ -143,9 +233,14 @@ function registerNoteHandlers() {
 
   ipcMain.handle('notes:writeLock', async (_event, deviceId) => {
     if (!notesDir) return;
-    const lockPath = path.join(notesDir, lockFileName);
     const data = JSON.stringify({ deviceId, timestamp: Date.now() });
-    await fs.writeFile(lockPath, data, 'utf-8');
+    await fs.writeFile(path.join(notesDir, lockFileName), data, 'utf-8');
+    // Write lock to iOS container too so iOS sees it
+    if (iosNotesDir) {
+      try {
+        await fs.writeFile(path.join(iosNotesDir, lockFileName), data, 'utf-8');
+      } catch { /* non-fatal */ }
+    }
   });
 
   ipcMain.handle('notes:readLock', async () => {
@@ -161,37 +256,45 @@ function registerNoteHandlers() {
 
   ipcMain.handle('notes:removeLock', async () => {
     if (!notesDir) return;
-    const lockPath = path.join(notesDir, lockFileName);
-    try { await fs.unlink(lockPath); } catch {}
+    try { await fs.unlink(path.join(notesDir, lockFileName)); } catch {}
+    if (iosNotesDir) {
+      try { await fs.unlink(path.join(iosNotesDir, lockFileName)); } catch {}
+    }
   });
 
   // ── Backup/export to iCloud folders ──
   ipcMain.handle('notes:writeBackup', async (_event, filename, data) => {
     if (!backupsDir) return;
     await fs.mkdir(backupsDir, { recursive: true });
-    // Backup data arrives as base64-encoded zip — write as binary
     const buf = Buffer.from(data, 'base64');
     await fs.writeFile(path.join(backupsDir, filename), buf);
+    await writeThrough(filename, backupsDir, iosBackupsDir);
   });
 
   ipcMain.handle('notes:writeExport', async (_event, filename, data) => {
     if (!exportsDir) return;
     await fs.mkdir(exportsDir, { recursive: true });
     await fs.writeFile(path.join(exportsDir, filename), data, 'utf-8');
+    await writeThrough(filename, exportsDir, iosExportsDir);
   });
 }
 
 // ── One-time migration from old notes locations ────────────────────────────
-// Migrate .md files from old locations (Documents/ root and Documents/Notes App/)
-// into the new 000_Notes subfolder.
 async function migrateOldNotes() {
   if (!notesDir) return;
-  const oldLocations = [
-    path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents'),
-    path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', 'Notes App')
+  // Locations that can be moved from (not needed after migration)
+  const moveFrom = [
+    path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', 'Notes App'),
+    path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '000_Notes'),
   ];
-  for (const oldDir of oldLocations) {
-    if (oldDir === notesDir) continue; // guard: already the same path
+  // Locations that should be copied from (still needed for iOS sync)
+  const copyFrom = [
+    IOS_CONTAINER_NOTES,
+    path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents'),
+  ];
+
+  for (const oldDir of moveFrom) {
+    if (oldDir === notesDir) continue;
     try {
       const files = await fs.readdir(oldDir);
       const mdFiles = files.filter(f => f.endsWith('.md'));
@@ -200,23 +303,35 @@ async function migrateOldNotes() {
       for (const file of mdFiles) {
         const src = path.join(oldDir, file);
         const dst = path.join(notesDir, file);
-        // Skip if a file with the same name already exists at the destination
         try { await fs.access(dst); continue; } catch {}
         await fs.rename(src, dst);
       }
-    } catch {
-      // Old directory doesn't exist or can't be read — nothing to migrate
-    }
+    } catch { /* doesn't exist */ }
+  }
+
+  for (const oldDir of copyFrom) {
+    if (oldDir === notesDir) continue;
+    try {
+      const files = await fs.readdir(oldDir);
+      const mdFiles = files.filter(f => f.endsWith('.md'));
+      if (mdFiles.length === 0) continue;
+      await fs.mkdir(notesDir, { recursive: true });
+      for (const file of mdFiles) {
+        const src = path.join(oldDir, file);
+        const dst = path.join(notesDir, file);
+        try { await fs.access(dst); continue; } catch {}
+        await fs.copyFile(src, dst);
+      }
+    } catch { /* doesn't exist */ }
   }
 }
 
 // ── File watcher ───────────────────────────────────────────────────────────
-// Watch the iCloud notes folder for external changes (e.g. from iOS or
-// another Mac) and notify the renderer so it can refresh.
-// Debounce file watcher events to avoid flooding the renderer when multiple
-// changes arrive in quick succession (e.g. iCloud syncing several files).
+// Watch the CloudDocs notes folder for external changes (e.g. from another
+// app editing in Finder) and notify the renderer so it can refresh.
+// Also syncs external changes to the iOS container.
 let _watcherDebounce = null;
-let _watcherPending = new Map(); // filename -> eventType
+let _watcherPending = new Map();
 
 function startFileWatcher(win) {
   if (!notesDir || fileWatcher) return;
@@ -224,11 +339,27 @@ function startFileWatcher(win) {
     fileWatcher = fsSync.watch(notesDir, { persistent: false }, (eventType, filename) => {
       if (!filename || !win || win.isDestroyed()) return;
       if (!filename.endsWith('.md') && filename !== '.edit_lock') return;
+      // Ignore writes we initiated ourselves
+      if (_ourWrites.has(filename)) return;
       _watcherPending.set(filename, eventType);
       clearTimeout(_watcherDebounce);
-      _watcherDebounce = setTimeout(() => {
+      _watcherDebounce = setTimeout(async () => {
         for (const [file, evt] of _watcherPending) {
           win.webContents.send('notes:changed', { eventType: evt, filename: file });
+          // Sync external edits to the iOS container
+          if (file.endsWith('.md') && iosNotesDir) {
+            if (evt === 'rename') {
+              // File may have been deleted — check if it still exists
+              try {
+                await fs.access(path.join(notesDir, file));
+                await writeThrough(file, notesDir, iosNotesDir);
+              } catch {
+                await deleteMirror(file, iosNotesDir);
+              }
+            } else {
+              await writeThrough(file, notesDir, iosNotesDir);
+            }
+          }
         }
         _watcherPending.clear();
       }, 300);
@@ -245,60 +376,101 @@ function stopFileWatcher() {
   }
 }
 
-// ── iCloud polling ─────────────────────────────────────────────────────────
-// fsSync.watch() does not reliably detect files synced down by the iCloud
-// daemon (it uses kqueue internally, but iCloud may write files through a
-// different code path that doesn't trigger kqueue events).  To compensate,
-// we poll the notes directory periodically and compare file mtimes to detect
-// changes that the watcher missed.
-const POLL_INTERVAL_MS = 15000; // 15 seconds
+// ── iCloud polling (iOS container → CloudDocs) ─────────────────────────────
+// Poll the iOS container for changes made on iOS devices and copy them to
+// CloudDocs so the desktop app sees them. Also detect changes in CloudDocs
+// that the file watcher may have missed.
+const POLL_INTERVAL_MS = 15000;
 let pollTimer = null;
-let lastPollSnapshot = new Map(); // filename -> mtimeMs
+let lastPollSnapshot = new Map();       // CloudDocs: filename -> mtimeMs
+let lastIosPollSnapshot = new Map();    // iOS container: filename -> mtimeMs
 
-async function buildSnapshot() {
+async function buildSnapshot(dir) {
   const snapshot = new Map();
+  if (!dir) return snapshot;
   try {
-    const files = await fs.readdir(notesDir);
+    const files = await fs.readdir(dir);
     for (const file of files) {
       if (!file.endsWith('.md')) continue;
       try {
-        const stat = await fs.stat(path.join(notesDir, file));
+        const stat = await fs.stat(path.join(dir, file));
         snapshot.set(file, stat.mtimeMs);
-      } catch {
-        // File may have been deleted between readdir and stat
-      }
+      } catch { /* deleted between readdir and stat */ }
     }
-  } catch {
-    // Directory may not exist yet
-  }
+  } catch { /* dir may not exist */ }
   return snapshot;
 }
 
 function startICloudPolling(win) {
   if (!notesDir || pollTimer) return;
 
-  // Build initial snapshot so the first poll has a baseline
-  buildSnapshot().then(snap => { lastPollSnapshot = snap; });
+  // Build initial snapshots
+  Promise.all([
+    buildSnapshot(notesDir),
+    buildSnapshot(iosNotesDir),
+  ]).then(([cloudSnap, iosSnap]) => {
+    lastPollSnapshot = cloudSnap;
+    lastIosPollSnapshot = iosSnap;
+  });
 
   pollTimer = setInterval(async () => {
     if (!win || win.isDestroyed()) return;
-    const current = await buildSnapshot();
 
-    // Detect new or modified files
-    for (const [file, mtime] of current) {
+    // 1. Check CloudDocs for changes (fallback for missed file watcher events)
+    const currentCloud = await buildSnapshot(notesDir);
+    for (const [file, mtime] of currentCloud) {
       const prev = lastPollSnapshot.get(file);
       if (prev === undefined || prev !== mtime) {
         win.webContents.send('notes:changed', { eventType: 'change', filename: file });
       }
     }
-    // Detect deleted files
     for (const [file] of lastPollSnapshot) {
-      if (!current.has(file)) {
+      if (!currentCloud.has(file)) {
         win.webContents.send('notes:changed', { eventType: 'rename', filename: file });
       }
     }
+    lastPollSnapshot = currentCloud;
 
-    lastPollSnapshot = current;
+    // 2. Check iOS container for changes from iOS devices
+    if (iosNotesDir) {
+      const currentIos = await buildSnapshot(iosNotesDir);
+      let iosChanged = false;
+
+      // Detect new or modified files in iOS container
+      for (const [file, mtime] of currentIos) {
+        const prev = lastIosPollSnapshot.get(file);
+        if (prev === undefined || prev !== mtime) {
+          // Copy newer iOS file to CloudDocs
+          await syncFile(file, iosNotesDir, notesDir);
+          iosChanged = true;
+        }
+      }
+
+      // Detect files deleted on iOS
+      for (const [file] of lastIosPollSnapshot) {
+        if (!currentIos.has(file)) {
+          // Only delete from CloudDocs if the file was also deleted there
+          // (avoid deleting files that were just added on desktop)
+          try {
+            await fs.access(path.join(notesDir, file));
+            // File exists in CloudDocs but was deleted on iOS — delete it
+            _ourWrites.add(file);
+            await fs.unlink(path.join(notesDir, file));
+            setTimeout(() => _ourWrites.delete(file), 500);
+            iosChanged = true;
+          } catch { /* already gone from CloudDocs */ }
+        }
+      }
+
+      lastIosPollSnapshot = currentIos;
+
+      // If iOS changes were synced, notify renderer
+      if (iosChanged) {
+        // Rebuild CloudDocs snapshot so the next poll doesn't re-detect
+        lastPollSnapshot = await buildSnapshot(notesDir);
+        win.webContents.send('notes:changed', { eventType: 'change', filename: '*' });
+      }
+    }
   }, POLL_INTERVAL_MS);
 }
 
@@ -334,16 +506,13 @@ function createWindow() {
     }
   });
 
-  // Show window once content is ready to avoid white flash on startup
   win.once('ready-to-show', () => {
     win.show();
   });
 
   win.loadFile(getWebPath());
 
-  // Start watching iCloud folder for external changes
   startFileWatcher(win);
-  // Start polling as fallback for iCloud-synced changes that fsSync.watch misses
   startICloudPolling(win);
 }
 
@@ -353,14 +522,17 @@ registerNoteHandlers();
 app.whenReady().then(async () => {
   await migrateOldNotes();
 
-  // If iCloud wasn't available at startup, retry periodically in case the
-  // user signs in later or the daemon finishes initialising.
+  // Bidirectional sync between CloudDocs and iOS container on startup
+  await fullSync();
+
+  // If iCloud wasn't available at startup, retry periodically
   if (!iCloudAvailable) {
-    const retryInterval = setInterval(() => {
+    const retryInterval = setInterval(async () => {
       resolveNotesDir();
       if (iCloudAvailable) {
         clearInterval(retryInterval);
-        migrateOldNotes();
+        await migrateOldNotes();
+        await fullSync();
         const win = BrowserWindow.getAllWindows()[0];
         if (win) {
           startFileWatcher(win);
