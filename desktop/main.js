@@ -169,7 +169,9 @@ function registerNoteHandlers() {
   ipcMain.handle('notes:writeBackup', async (_event, filename, data) => {
     if (!backupsDir) return;
     await fs.mkdir(backupsDir, { recursive: true });
-    await fs.writeFile(path.join(backupsDir, filename), data, 'utf-8');
+    // Backup data arrives as base64-encoded zip — write as binary
+    const buf = Buffer.from(data, 'base64');
+    await fs.writeFile(path.join(backupsDir, filename), buf);
   });
 
   ipcMain.handle('notes:writeExport', async (_event, filename, data) => {
@@ -211,13 +213,25 @@ async function migrateOldNotes() {
 // ── File watcher ───────────────────────────────────────────────────────────
 // Watch the iCloud notes folder for external changes (e.g. from iOS or
 // another Mac) and notify the renderer so it can refresh.
+// Debounce file watcher events to avoid flooding the renderer when multiple
+// changes arrive in quick succession (e.g. iCloud syncing several files).
+let _watcherDebounce = null;
+let _watcherPending = new Map(); // filename -> eventType
+
 function startFileWatcher(win) {
   if (!notesDir || fileWatcher) return;
   try {
     fileWatcher = fsSync.watch(notesDir, { persistent: false }, (eventType, filename) => {
-      if (filename && filename.endsWith('.md') && win && !win.isDestroyed()) {
-        win.webContents.send('notes:changed', { eventType, filename });
-      }
+      if (!filename || !win || win.isDestroyed()) return;
+      if (!filename.endsWith('.md') && filename !== '.edit_lock') return;
+      _watcherPending.set(filename, eventType);
+      clearTimeout(_watcherDebounce);
+      _watcherDebounce = setTimeout(() => {
+        for (const [file, evt] of _watcherPending) {
+          win.webContents.send('notes:changed', { eventType: evt, filename: file });
+        }
+        _watcherPending.clear();
+      }, 300);
     });
   } catch {
     // Folder may not exist yet or watching may not be supported
@@ -338,6 +352,24 @@ registerNoteHandlers();
 
 app.whenReady().then(async () => {
   await migrateOldNotes();
+
+  // If iCloud wasn't available at startup, retry periodically in case the
+  // user signs in later or the daemon finishes initialising.
+  if (!iCloudAvailable) {
+    const retryInterval = setInterval(() => {
+      resolveNotesDir();
+      if (iCloudAvailable) {
+        clearInterval(retryInterval);
+        migrateOldNotes();
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          startFileWatcher(win);
+          startICloudPolling(win);
+        }
+      }
+    }, 30000);
+  }
+
   createWindow();
 
   app.on('activate', () => {

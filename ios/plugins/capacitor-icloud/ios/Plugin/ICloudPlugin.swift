@@ -48,6 +48,7 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "deleteFile",        returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readdir",           returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "mkdir",             returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeBinaryFile",   returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - Private helpers
@@ -278,6 +279,49 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             let dirURL = base.appendingPathComponent(path)
             try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
             call.resolve()
+        }
+    }
+
+    /// Writes a binary file from base64-encoded data.
+    /// Call parameters:
+    ///   - path (String, required): relative path inside the container
+    ///   - data (String, required): base64-encoded binary data
+    @objc func writeBinaryFile(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"),
+              let base64Data = call.getString("data") else {
+            call.reject("path and data are required")
+            return
+        }
+        guard let binaryData = Data(base64Encoded: base64Data) else {
+            call.reject("Invalid base64 data")
+            return
+        }
+        resolve(call) {
+            guard let base = self.containerDocumentsURL() else {
+                call.reject("iCloud container not available")
+                return
+            }
+            let fileURL = base.appendingPathComponent(path)
+            do {
+                let dir = fileURL.deletingLastPathComponent()
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                var coordinatorError: NSError?
+                var writeError: Error?
+                let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
+                coordinator.coordinate(writingItemAt: fileURL, options: .forReplacing, error: &coordinatorError) { url in
+                    do {
+                        try binaryData.write(to: url, options: .atomic)
+                    } catch {
+                        writeError = error
+                    }
+                }
+                if let err = coordinatorError ?? writeError {
+                    throw err
+                }
+                call.resolve()
+            } catch {
+                call.reject("Write failed: \(path)", nil, error)
+            }
         }
     }
 }

@@ -50,10 +50,16 @@
   if (ICloudPlugin) {
     // Cache the availability check so we don't call the native bridge on every
     // operation (FileManager.url(forUbiquityContainerIdentifier:) can block).
+    // If the check failed (false), retry periodically in case iCloud became
+    // available after app launch (e.g. delayed sign-in or connectivity).
     let _availableCache = null;
+    let _availableLastCheck = 0;
+    const RECHECK_INTERVAL = 30000; // retry every 30s if unavailable
 
     async function isAvailable() {
-      if (_availableCache === null) {
+      const now = Date.now();
+      if (_availableCache === null || (_availableCache === false && now - _availableLastCheck > RECHECK_INTERVAL)) {
+        _availableLastCheck = now;
         try {
           const result = await ICloudPlugin.isAvailable();
           _availableCache = !!result.available;
@@ -167,7 +173,12 @@
       async writeBackup(filename, data) {
         if (!await isAvailable()) return;
         await ICloudPlugin.mkdir({ path: BACKUPS_DIR });
-        await ICloudPlugin.writeFile({ path: `${BACKUPS_DIR}/${filename}`, data });
+        // Backup data is base64-encoded zip — write as binary
+        if (ICloudPlugin.writeBinaryFile) {
+          await ICloudPlugin.writeBinaryFile({ path: `${BACKUPS_DIR}/${filename}`, data });
+        } else {
+          await ICloudPlugin.writeFile({ path: `${BACKUPS_DIR}/${filename}`, data });
+        }
       },
 
       async writeExport(filename, data) {
@@ -309,11 +320,11 @@
     async writeBackup(filename, data) {
       try {
         await Filesystem.mkdir({ path: BACKUPS_DIR, directory: DIRECTORY, recursive: true });
+        // Backup data is base64-encoded zip — write without encoding for binary
         await Filesystem.writeFile({
           path: `${BACKUPS_DIR}/${filename}`,
           directory: DIRECTORY,
-          data,
-          encoding: Encoding.UTF8
+          data
         });
       } catch {}
     },
