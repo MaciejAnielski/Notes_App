@@ -110,60 +110,6 @@ function updateStatus(message, success) {
   }, 3000);
 }
 
-// ── Edit Locking ──────────────────────────────────────────────────────────
-// When editing, a lock file is written to iCloud so other devices can detect
-// that editing is in progress and force themselves into view mode.
-const _deviceId = localStorage.getItem('_device_id') || (() => {
-  const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  localStorage.setItem('_device_id', id);
-  return id;
-})();
-let _editLockHeld = false;
-const LOCK_STALE_MS = 120000; // 2 minutes — lock expires if not refreshed
-
-async function acquireEditLock() {
-  if (_editLockHeld) return;
-  try {
-    await NoteStorage.writeLock(_deviceId);
-    _editLockHeld = true;
-  } catch {}
-}
-
-async function releaseEditLock() {
-  if (!_editLockHeld) return;
-  try {
-    await NoteStorage.removeLock();
-  } catch {}
-  _editLockHeld = false;
-}
-
-async function refreshEditLock() {
-  if (!_editLockHeld) return;
-  try { await NoteStorage.writeLock(_deviceId); } catch {}
-}
-
-// Check if another device holds the edit lock
-async function checkEditLock() {
-  try {
-    const lock = await NoteStorage.readLock();
-    if (!lock) return false; // no lock
-    if (lock.deviceId === _deviceId) return false; // our own lock
-    if (Date.now() - lock.timestamp > LOCK_STALE_MS) return false; // stale lock
-    return true; // another device is editing
-  } catch { return false; }
-}
-
-// Force this instance into view mode if another device is editing
-async function enforceEditLock() {
-  const locked = await checkEditLock();
-  if (locked && !isPreview && currentFileName !== PROJECTS_NOTE) {
-    toggleView(); // switch to view mode
-    updateStatus('Locked: Editing On Another Device.', false);
-  }
-}
-
-// Refresh the lock periodically while editing (every 30s)
-setInterval(() => { if (_editLockHeld) refreshEditLock(); }, 30000);
 
 function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
@@ -330,11 +276,19 @@ function isNoteBodyEmpty() {
   return lines.slice(1).join('\n').trim() === '';
 }
 
+// Normalize iOS smart quotes to straight quotes so quoted searches work
+// with the curly quotes automatically inserted by iOS keyboards.
+function normalizeQuotes(str) {
+  return str.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+            .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
+}
+
 // Build a predicate from a search query supporting AND, OR and NOT operators.
 // makeTermPredicate(token) must return a function (...args) => boolean.
 // AND/OR/NOT combiners forward all arguments so callers can use any arity.
 function createSearchPredicate(query, makeTermPredicate) {
   if (!query) return () => true;
+  query = normalizeQuotes(query);
 
   if (!makeTermPredicate) {
     makeTermPredicate = (term) => (n, c) => n.includes(term) || c.includes(term);
@@ -879,18 +833,11 @@ async function renderPreview() {
 async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
-    // Switching to edit mode — check lock first
-    const locked = await checkEditLock();
-    if (locked) {
-      updateStatus('Locked: Editing On Another Device.', false);
-      return;
-    }
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
     toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
-    acquireEditLock();
   } else {
     renderPreview();
     previewDiv.style.display = 'block';
@@ -898,7 +845,6 @@ async function toggleView() {
     toggleViewBtn.textContent = 'Edit';
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
-    releaseEditLock();
   }
 }
 
@@ -3189,14 +3135,10 @@ window.addEventListener('storage', e => {
 if (window.electronAPI?.notes?.onExternalChange) {
   window.electronAPI.notes.onExternalChange(async (data) => {
     invalidateScheduleCache();
-    // Check edit lock from other devices
-    await enforceEditLock();
     // Extract the note name from the changed filename (strip .md extension)
     const changedNote = data?.filename?.endsWith('.md')
       ? data.filename.slice(0, -3)
       : null;
-    // Ignore lock file changes in the file list
-    if (data?.filename === '.edit_lock') return;
     if (currentFileName) {
       // Determine if the user has unsaved edits (typed but auto-save
       // hasn't run yet). If so, do NOT overwrite their work.
@@ -3257,8 +3199,6 @@ if (window.Capacitor?.isNativePlatform()) {
   let _iCloudPollKnownNames = null; // cached note list for change detection
   async function checkICloudChanges(showStatus) {
     invalidateScheduleCache();
-    // Check edit lock from other devices
-    await enforceEditLock();
     if (showStatus) updateStatus('Checking iCloud\u2026', true);
     let changed = false;
     if (currentFileName) {
@@ -3370,17 +3310,6 @@ if (window.Capacitor?.isNativePlatform()) {
     ? 'Click to open notes folder in Finder'
     : 'Click to open Files app';
 })();
-// ── Release edit lock on window close/navigate ────────────────────────────
-window.addEventListener('beforeunload', () => {
-  if (_editLockHeld) {
-    // Use synchronous approach for beforeunload — best effort
-    try { NoteStorage.removeLock(); } catch {}
-    _editLockHeld = false;
-  }
-});
-if (window.Capacitor?.isNativePlatform()) {
-  document.addEventListener('pause', () => releaseEditLock());
-}
 // ── End clickable status area ─────────────────────────────────────────────
 
 const savedChain = localStorage.getItem('linked_chain');

@@ -433,6 +433,13 @@ textarea:focus {
   text-decoration: underline;
 }
 
+/* Markdown horizontal rules (---) — match the notes panel separator style */
+#preview hr {
+  border: none;
+  border-top: 1px solid #a272b0;
+  margin: 16px 0;
+}
+
 .footnote-hr {
   border: none;
   border-top: 1px solid #333;
@@ -1147,28 +1154,16 @@ body.panel-pinned {
     display: none !important;
   }
 
-  /* ── Status and backup messages overlay each other ── */
+  /* ── Status and backup messages overlay each other (same as desktop) ── */
   #bottom-status-area {
     position: relative;
     flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom);
-    /* Ensure the area is always visible and never pushed off-screen */
-    min-height: calc(20px + env(safe-area-inset-bottom));
   }
 
   #status-message {
     z-index: 2;
-    /* On mobile, position over the backup text but keep within the
-       parent's bounds so it doesn't overflow below the screen */
     bottom: env(safe-area-inset-bottom);
-  }
-
-  #last-backup-status {
-    /* Keep static positioning so the parent has intrinsic height.
-       The absolute positioning was causing the parent to collapse,
-       pushing messages below the visible area on iOS. */
-    position: relative;
-    padding-bottom: 0;
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
@@ -1283,9 +1278,28 @@ body.panel-pinned {
     padding: 8px 10px;
   }
 
-  /* Prevent iOS tap highlight flash */
+  /* Prevent iOS tap highlight flash and pressed state */
   button, a, input[type="checkbox"] {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Disable hover/active highlight on touch devices */
+  #button-container .button-group > button:not(.sub-button):active,
+  #tools-overflow-row .button-group > button:not(.sub-button):active,
+  .sub-button:active,
+  #panel-pin:active,
+  #gs-find-btn:active,
+  #gs-replace-btn:active,
+  #gs-replace-all-btn:active,
+  #gs-close:active,
+  .schedule-date-row button:active {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  /* Block pinch-to-zoom on iOS */
+  * {
+    touch-action: pan-x pan-y;
   }
 
   /* Minimum touch target size for iOS accessibility */

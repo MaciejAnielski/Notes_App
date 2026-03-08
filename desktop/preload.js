@@ -16,9 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     getDir: () => ipcRenderer.invoke('notes:getDir'),
     openFolder: () => ipcRenderer.invoke('notes:openFolder'),
-    writeLock: (deviceId) => ipcRenderer.invoke('notes:writeLock', deviceId),
-    readLock: () => ipcRenderer.invoke('notes:readLock'),
-    removeLock: () => ipcRenderer.invoke('notes:removeLock'),
     writeBackup: (filename, data) => ipcRenderer.invoke('notes:writeBackup', filename, data),
     writeExport: (filename, data) => ipcRenderer.invoke('notes:writeExport', filename, data)
   }

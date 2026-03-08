@@ -52,11 +52,6 @@ window.NoteStorage = {
     return keys.length;
   },
 
-  // Edit lock stubs — overridden by desktop/iOS implementations
-  async writeLock(deviceId) {},
-  async readLock() { return null; },
-  async removeLock() {},
-
   // Backup/export to iCloud stubs — overridden by desktop/iOS implementations
   async writeBackup(filename, data) {},
   async writeExport(filename, data) {}
@@ -83,9 +78,6 @@ if (window.electronAPI?.notes) {
       return notes;
     },
     async clear()                  { return api.clear(); },
-    async writeLock(deviceId)      { return api.writeLock(deviceId); },
-    async readLock()               { return api.readLock(); },
-    async removeLock()             { return api.removeLock(); },
     async writeBackup(filename, data) { return api.writeBackup(filename, data); },
     async writeExport(filename, data) { return api.writeExport(filename, data); }
   };

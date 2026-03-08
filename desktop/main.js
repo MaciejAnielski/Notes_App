@@ -255,40 +255,6 @@ function registerNoteHandlers() {
     }
   });
 
-  // ── Edit lock handlers ──
-  const lockFileName = '.edit_lock';
-
-  ipcMain.handle('notes:writeLock', async (_event, deviceId) => {
-    if (!notesDir) return;
-    const data = JSON.stringify({ deviceId, timestamp: Date.now() });
-    await fs.writeFile(path.join(notesDir, lockFileName), data, 'utf-8');
-    // Write lock to iOS container too so iOS sees it
-    if (iosNotesDir) {
-      try {
-        await fs.writeFile(path.join(iosNotesDir, lockFileName), data, 'utf-8');
-      } catch { /* non-fatal */ }
-    }
-  });
-
-  ipcMain.handle('notes:readLock', async () => {
-    if (!notesDir) return null;
-    const lockPath = path.join(notesDir, lockFileName);
-    try {
-      const data = await fs.readFile(lockPath, 'utf-8');
-      return JSON.parse(data);
-    } catch {
-      return null;
-    }
-  });
-
-  ipcMain.handle('notes:removeLock', async () => {
-    if (!notesDir) return;
-    try { await fs.unlink(path.join(notesDir, lockFileName)); } catch {}
-    if (iosNotesDir) {
-      try { await fs.unlink(path.join(iosNotesDir, lockFileName)); } catch {}
-    }
-  });
-
   // ── Backup/export to iCloud folders ──
   ipcMain.handle('notes:writeBackup', async (_event, filename, data) => {
     if (!backupsDir) return;
@@ -365,7 +331,7 @@ function startFileWatcher(win) {
   try {
     fileWatcher = fsSync.watch(notesDir, { persistent: false }, (eventType, filename) => {
       if (!filename || !win || win.isDestroyed()) return;
-      if (!filename.endsWith('.md') && filename !== '.edit_lock') return;
+      if (!filename.endsWith('.md')) return;
       // Ignore writes we initiated ourselves
       if (_ourWrites.has(filename)) return;
       _watcherPending.set(filename, eventType);
@@ -403,11 +369,41 @@ function startFileWatcher(win) {
   }
 }
 
+// ── File watchers for Backups and Exports directories ──
+// Mirror deletions and additions to the iOS container so both stay in sync.
+let backupsWatcher = null;
+let exportsWatcher = null;
+
+function startDirWatcher(dir, iosDir, watcherRef) {
+  if (!dir || !iosDir) return null;
+  try {
+    return fsSync.watch(dir, { persistent: false }, (eventType, filename) => {
+      if (!filename) return;
+      setTimeout(async () => {
+        if (eventType === 'rename') {
+          try {
+            await fs.access(path.join(dir, filename));
+            await writeThrough(filename, dir, iosDir);
+          } catch {
+            await deleteMirror(filename, iosDir);
+          }
+        } else {
+          await writeThrough(filename, dir, iosDir);
+        }
+      }, 300);
+    });
+  } catch { return null; }
+}
+
+function startBackupsExportsWatchers() {
+  if (!backupsWatcher) backupsWatcher = startDirWatcher(backupsDir, iosBackupsDir);
+  if (!exportsWatcher) exportsWatcher = startDirWatcher(exportsDir, iosExportsDir);
+}
+
 function stopFileWatcher() {
-  if (fileWatcher) {
-    fileWatcher.close();
-    fileWatcher = null;
-  }
+  if (fileWatcher) { fileWatcher.close(); fileWatcher = null; }
+  if (backupsWatcher) { backupsWatcher.close(); backupsWatcher = null; }
+  if (exportsWatcher) { exportsWatcher.close(); exportsWatcher = null; }
 }
 
 // ── iCloud polling (iOS container → CloudDocs) ─────────────────────────────
@@ -416,16 +412,20 @@ function stopFileWatcher() {
 // that the file watcher may have missed.
 const POLL_INTERVAL_MS = 15000;
 let pollTimer = null;
-let lastPollSnapshot = new Map();       // CloudDocs: filename -> mtimeMs
-let lastIosPollSnapshot = new Map();    // iOS container: filename -> mtimeMs
+let lastPollSnapshot = new Map();       // CloudDocs notes: filename -> mtimeMs
+let lastIosPollSnapshot = new Map();    // iOS container notes: filename -> mtimeMs
+let lastBackupsPollSnapshot = new Map();     // CloudDocs backups
+let lastIosBackupsPollSnapshot = new Map();  // iOS container backups
+let lastExportsPollSnapshot = new Map();     // CloudDocs exports
+let lastIosExportsPollSnapshot = new Map();  // iOS container exports
 
-async function buildSnapshot(dir) {
+async function buildSnapshot(dir, filterExt) {
   const snapshot = new Map();
   if (!dir) return snapshot;
   try {
     const files = await fs.readdir(dir);
     for (const file of files) {
-      if (!file.endsWith('.md')) continue;
+      if (filterExt && !file.endsWith(filterExt)) continue;
       try {
         const stat = await fs.stat(path.join(dir, file));
         snapshot.set(file, stat.mtimeMs);
@@ -444,11 +444,19 @@ function startICloudPolling(win) {
 
   // Build initial snapshots and content hashes
   Promise.all([
-    buildSnapshot(notesDir),
-    buildSnapshot(iosNotesDir),
-  ]).then(async ([cloudSnap, iosSnap]) => {
+    buildSnapshot(notesDir, '.md'),
+    buildSnapshot(iosNotesDir, '.md'),
+    buildSnapshot(backupsDir),
+    buildSnapshot(iosBackupsDir),
+    buildSnapshot(exportsDir),
+    buildSnapshot(iosExportsDir),
+  ]).then(async ([cloudSnap, iosSnap, bkSnap, iosBkSnap, exSnap, iosExSnap]) => {
     lastPollSnapshot = cloudSnap;
     lastIosPollSnapshot = iosSnap;
+    lastBackupsPollSnapshot = bkSnap;
+    lastIosBackupsPollSnapshot = iosBkSnap;
+    lastExportsPollSnapshot = exSnap;
+    lastIosExportsPollSnapshot = iosExSnap;
     // Seed content hashes so we can detect real content changes
     for (const [file] of cloudSnap) {
       const hash = await getFileHash(path.join(notesDir, file));
@@ -462,7 +470,7 @@ function startICloudPolling(win) {
     // 1. Check CloudDocs for changes (fallback for missed file watcher events)
     //    Only notify the renderer if the file CONTENT actually changed, not
     //    just the mtime (iCloud can update mtimes during metadata sync).
-    const currentCloud = await buildSnapshot(notesDir);
+    const currentCloud = await buildSnapshot(notesDir, '.md');
     for (const [file, mtime] of currentCloud) {
       const prev = lastPollSnapshot.get(file);
       if (prev === undefined || prev !== mtime) {
@@ -486,7 +494,7 @@ function startICloudPolling(win) {
 
     // 2. Check iOS container for changes from iOS devices
     if (iosNotesDir) {
-      const currentIos = await buildSnapshot(iosNotesDir);
+      const currentIos = await buildSnapshot(iosNotesDir, '.md');
       let iosChanged = false;
       const now = Date.now();
 
@@ -534,8 +542,56 @@ function startICloudPolling(win) {
       // If iOS changes were synced, notify renderer
       if (iosChanged) {
         // Rebuild CloudDocs snapshot so the next poll doesn't re-detect
-        lastPollSnapshot = await buildSnapshot(notesDir);
+        lastPollSnapshot = await buildSnapshot(notesDir, '.md');
         win.webContents.send('notes:changed', { eventType: 'change', filename: '*' });
+      }
+    }
+
+    // 3. Sync Backups and Exports directories bidirectionally and mirror deletions
+    const dirPairs = [
+      { cloud: backupsDir, ios: iosBackupsDir, lastCloud: lastBackupsPollSnapshot, lastIos: lastIosBackupsPollSnapshot, keyCloud: 'lastBackupsPollSnapshot', keyIos: 'lastIosBackupsPollSnapshot' },
+      { cloud: exportsDir, ios: iosExportsDir, lastCloud: lastExportsPollSnapshot, lastIos: lastIosExportsPollSnapshot, keyCloud: 'lastExportsPollSnapshot', keyIos: 'lastIosExportsPollSnapshot' },
+    ];
+    for (const pair of dirPairs) {
+      if (!pair.cloud || !pair.ios) continue;
+      const currentCloudDir = await buildSnapshot(pair.cloud);
+      const currentIosDir = await buildSnapshot(pair.ios);
+
+      // CloudDocs → iOS: sync new/changed files
+      for (const [file, mtime] of currentCloudDir) {
+        const prev = pair.lastCloud.get(file);
+        if (prev === undefined || prev !== mtime) {
+          await syncFile(file, pair.cloud, pair.ios);
+        }
+      }
+      // CloudDocs deletions → mirror to iOS
+      for (const [file] of pair.lastCloud) {
+        if (!currentCloudDir.has(file)) {
+          await deleteMirror(file, pair.ios);
+        }
+      }
+
+      // iOS → CloudDocs: sync new/changed files
+      for (const [file, mtime] of currentIosDir) {
+        const prev = pair.lastIos.get(file);
+        if (prev === undefined || prev !== mtime) {
+          await syncFile(file, pair.ios, pair.cloud);
+        }
+      }
+      // iOS deletions → mirror to CloudDocs
+      for (const [file] of pair.lastIos) {
+        if (!currentIosDir.has(file)) {
+          await deleteMirror(file, pair.cloud);
+        }
+      }
+
+      // Update snapshots
+      if (pair.keyCloud === 'lastBackupsPollSnapshot') {
+        lastBackupsPollSnapshot = currentCloudDir;
+        lastIosBackupsPollSnapshot = currentIosDir;
+      } else {
+        lastExportsPollSnapshot = currentCloudDir;
+        lastIosExportsPollSnapshot = currentIosDir;
       }
     }
   }, POLL_INTERVAL_MS);
@@ -580,6 +636,7 @@ function createWindow() {
   win.loadFile(getWebPath());
 
   startFileWatcher(win);
+  startBackupsExportsWatchers();
   startICloudPolling(win);
 }
 
@@ -603,6 +660,7 @@ app.whenReady().then(async () => {
         const win = BrowserWindow.getAllWindows()[0];
         if (win) {
           startFileWatcher(win);
+          startBackupsExportsWatchers();
           startICloudPolling(win);
         }
       }
