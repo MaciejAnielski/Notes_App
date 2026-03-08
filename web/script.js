@@ -3052,11 +3052,15 @@ if (window.electronAPI?.notes?.onExternalChange) {
   });
 }
 
-// On iOS (Capacitor), check for file changes when app resumes from background.
+// On iOS (Capacitor), check for file changes when app resumes from background
+// and periodically while the app is active.
 if (window.Capacitor?.isNativePlatform()) {
-  document.addEventListener('resume', async () => {
+  // Shared helper: check iCloud for changes to the current note and file list.
+  let _iCloudPollKnownNames = null; // cached note list for change detection
+  async function checkICloudChanges(showStatus) {
     invalidateScheduleCache();
-    updateStatus('Checking iCloud\u2026', true);
+    if (showStatus) updateStatus('Checking iCloud\u2026', true);
+    let changed = false;
     if (currentFileName) {
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
@@ -3065,18 +3069,47 @@ if (window.Capacitor?.isNativePlatform()) {
         localStorage.removeItem('current_file');
         if (isPreview) previewDiv.innerHTML = '';
         updateStatus('iCloud: Current note deleted from another device.', false);
+        changed = true;
       } else if (content !== textarea.value) {
         textarea.value = content;
         if (isPreview) renderPreview();
         updateStatus('iCloud: Note updated from another device.', true);
-      } else {
+        changed = true;
+      } else if (showStatus) {
         updateStatus('iCloud: Up to date.', true);
       }
-    } else {
+    } else if (showStatus) {
       updateStatus('iCloud: Up to date.', true);
     }
-    await updateFileList();
-  });
+    // Also check if the note list itself changed (new/deleted notes on
+    // another device) so the file panel stays current.
+    const names = await NoteStorage.getAllNoteNames();
+    const nameStr = names.slice().sort().join('\n');
+    if (_iCloudPollKnownNames !== null && _iCloudPollKnownNames !== nameStr) {
+      changed = true;
+    }
+    _iCloudPollKnownNames = nameStr;
+    if (changed) await updateFileList();
+  }
+
+  document.addEventListener('resume', () => checkICloudChanges(true));
+
+  // Poll every 15 seconds while the app is in the foreground so that
+  // changes made on the desktop (or another device) appear without the
+  // user having to background and re-open the app.
+  const IOS_POLL_MS = 15000;
+  let _iosPollTimer = null;
+  function startIOSPoll() {
+    if (_iosPollTimer) return;
+    _iosPollTimer = setInterval(() => checkICloudChanges(false), IOS_POLL_MS);
+  }
+  function stopIOSPoll() {
+    if (_iosPollTimer) { clearInterval(_iosPollTimer); _iosPollTimer = null; }
+  }
+  // Start polling immediately; pause when backgrounded to save battery.
+  startIOSPoll();
+  document.addEventListener('resume', startIOSPoll);
+  document.addEventListener('pause', stopIOSPoll);
 }
 // ── End cross-window sync ─────────────────────────────────────────────────
 
