@@ -127,6 +127,26 @@ async function syncFile(filename, srcDir, dstDir) {
   }
 }
 
+// Recursively sync an attachment directory from src to dst.
+// Copies individual files that are newer or missing.
+async function syncAttachmentDir(dirName, srcParent, dstParent) {
+  const srcDir = path.join(srcParent, dirName);
+  const dstDir = path.join(dstParent, dirName);
+  try {
+    const srcStat = await fs.stat(srcDir);
+    if (!srcStat.isDirectory()) return;
+  } catch { return; }
+
+  try {
+    await fs.mkdir(dstDir, { recursive: true });
+    const files = await fs.readdir(srcDir);
+    for (const file of files) {
+      if (file.startsWith('.')) continue;
+      await syncFile(file, srcDir, dstDir);
+    }
+  } catch { /* non-fatal */ }
+}
+
 // Full sync between CloudDocs and iOS container (newer file wins).
 async function fullSync() {
   if (!iosNotesDir) return;
@@ -144,8 +164,12 @@ async function fullSync() {
     try {
       const files = await fs.readdir(cloudDir);
       for (const file of files) {
-        if (isMdDir && !file.endsWith('.md')) continue;
-        await syncFile(file, cloudDir, iosDir);
+        if (isMdDir && file.endsWith('.attachments')) {
+          await syncAttachmentDir(file, cloudDir, iosDir);
+        } else {
+          if (isMdDir && !file.endsWith('.md')) continue;
+          await syncFile(file, cloudDir, iosDir);
+        }
       }
     } catch { /* dir may not exist */ }
 
@@ -153,8 +177,12 @@ async function fullSync() {
     try {
       const files = await fs.readdir(iosDir);
       for (const file of files) {
-        if (isMdDir && !file.endsWith('.md')) continue;
-        await syncFile(file, iosDir, cloudDir);
+        if (isMdDir && file.endsWith('.attachments')) {
+          await syncAttachmentDir(file, iosDir, cloudDir);
+        } else {
+          if (isMdDir && !file.endsWith('.md')) continue;
+          await syncFile(file, iosDir, cloudDir);
+        }
       }
     } catch { /* dir may not exist */ }
   }
@@ -525,10 +553,24 @@ async function buildSnapshot(dir, filterExt) {
   try {
     const files = await fs.readdir(dir);
     for (const file of files) {
-      if (filterExt && !file.endsWith(filterExt)) continue;
+      if (filterExt && !file.endsWith(filterExt) && !file.endsWith('.attachments')) continue;
       try {
-        const stat = await fs.stat(path.join(dir, file));
-        snapshot.set(file, stat.mtimeMs);
+        const filePath = path.join(dir, file);
+        const stat = await fs.stat(filePath);
+        if (file.endsWith('.attachments') && stat.isDirectory()) {
+          // For attachment dirs, use the latest mtime of any file inside
+          const subFiles = await fs.readdir(filePath).catch(() => []);
+          let latestMtime = stat.mtimeMs;
+          for (const sf of subFiles) {
+            try {
+              const ss = await fs.stat(path.join(filePath, sf));
+              if (ss.mtimeMs > latestMtime) latestMtime = ss.mtimeMs;
+            } catch {}
+          }
+          snapshot.set(file, latestMtime);
+        } else {
+          snapshot.set(file, stat.mtimeMs);
+        }
       } catch { /* deleted between readdir and stat */ }
     }
   } catch { /* dir may not exist */ }
@@ -572,6 +614,7 @@ function startICloudPolling(win) {
     //    just the mtime (iCloud can update mtimes during metadata sync).
     const currentCloud = await buildSnapshot(notesDir, '.md');
     for (const [file, mtime] of currentCloud) {
+      if (file.endsWith('.attachments')) continue; // handled via iOS polling
       const prev = lastPollSnapshot.get(file);
       if (prev === undefined || prev !== mtime) {
         // mtime changed — check if content actually differs
@@ -585,6 +628,7 @@ function startICloudPolling(win) {
       }
     }
     for (const [file] of lastPollSnapshot) {
+      if (file.endsWith('.attachments')) continue;
       if (!currentCloud.has(file)) {
         _contentHashes.delete(file);
         win.webContents.send('notes:changed', { eventType: 'rename', filename: file });
@@ -610,15 +654,21 @@ function startICloudPolling(win) {
           }
           _iosWriteThroughs.delete(file);
 
-          // Verify the iOS file actually has different content before copying
-          const iosHash = await getFileHash(path.join(iosNotesDir, file));
-          const cloudHash = _contentHashes.get(file);
-          if (iosHash && iosHash !== cloudHash) {
-            await syncFile(file, iosNotesDir, notesDir);
-            // Update our content hash to the new content
-            const newHash = await getFileHash(path.join(notesDir, file));
-            if (newHash) _contentHashes.set(file, newHash);
+          if (file.endsWith('.attachments')) {
+            // Sync entire attachment directory from iOS → CloudDocs
+            await syncAttachmentDir(file, iosNotesDir, notesDir);
             iosChanged = true;
+          } else {
+            // Verify the iOS file actually has different content before copying
+            const iosHash = await getFileHash(path.join(iosNotesDir, file));
+            const cloudHash = _contentHashes.get(file);
+            if (iosHash && iosHash !== cloudHash) {
+              await syncFile(file, iosNotesDir, notesDir);
+              // Update our content hash to the new content
+              const newHash = await getFileHash(path.join(notesDir, file));
+              if (newHash) _contentHashes.set(file, newHash);
+              iosChanged = true;
+            }
           }
         }
       }

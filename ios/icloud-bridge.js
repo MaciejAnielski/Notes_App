@@ -228,7 +228,8 @@
             const files = result.files.map(f => (typeof f === 'string' ? f : f.name));
             for (const f of files) {
               try {
-                const data = await ICloudPlugin.readFile({ path: `${oldDir}/${f}` });
+                const readFn = ICloudPlugin.readBinaryFile || ICloudPlugin.readFile;
+                const data = await readFn.call(ICloudPlugin, { path: `${oldDir}/${f}` });
                 const writeFn = ICloudPlugin.writeBinaryFile || ICloudPlugin.writeFile;
                 await writeFn.call(ICloudPlugin, { path: `${newDir}/${f}`, data: data.data });
                 await ICloudPlugin.deleteFile({ path: `${oldDir}/${f}` });
