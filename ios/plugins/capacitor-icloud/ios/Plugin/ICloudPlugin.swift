@@ -49,6 +49,9 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "readdir",           returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "mkdir",             returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "writeBinaryFile",   returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readBinaryFile",    returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "rename",            returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "rmdir",             returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - Private helpers
@@ -120,6 +123,23 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// Wait for a cloud-only file to be downloaded, with a timeout.
+    /// Returns true if the file exists on disk after waiting.
+    private func waitForDownload(at url: URL, timeout: TimeInterval = 10.0) -> Bool {
+        if FileManager.default.fileExists(atPath: url.path) { return true }
+
+        // Trigger download of the cloud-only placeholder.
+        try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+
+        // Poll until the file appears or timeout expires.
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if FileManager.default.fileExists(atPath: url.path) { return true }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     /// Reads a UTF-8 file relative to the iCloud container Documents folder.
     /// Uses NSFileCoordinator to ensure cloud-only files are downloaded first.
     /// Call parameters:
@@ -137,9 +157,10 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             let fileURL = base.appendingPathComponent(path)
 
-            // Trigger download if the file is cloud-only (.icloud placeholder).
-            if !FileManager.default.fileExists(atPath: fileURL.path) {
-                try? FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
+            // Wait for download if the file is cloud-only (.icloud placeholder).
+            if !self.waitForDownload(at: fileURL) {
+                call.reject("File not found: \(path)")
+                return
             }
 
             var coordinatorError: NSError?
@@ -233,7 +254,9 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// Lists visible files in a directory inside the iCloud container.
+    /// Lists files in a directory inside the iCloud container.
+    /// Includes cloud-only files by stripping `.icloud` placeholder naming
+    /// so the JS layer sees the real filenames regardless of download state.
     /// Call parameters:
     ///   - path (String, required): relative path to the directory
     /// Resolves `{ files: [{ name: String }] }`.
@@ -249,12 +272,28 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             let dirURL = base.appendingPathComponent(path)
             do {
+                // Do NOT skip hidden files — iCloud placeholders are hidden
+                // files named ".filename.icloud".
                 let items = try FileManager.default.contentsOfDirectory(
                     at: dirURL,
                     includingPropertiesForKeys: nil,
-                    options: [.skipsHiddenFiles]
+                    options: []
                 )
-                let files = items.map { ["name": $0.lastPathComponent] }
+                var seen = Set<String>()
+                var files: [[String: String]] = []
+                for item in items {
+                    var name = item.lastPathComponent
+                    // Skip macOS metadata files
+                    if name == ".DS_Store" { continue }
+                    // Convert iCloud placeholder names: ".foo.txt.icloud" → "foo.txt"
+                    if name.hasPrefix(".") && name.hasSuffix(".icloud") {
+                        name = String(name.dropFirst(1).dropLast(7))  // remove leading "." and trailing ".icloud"
+                    }
+                    if name.isEmpty || name.hasPrefix(".") { continue }
+                    if seen.insert(name).inserted {
+                        files.append(["name": name])
+                    }
+                }
                 call.resolve(["files": files])
             } catch {
                 call.reject("Cannot read directory: \(path)", nil, error)
@@ -322,6 +361,118 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 call.reject("Write failed: \(path)", nil, error)
             }
+        }
+    }
+
+    /// Reads a binary file and returns its contents as base64-encoded data.
+    /// Uses NSFileCoordinator and waits for cloud-only file downloads.
+    /// Call parameters:
+    ///   - path (String, required): relative path inside the container
+    /// Resolves `{ data: String }` (base64) on success.
+    @objc func readBinaryFile(_ call: CAPPluginCall) {
+        guard let path = call.getString("path") else {
+            call.reject("path is required")
+            return
+        }
+        resolve(call) {
+            guard let base = self.containerDocumentsURL() else {
+                call.reject("iCloud container not available")
+                return
+            }
+            let fileURL = base.appendingPathComponent(path)
+
+            // Wait for download if the file is cloud-only.
+            if !self.waitForDownload(at: fileURL) {
+                call.reject("File not found: \(path)")
+                return
+            }
+
+            var coordinatorError: NSError?
+            var fileData: Data?
+            var readError: Error?
+            let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
+            coordinator.coordinate(readingItemAt: fileURL, options: [], error: &coordinatorError) { url in
+                do {
+                    fileData = try Data(contentsOf: url)
+                } catch {
+                    readError = error
+                }
+            }
+            if let err = coordinatorError ?? readError {
+                call.reject("File not found: \(path)", nil, err)
+            } else {
+                call.resolve(["data": fileData?.base64EncodedString() ?? ""])
+            }
+        }
+    }
+
+    /// Renames (moves) a file or directory within the iCloud container.
+    /// Call parameters:
+    ///   - oldPath (String, required): current relative path
+    ///   - newPath (String, required): desired relative path
+    @objc func rename(_ call: CAPPluginCall) {
+        guard let oldPath = call.getString("oldPath"),
+              let newPath = call.getString("newPath") else {
+            call.reject("oldPath and newPath are required")
+            return
+        }
+        resolve(call) {
+            guard let base = self.containerDocumentsURL() else {
+                call.reject("iCloud container not available")
+                return
+            }
+            let srcURL = base.appendingPathComponent(oldPath)
+            let dstURL = base.appendingPathComponent(newPath)
+            do {
+                let dstDir = dstURL.deletingLastPathComponent()
+                try FileManager.default.createDirectory(at: dstDir, withIntermediateDirectories: true)
+                var coordinatorError: NSError?
+                var moveError: Error?
+                let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
+                coordinator.coordinate(writingItemAt: srcURL, options: .forMoving,
+                                       writingItemAt: dstURL, options: .forReplacing,
+                                       error: &coordinatorError) { src, dst in
+                    do {
+                        try FileManager.default.moveItem(at: src, to: dst)
+                    } catch {
+                        moveError = error
+                    }
+                }
+                if let err = coordinatorError ?? moveError {
+                    throw err
+                }
+                call.resolve()
+            } catch {
+                call.reject("Rename failed", nil, error)
+            }
+        }
+    }
+
+    /// Removes a directory (optionally recursively) from the iCloud container.
+    /// Call parameters:
+    ///   - path (String, required): relative path to the directory
+    ///   - recursive (Bool, optional): if true, remove contents too (default false)
+    @objc func rmdir(_ call: CAPPluginCall) {
+        guard let path = call.getString("path") else {
+            call.reject("path is required")
+            return
+        }
+        resolve(call) {
+            guard let base = self.containerDocumentsURL() else {
+                call.reject("iCloud container not available")
+                return
+            }
+            let dirURL = base.appendingPathComponent(path)
+            guard FileManager.default.fileExists(atPath: dirURL.path) else {
+                call.resolve()
+                return
+            }
+            var coordinatorError: NSError?
+            let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
+            coordinator.coordinate(writingItemAt: dirURL, options: .forDeleting, error: &coordinatorError) { url in
+                try? FileManager.default.removeItem(at: url)
+            }
+            call.resolve()
         }
     }
 }
