@@ -178,6 +178,70 @@ function stopFileWatcher() {
   }
 }
 
+// ── iCloud polling ─────────────────────────────────────────────────────────
+// fsSync.watch() does not reliably detect files synced down by the iCloud
+// daemon (it uses kqueue internally, but iCloud may write files through a
+// different code path that doesn't trigger kqueue events).  To compensate,
+// we poll the notes directory periodically and compare file mtimes to detect
+// changes that the watcher missed.
+const POLL_INTERVAL_MS = 15000; // 15 seconds
+let pollTimer = null;
+let lastPollSnapshot = new Map(); // filename -> mtimeMs
+
+async function buildSnapshot() {
+  const snapshot = new Map();
+  try {
+    const files = await fs.readdir(notesDir);
+    for (const file of files) {
+      if (!file.endsWith('.md')) continue;
+      try {
+        const stat = await fs.stat(path.join(notesDir, file));
+        snapshot.set(file, stat.mtimeMs);
+      } catch {
+        // File may have been deleted between readdir and stat
+      }
+    }
+  } catch {
+    // Directory may not exist yet
+  }
+  return snapshot;
+}
+
+function startICloudPolling(win) {
+  if (!notesDir || pollTimer) return;
+
+  // Build initial snapshot so the first poll has a baseline
+  buildSnapshot().then(snap => { lastPollSnapshot = snap; });
+
+  pollTimer = setInterval(async () => {
+    if (!win || win.isDestroyed()) return;
+    const current = await buildSnapshot();
+
+    // Detect new or modified files
+    for (const [file, mtime] of current) {
+      const prev = lastPollSnapshot.get(file);
+      if (prev === undefined || prev !== mtime) {
+        win.webContents.send('notes:changed', { eventType: 'change', filename: file });
+      }
+    }
+    // Detect deleted files
+    for (const [file] of lastPollSnapshot) {
+      if (!current.has(file)) {
+        win.webContents.send('notes:changed', { eventType: 'rename', filename: file });
+      }
+    }
+
+    lastPollSnapshot = current;
+  }, POLL_INTERVAL_MS);
+}
+
+function stopICloudPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
 // ── Electron app lifecycle ─────────────────────────────────────────────────
 function getWebPath() {
   if (app.isPackaged) {
@@ -212,6 +276,8 @@ function createWindow() {
 
   // Start watching iCloud folder for external changes
   startFileWatcher(win);
+  // Start polling as fallback for iCloud-synced changes that fsSync.watch misses
+  startICloudPolling(win);
 }
 
 resolveNotesDir();
@@ -230,6 +296,7 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   stopFileWatcher();
+  stopICloudPolling();
   if (process.platform !== 'darwin') {
     app.quit();
   }
