@@ -26,8 +26,10 @@
 
   // Notes are stored in the iCloud Documents directory under a "Notes App" subfolder.
   // On iOS with iCloud Documents enabled, Directory.ICloudDocuments maps to the
-  // app's iCloud container.
+  // app's iCloud container (requires the iCloud Documents capability in Xcode with
+  // container identifier iCloud.com.notesapp.ios).
   const NOTES_DIR = 'Notes App';
+  const iCloudAvailable = !!Directory.ICloudDocuments;
   const DIRECTORY = Directory.ICloudDocuments || Directory.Documents;
 
   // Sanitize note names for use as filenames
@@ -53,6 +55,10 @@
   }
 
   window.CapacitorNoteStorage = {
+    // true when the app has the iCloud Documents entitlement and files go to iCloud;
+    // false when falling back to the local Documents sandbox.
+    isICloudEnabled: iCloudAvailable,
+
     async getNote(name) {
       try {
         const result = await Filesystem.readFile({
@@ -126,18 +132,11 @@
     async openNotesFolder() {
       const App = window.Capacitor?.Plugins?.App;
       if (!App) return;
-      // Try opening the Notes App folder URI in the Files app
-      try {
-        const result = await Filesystem.getUri({
-          path: NOTES_DIR,
-          directory: DIRECTORY
-        });
-        if (result?.uri) {
-          await App.openUrl({ url: result.uri });
-          return;
-        }
-      } catch {}
-      // Fallback: open the Files app root
+      // iOS does not allow passing file:// URIs for the app's iCloud container to
+      // App.openUrl() — doing so triggers "Could not create a sandbox extension"
+      // errors in the system log and the call silently fails.  The shareddocuments://
+      // scheme is the only reliable way to bring the Files app to the foreground
+      // from a sandboxed app; there is no public URL scheme for a specific folder.
       try {
         await App.openUrl({ url: 'shareddocuments://' });
       } catch {}

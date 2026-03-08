@@ -102,7 +102,8 @@ function updateStatus(message, success) {
 function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
   if (!el) return;
-  const isICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  const isICloud = !!(window.electronAPI?.notes ||
+    (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
   const t = localStorage.getItem('last_backup_time');
   const prefix = isICloud ? 'iCloud · ' : '';
   if (!t) { el.textContent = isICloud ? 'Saved to iCloud · Never Backed Up' : 'Never Backed Up'; return; }
@@ -862,7 +863,8 @@ async function autoSaveNote() {
   currentFileName = name;
   localStorage.setItem('current_file', name);
   await updateFileList();
-  const useICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  const useICloud = !!(window.electronAPI?.notes ||
+    (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
   updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
 }
 
@@ -3103,7 +3105,7 @@ if (window.Capacitor?.isNativePlatform()) {
   // Show a tooltip so the user knows it's clickable
   bottomArea.title = isDesktop
     ? 'Click to open notes folder in Finder'
-    : 'Click to open Notes App folder in Files';
+    : 'Click to open Files app';
 })();
 // ── End clickable status area ─────────────────────────────────────────────
 
