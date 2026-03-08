@@ -19,12 +19,13 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "ICloudPlugin"
     public let jsName = "ICloudPlugin"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "isAvailable",  returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readFile",     returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "writeFile",    returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "deleteFile",   returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readdir",      returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "mkdir",        returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isAvailable",      returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getContainerPath",  returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readFile",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeFile",         returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteFile",        returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readdir",           returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "mkdir",             returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - Private helpers
@@ -51,6 +52,15 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         resolve(call) {
             let available = self.containerDocumentsURL() != nil
             call.resolve(["available": available])
+        }
+    }
+
+    /// Returns `{ path: String }` — the full filesystem path to the iCloud
+    /// container Documents directory.  Useful for debugging sync issues.
+    @objc func getContainerPath(_ call: CAPPluginCall) {
+        resolve(call) {
+            let path = self.containerDocumentsURL()?.path ?? "(nil — iCloud not available)"
+            call.resolve(["path": path])
         }
     }
 
