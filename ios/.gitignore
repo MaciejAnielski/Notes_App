@@ -2,3 +2,8 @@ node_modules/
 www/
 ios/
 .sourcemap/
+# Un-ignore the local Capacitor plugin's native source directory.
+# The ios/ rule above excludes the generated Xcode project; the negation
+# below carves out the plugin sources which must be tracked in git.
+!plugins/capacitor-icloud/ios/
+!plugins/capacitor-icloud/ios/**
