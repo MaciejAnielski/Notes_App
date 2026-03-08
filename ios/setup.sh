@@ -32,6 +32,42 @@ npx cap add ios
 # Sync web files and run `pod install` to pull in CapacitorICloud.
 npx cap sync ios
 
+# ── Info.plist: make iCloud container visible in Files app ──
+# UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace cause the app's
+# iCloud container to appear in the iOS Files app under "Notes App" and in
+# Finder on macOS under iCloud Drive.
+INFO_PLIST="$SCRIPT_DIR/App/App/Info.plist"
+if [ -f "$INFO_PLIST" ]; then
+  if ! grep -q "UIFileSharingEnabled" "$INFO_PLIST"; then
+    # Insert keys before the closing </dict>
+    sed -i '' 's|</dict>|<key>UIFileSharingEnabled</key>\
+	<true/>\
+	<key>LSSupportsOpeningDocumentsInPlace</key>\
+	<true/>\
+	<key>NSUbiquitousContainers</key>\
+	<dict>\
+		<key>iCloud.com.notesapp.ios</key>\
+		<dict>\
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>\
+			<true/>\
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>\
+			<string>Any</string>\
+			<key>NSUbiquitousContainerName</key>\
+			<string>Notes App</string>\
+		</dict>\
+	</dict>\
+</dict>|' "$INFO_PLIST"
+    echo "Info.plist updated: iCloud container visible in Files app"
+  else
+    echo "Info.plist already has file sharing keys."
+  fi
+else
+  echo "WARNING: Info.plist not found. Add these keys manually in Xcode:"
+  echo "  UIFileSharingEnabled = YES"
+  echo "  LSSupportsOpeningDocumentsInPlace = YES"
+  echo "  NSUbiquitousContainers with iCloud.com.notesapp.ios"
+fi
+
 # ── iCloud entitlements ──
 # After Capacitor generates the native project, inject the iCloud Documents
 # entitlement so the app can access its iCloud container.
