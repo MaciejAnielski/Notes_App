@@ -11,10 +11,16 @@ const os = require('os');
 // from that container's Documents folder so both platforms share the same
 // iCloud-synced files.
 const ICLOUD_ROOT = path.join(os.homedir(), 'Library', 'Mobile Documents');
-const ICLOUD_IOS_CONTAINER = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', 'Notes App');
-const ICLOUD_GENERIC = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', 'Notes App');
+const ICLOUD_IOS_CONTAINER = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '000_Notes');
+const ICLOUD_IOS_BACKUPS = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '001_Backups');
+const ICLOUD_IOS_EXPORTS = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '002_Exports');
+const ICLOUD_GENERIC = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '000_Notes');
+const ICLOUD_GENERIC_BACKUPS = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '001_Backups');
+const ICLOUD_GENERIC_EXPORTS = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', '002_Exports');
 
 let notesDir = null;
+let backupsDir = null;
+let exportsDir = null;
 let iCloudAvailable = false;
 let fileWatcher = null;
 
@@ -23,14 +29,16 @@ function resolveNotesDir() {
   if (process.platform !== 'darwin') return;
 
   // Prefer the iOS iCloud container (shared with iOS app).
-  // Check for the container's Documents folder (parent of "Notes App") rather
-  // than the Notes App subfolder itself, which may not exist yet on first launch.
+  // Check for the container's Documents folder (parent of "000_Notes") rather
+  // than the 000_Notes subfolder itself, which may not exist yet on first launch.
   const iosContainerDocuments = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
   if (fsSync.existsSync(iosContainerDocuments)) {
-    notesDir = ICLOUD_IOS_CONTAINER; // …/Documents/Notes App
-    // Create the Notes App subfolder synchronously so subsequent reads/writes work
-    if (!fsSync.existsSync(notesDir)) {
-      fsSync.mkdirSync(notesDir, { recursive: true });
+    notesDir = ICLOUD_IOS_CONTAINER; // …/Documents/000_Notes
+    backupsDir = ICLOUD_IOS_BACKUPS;
+    exportsDir = ICLOUD_IOS_EXPORTS;
+    // Create subfolders synchronously so subsequent reads/writes work
+    for (const dir of [notesDir, backupsDir, exportsDir]) {
+      if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
     }
     iCloudAvailable = true;
     return;
@@ -40,9 +48,11 @@ function resolveNotesDir() {
   const iCloudDrive = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs');
   if (fsSync.existsSync(iCloudDrive)) {
     notesDir = ICLOUD_GENERIC;
-    // Create the folder if it doesn't exist
-    if (!fsSync.existsSync(notesDir)) {
-      fsSync.mkdirSync(notesDir, { recursive: true });
+    backupsDir = ICLOUD_GENERIC_BACKUPS;
+    exportsDir = ICLOUD_GENERIC_EXPORTS;
+    // Create folders if they don't exist
+    for (const dir of [notesDir, backupsDir, exportsDir]) {
+      if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
     }
     iCloudAvailable = true;
   }
@@ -127,31 +137,74 @@ function registerNoteHandlers() {
       await shell.openPath(notesDir);
     }
   });
+
+  // ── Edit lock handlers ──
+  const lockFileName = '.edit_lock';
+
+  ipcMain.handle('notes:writeLock', async (_event, deviceId) => {
+    if (!notesDir) return;
+    const lockPath = path.join(notesDir, lockFileName);
+    const data = JSON.stringify({ deviceId, timestamp: Date.now() });
+    await fs.writeFile(lockPath, data, 'utf-8');
+  });
+
+  ipcMain.handle('notes:readLock', async () => {
+    if (!notesDir) return null;
+    const lockPath = path.join(notesDir, lockFileName);
+    try {
+      const data = await fs.readFile(lockPath, 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle('notes:removeLock', async () => {
+    if (!notesDir) return;
+    const lockPath = path.join(notesDir, lockFileName);
+    try { await fs.unlink(lockPath); } catch {}
+  });
+
+  // ── Backup/export to iCloud folders ──
+  ipcMain.handle('notes:writeBackup', async (_event, filename, data) => {
+    if (!backupsDir) return;
+    await fs.mkdir(backupsDir, { recursive: true });
+    await fs.writeFile(path.join(backupsDir, filename), data, 'utf-8');
+  });
+
+  ipcMain.handle('notes:writeExport', async (_event, filename, data) => {
+    if (!exportsDir) return;
+    await fs.mkdir(exportsDir, { recursive: true });
+    await fs.writeFile(path.join(exportsDir, filename), data, 'utf-8');
+  });
 }
 
-// ── One-time migration from old notes location ─────────────────────────────
-// Prior to this fix, the desktop app saved .md files directly into the iOS
-// container's Documents/ root. iOS saves into Documents/Notes App/ so the two
-// never actually synced. On first launch after this update we move any .md
-// files found in the old root location into the new Notes App subfolder.
+// ── One-time migration from old notes locations ────────────────────────────
+// Migrate .md files from old locations (Documents/ root and Documents/Notes App/)
+// into the new 000_Notes subfolder.
 async function migrateOldNotes() {
   if (!notesDir) return;
-  const oldDir = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
-  if (oldDir === notesDir) return; // guard: already the same path
-  try {
-    const files = await fs.readdir(oldDir);
-    const mdFiles = files.filter(f => f.endsWith('.md'));
-    if (mdFiles.length === 0) return;
-    await fs.mkdir(notesDir, { recursive: true });
-    for (const file of mdFiles) {
-      const src = path.join(oldDir, file);
-      const dst = path.join(notesDir, file);
-      // Skip if a file with the same name already exists at the destination
-      try { await fs.access(dst); continue; } catch {}
-      await fs.rename(src, dst);
+  const oldLocations = [
+    path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents'),
+    path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', 'Notes App')
+  ];
+  for (const oldDir of oldLocations) {
+    if (oldDir === notesDir) continue; // guard: already the same path
+    try {
+      const files = await fs.readdir(oldDir);
+      const mdFiles = files.filter(f => f.endsWith('.md'));
+      if (mdFiles.length === 0) continue;
+      await fs.mkdir(notesDir, { recursive: true });
+      for (const file of mdFiles) {
+        const src = path.join(oldDir, file);
+        const dst = path.join(notesDir, file);
+        // Skip if a file with the same name already exists at the destination
+        try { await fs.access(dst); continue; } catch {}
+        await fs.rename(src, dst);
+      }
+    } catch {
+      // Old directory doesn't exist or can't be read — nothing to migrate
     }
-  } catch {
-    // Old directory doesn't exist or can't be read — nothing to migrate
   }
 }
 

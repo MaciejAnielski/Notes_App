@@ -87,8 +87,13 @@ async function getVisibleNotes() {
 let statusTimeout = null;
 const backupStatusEl = document.getElementById('last-backup-status');
 
+// Convert a string to Title Case (capitalize first letter of each word)
+function toTitleCase(str) {
+  return str.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function updateStatus(message, success) {
-  statusDiv.textContent = message;
+  statusDiv.textContent = toTitleCase(message);
   statusDiv.style.color = success ? 'green' : 'red';
   statusDiv.style.opacity = '1';
   backupStatusEl.style.opacity = '0';
@@ -98,6 +103,61 @@ function updateStatus(message, success) {
     backupStatusEl.style.opacity = '1';
   }, 3000);
 }
+
+// ── Edit Locking ──────────────────────────────────────────────────────────
+// When editing, a lock file is written to iCloud so other devices can detect
+// that editing is in progress and force themselves into view mode.
+const _deviceId = localStorage.getItem('_device_id') || (() => {
+  const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  localStorage.setItem('_device_id', id);
+  return id;
+})();
+let _editLockHeld = false;
+const LOCK_STALE_MS = 120000; // 2 minutes — lock expires if not refreshed
+
+async function acquireEditLock() {
+  if (_editLockHeld) return;
+  try {
+    await NoteStorage.writeLock(_deviceId);
+    _editLockHeld = true;
+  } catch {}
+}
+
+async function releaseEditLock() {
+  if (!_editLockHeld) return;
+  try {
+    await NoteStorage.removeLock();
+  } catch {}
+  _editLockHeld = false;
+}
+
+async function refreshEditLock() {
+  if (!_editLockHeld) return;
+  try { await NoteStorage.writeLock(_deviceId); } catch {}
+}
+
+// Check if another device holds the edit lock
+async function checkEditLock() {
+  try {
+    const lock = await NoteStorage.readLock();
+    if (!lock) return false; // no lock
+    if (lock.deviceId === _deviceId) return false; // our own lock
+    if (Date.now() - lock.timestamp > LOCK_STALE_MS) return false; // stale lock
+    return true; // another device is editing
+  } catch { return false; }
+}
+
+// Force this instance into view mode if another device is editing
+async function enforceEditLock() {
+  const locked = await checkEditLock();
+  if (locked && !isPreview && currentFileName !== PROJECTS_NOTE) {
+    toggleView(); // switch to view mode
+    updateStatus('Locked: Editing On Another Device.', false);
+  }
+}
+
+// Refresh the lock periodically while editing (every 30s)
+setInterval(() => { if (_editLockHeld) refreshEditLock(); }, 30000);
 
 function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
@@ -810,14 +870,21 @@ async function renderPreview() {
   }
 }
 
-function toggleView() {
+async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
+    // Switching to edit mode — check lock first
+    const locked = await checkEditLock();
+    if (locked) {
+      updateStatus('Locked: Editing On Another Device.', false);
+      return;
+    }
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
     toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
+    acquireEditLock();
   } else {
     renderPreview();
     previewDiv.style.display = 'block';
@@ -825,6 +892,7 @@ function toggleView() {
     toggleViewBtn.textContent = 'Edit';
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
+    releaseEditLock();
   }
 }
 
@@ -996,6 +1064,15 @@ async function downloadAllNotes() {
   link.download = 'all_notes.zip';
   link.click();
   URL.revokeObjectURL(link.href);
+
+  // Also save backup to iCloud 001_Backups folder
+  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  if (hasICloud) {
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const base64 = await zip.generateAsync({ type: 'base64' });
+    try { await NoteStorage.writeBackup(`backup_${dateStr}.zip.b64`, base64); } catch {}
+  }
+
   updateStatus(`Backed Up ${allNotes.length} Note${allNotes.length === 1 ? '' : 's'}.`, true);
 }
 
@@ -1134,7 +1211,7 @@ ${sections}
 </html>`;
 }
 
-function exportNote() {
+async function exportNote() {
   const name = currentFileName || getNoteTitle();
   if (!name) {
     alert('No note selected.');
@@ -1148,6 +1225,13 @@ function exportNote() {
   link.download = name + '.html';
   link.click();
   URL.revokeObjectURL(link.href);
+
+  // Also save export to iCloud 002_Exports folder
+  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  if (hasICloud) {
+    try { await NoteStorage.writeExport(`${name}.html`, html); } catch {}
+  }
+
   updateStatus(`Exported "${name}".`, true);
 }
 
@@ -1162,6 +1246,14 @@ async function exportAllNotes() {
   link.download = 'notes_notebook.html';
   link.click();
   URL.revokeObjectURL(link.href);
+
+  // Also save export to iCloud 002_Exports folder
+  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  if (hasICloud) {
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    try { await NoteStorage.writeExport(`notes_notebook_${dateStr}.html`, html); } catch {}
+  }
+
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
@@ -1205,6 +1297,15 @@ async function backupSelectedNotes() {
   link.download = 'selected_notes.zip';
   link.click();
   URL.revokeObjectURL(link.href);
+
+  // Also save backup to iCloud 001_Backups folder
+  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  if (hasICloud) {
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const base64 = await zip.generateAsync({ type: 'base64' });
+    try { await NoteStorage.writeBackup(`backup_selected_${dateStr}.zip.b64`, base64); } catch {}
+  }
+
   updateStatus(`Backed Up ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
 }
 
@@ -1223,6 +1324,14 @@ async function exportSelectedNotes() {
   link.download = 'notes_notebook.html';
   link.click();
   URL.revokeObjectURL(link.href);
+
+  // Also save export to iCloud 002_Exports folder
+  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
+  if (hasICloud) {
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    try { await NoteStorage.writeExport(`notes_notebook_${dateStr}.html`, html); } catch {}
+  }
+
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
@@ -2114,7 +2223,7 @@ async function gsGetAllMatches(query, caseSensitive) {
 }
 
 function gsSetStatus(text, ok) {
-  gsStatus.textContent = text;
+  gsStatus.textContent = toTitleCase(text);
   gsStatus.style.color = ok === false ? '#c07070' : ok === true ? '#70c070' : '#9a8aaa';
 }
 
@@ -2929,7 +3038,10 @@ function setupClickableMathFormulas() {
 
   mobileOverlay.addEventListener('click', closeMobilePanels);
 
-  // Swipe detection on the content area
+  // Swipe detection — only from screen edges to avoid disrupting
+  // horizontal scrolling and text selection in content areas.
+  const EDGE_WIDTH = 30; // pixels from screen edge to trigger swipe
+
   document.addEventListener('touchstart', e => {
     if (!isMobileView()) return;
     touchStartX = e.touches[0].clientX;
@@ -2942,6 +3054,7 @@ function setupClickableMathFormulas() {
     const dx = e.changedTouches[0].clientX - touchStartX;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
     const elapsed = Date.now() - touchStartTime;
+    const screenWidth = window.innerWidth;
 
     // Ignore slow or vertical drags
     if (elapsed > 500 || dy > SWIPE_MAX_Y) return;
@@ -2951,17 +3064,17 @@ function setupClickableMathFormulas() {
     const rightOpen = mobileRightPanel.classList.contains('mobile-open-right');
 
     if (dx > 0) {
-      // Swipe right
+      // Swipe right — only from left edge (or closing right panel)
       if (rightOpen) {
         closeMobilePanels();
-      } else if (!leftOpen) {
+      } else if (!leftOpen && touchStartX <= EDGE_WIDTH) {
         openLeftPanel();
       }
     } else {
-      // Swipe left
+      // Swipe left — only from right edge (or closing left panel)
       if (leftOpen) {
         closeMobilePanels();
-      } else if (!rightOpen) {
+      } else if (!rightOpen && touchStartX >= screenWidth - EDGE_WIDTH) {
         openRightPanel();
       }
     }
@@ -3025,10 +3138,14 @@ window.addEventListener('storage', e => {
 if (window.electronAPI?.notes?.onExternalChange) {
   window.electronAPI.notes.onExternalChange(async (data) => {
     invalidateScheduleCache();
+    // Check edit lock from other devices
+    await enforceEditLock();
     // Extract the note name from the changed filename (strip .md extension)
     const changedNote = data?.filename?.endsWith('.md')
       ? data.filename.slice(0, -3)
       : null;
+    // Ignore lock file changes in the file list
+    if (data?.filename === '.edit_lock') return;
     if (currentFileName) {
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
@@ -3059,6 +3176,8 @@ if (window.Capacitor?.isNativePlatform()) {
   let _iCloudPollKnownNames = null; // cached note list for change detection
   async function checkICloudChanges(showStatus) {
     invalidateScheduleCache();
+    // Check edit lock from other devices
+    await enforceEditLock();
     if (showStatus) updateStatus('Checking iCloud\u2026', true);
     let changed = false;
     if (currentFileName) {
@@ -3140,6 +3259,17 @@ if (window.Capacitor?.isNativePlatform()) {
     ? 'Click to open notes folder in Finder'
     : 'Click to open Files app';
 })();
+// ── Release edit lock on window close/navigate ────────────────────────────
+window.addEventListener('beforeunload', () => {
+  if (_editLockHeld) {
+    // Use synchronous approach for beforeunload — best effort
+    try { NoteStorage.removeLock(); } catch {}
+    _editLockHeld = false;
+  }
+});
+if (window.Capacitor?.isNativePlatform()) {
+  document.addEventListener('pause', () => releaseEditLock());
+}
 // ── End clickable status area ─────────────────────────────────────────────
 
 const savedChain = localStorage.getItem('linked_chain');

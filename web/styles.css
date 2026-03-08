@@ -17,8 +17,9 @@ body {
   font-family: Arial, sans-serif;
   display: flex;
   flex-direction: column;
-  /* iOS safe area support */
+  /* iOS safe area: toolbar placed below notch, app fills full screen */
   padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
@@ -1146,6 +1147,23 @@ body.panel-pinned {
     display: none !important;
   }
 
+  /* ── Status and backup messages overlay each other ── */
+  #bottom-status-area {
+    position: relative;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  #status-message {
+    z-index: 2;
+  }
+
+  #last-backup-status {
+    position: absolute;
+    bottom: env(safe-area-inset-bottom);
+    left: 0;
+    right: 0;
+  }
+
   /* ── Swipe navigation: Notes list slides from left ── */
   #panel-lists {
     position: fixed;
@@ -1165,6 +1183,9 @@ body.panel-pinned {
     will-change: transform;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    /* Ensure notch doesn't cover panel headers */
+    padding-top: calc(env(safe-area-inset-top) + var(--gap));
+    padding-left: calc(env(safe-area-inset-left) + var(--gap) * 2);
   }
 
   #panel-lists.visible,
@@ -1199,6 +1220,9 @@ body.panel-pinned {
     will-change: transform;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    /* Ensure notch doesn't cover panel headers */
+    padding-top: calc(env(safe-area-inset-top) + var(--gap));
+    padding-right: calc(env(safe-area-inset-right) + var(--gap) * 2);
   }
 
   #mobile-right-panel.mobile-open-right {
@@ -1250,11 +1274,6 @@ body.panel-pinned {
   #gs-replace-input {
     font-size: 16px;
     padding: 8px 10px;
-  }
-
-  /* iOS safe area for bottom status */
-  #bottom-status-area {
-    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Prevent iOS tap highlight flash */
