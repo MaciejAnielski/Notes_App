@@ -107,9 +107,11 @@
 
       async removeNote(name) {
         if (!await isAvailable()) return;
-        await ICloudPlugin.deleteFile({
-          path: `${NOTES_DIR}/${noteNameToFileName(name)}`
-        });
+        try {
+          await ICloudPlugin.deleteFile({
+            path: `${NOTES_DIR}/${noteNameToFileName(name)}`
+          });
+        } catch {}
       },
 
       async getAllNoteNames() {
