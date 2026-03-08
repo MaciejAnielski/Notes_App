@@ -11,7 +11,7 @@ const os = require('os');
 // from that container's Documents folder so both platforms share the same
 // iCloud-synced files.
 const ICLOUD_ROOT = path.join(os.homedir(), 'Library', 'Mobile Documents');
-const ICLOUD_IOS_CONTAINER = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
+const ICLOUD_IOS_CONTAINER = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', 'Notes App');
 const ICLOUD_GENERIC = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', 'Notes App');
 
 let notesDir = null;
@@ -22,9 +22,16 @@ let fileWatcher = null;
 function resolveNotesDir() {
   if (process.platform !== 'darwin') return;
 
-  // Prefer the iOS iCloud container (shared with iOS app)
-  if (fsSync.existsSync(ICLOUD_IOS_CONTAINER)) {
-    notesDir = ICLOUD_IOS_CONTAINER;
+  // Prefer the iOS iCloud container (shared with iOS app).
+  // Check for the container's Documents folder (parent of "Notes App") rather
+  // than the Notes App subfolder itself, which may not exist yet on first launch.
+  const iosContainerDocuments = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
+  if (fsSync.existsSync(iosContainerDocuments)) {
+    notesDir = ICLOUD_IOS_CONTAINER; // …/Documents/Notes App
+    // Create the Notes App subfolder synchronously so subsequent reads/writes work
+    if (!fsSync.existsSync(notesDir)) {
+      fsSync.mkdirSync(notesDir, { recursive: true });
+    }
     iCloudAvailable = true;
     return;
   }
@@ -122,6 +129,32 @@ function registerNoteHandlers() {
   });
 }
 
+// ── One-time migration from old notes location ─────────────────────────────
+// Prior to this fix, the desktop app saved .md files directly into the iOS
+// container's Documents/ root. iOS saves into Documents/Notes App/ so the two
+// never actually synced. On first launch after this update we move any .md
+// files found in the old root location into the new Notes App subfolder.
+async function migrateOldNotes() {
+  if (!notesDir) return;
+  const oldDir = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
+  if (oldDir === notesDir) return; // guard: already the same path
+  try {
+    const files = await fs.readdir(oldDir);
+    const mdFiles = files.filter(f => f.endsWith('.md'));
+    if (mdFiles.length === 0) return;
+    await fs.mkdir(notesDir, { recursive: true });
+    for (const file of mdFiles) {
+      const src = path.join(oldDir, file);
+      const dst = path.join(notesDir, file);
+      // Skip if a file with the same name already exists at the destination
+      try { await fs.access(dst); continue; } catch {}
+      await fs.rename(src, dst);
+    }
+  } catch {
+    // Old directory doesn't exist or can't be read — nothing to migrate
+  }
+}
+
 // ── File watcher ───────────────────────────────────────────────────────────
 // Watch the iCloud notes folder for external changes (e.g. from iOS or
 // another Mac) and notify the renderer so it can refresh.
@@ -184,7 +217,8 @@ function createWindow() {
 resolveNotesDir();
 registerNoteHandlers();
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await migrateOldNotes();
   createWindow();
 
   app.on('activate', () => {
