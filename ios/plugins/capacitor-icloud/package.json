@@ -1,0 +1,15 @@
+{
+  "name": "capacitor-icloud",
+  "version": "1.0.0",
+  "description": "Native iCloud Documents plugin for Notes App (Capacitor 6)",
+  "main": "index.js",
+  "license": "MIT",
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=6.0.0"
+  }
+}
