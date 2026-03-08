@@ -673,17 +673,22 @@ function startICloudPolling(win) {
         }
       }
 
-      // Detect files deleted on iOS — but do NOT propagate the deletion
-      // to CloudDocs. An iOS-side deletion could be a transient iCloud
-      // issue (file not yet downloaded, container temporarily unavailable).
-      // Genuine deletions should be made explicitly from the app's UI,
-      // which already handles cross-platform removal via deleteMirror().
-      // We only log the discrepancy; the file stays safe in CloudDocs.
+      // Detect files deleted on iOS and propagate to CloudDocs.
+      // Skip files we recently wrote through — the iOS container may
+      // just not have received them yet.
       for (const [file] of lastIosPollSnapshot) {
         if (!currentIos.has(file)) {
-          // File disappeared from iOS container — do NOT delete from CloudDocs.
-          // Log for diagnostics only.
-          console.log(`[iCloud poll] "${file}" disappeared from iOS container — keeping CloudDocs copy.`);
+          const wtTime = _iosWriteThroughs.get(file);
+          if (wtTime && now - wtTime < WRITE_THROUGH_GRACE_MS) {
+            console.log(`[iCloud poll] "${file}" missing from iOS — skipping (recent write-through).`);
+            continue;
+          }
+          console.log(`[iCloud poll] "${file}" deleted on iOS — removing from CloudDocs.`);
+          try {
+            await fs.unlink(path.join(notesDir, file));
+          } catch { /* may already be gone */ }
+          _contentHashes.delete(file);
+          iosChanged = true;
         }
       }
 
