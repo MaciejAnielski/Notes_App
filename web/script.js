@@ -100,6 +100,76 @@ function toTitleCase(str) {
   return str.replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// ── Attachment helpers ────────────────────────────────────────────────────
+
+// Returns the attachment folder name for a given note name.
+// Must stay in sync with noteNameToAttachmentDir in main.js / icloud-bridge.js.
+function noteNameToAttachmentDir(name) {
+  return name.replace(/[/\\:*?"<>|]/g, '_') + '.attachments';
+}
+
+// Sanitise a string for use as an attachment base filename (no extension).
+function sanitizeAttachmentName(text) {
+  return (text
+    .replace(/[/\\:*?"<>|]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase()) || 'attachment';
+}
+
+// Map common file extensions to MIME types for building data: URLs.
+function mimeForExtension(ext) {
+  const map = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+    gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+    bmp: 'image/bmp', ico: 'image/x-icon', tiff: 'image/tiff',
+    heic: 'image/heic', heif: 'image/heif',
+    pdf: 'application/pdf',
+    mp4: 'video/mp4', mov: 'video/quicktime', avi: 'video/x-msvideo',
+    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4',
+    zip: 'application/zip', txt: 'text/plain',
+  };
+  return map[(ext || '').toLowerCase()] || 'application/octet-stream';
+}
+
+// Convert an ArrayBuffer to a base64 string without stack-overflow risk.
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+// Insert text at the textarea cursor, preceded by a newline if needed.
+function insertAtCursor(text) {
+  const start = textarea.selectionStart;
+  const end   = textarea.selectionEnd;
+  const before = textarea.value.substring(0, start);
+  const after  = textarea.value.substring(end);
+  const nl = before.length > 0 && !before.endsWith('\n') ? '\n' : '';
+  textarea.value = before + nl + text + '\n' + after;
+  const pos = start + nl.length + text.length + 1;
+  textarea.selectionStart = textarea.selectionEnd = pos;
+  textarea.focus();
+}
+
+// Parse all attachment references from markdown.
+// Returns a Map of filename → alt/link text.
+function parseAttachmentRefs(content) {
+  const refs = new Map();
+  if (!content) return refs;
+  const re = /!?\[([^\]]*)\]\(attachment:([^)\s]+)\)/g;
+  let m;
+  while ((m = re.exec(content)) !== null) refs.set(m[2], m[1]);
+  return refs;
+}
+
+// Cached notes-dir path for desktop — avoids an IPC call on every render.
+let _notesDirCache = null;
+
 function updateStatus(message, success) {
   statusDiv.textContent = toTitleCase(message);
   statusDiv.style.color = success ? 'green' : 'red';
@@ -152,6 +222,7 @@ async function handleRenameAfterReplace(noteName, newContent) {
   if (!newTitle || newTitle === noteName) return;
   if (await NoteStorage.getNote(newTitle) !== null) return;
   await NoteStorage.removeNote(noteName);
+  await NoteStorage.renameAttachmentDir(noteName, newTitle);
   await NoteStorage.setNote(newTitle, newContent);
   if (currentFileName === noteName) {
     currentFileName = newTitle;
@@ -818,6 +889,47 @@ function alignTableColumns(container) {
   });
 }
 
+// Resolve attachment: URLs in the rendered preview to real displayable URLs.
+// Images become file:// (desktop) or data: (iOS); links get file:// (desktop).
+async function resolveAttachments(container) {
+  if (!currentFileName) return;
+  const hasDesktop = !!window.electronAPI?.notes?.readAttachment;
+  const hasIOS     = !!window.CapacitorNoteStorage?.readAttachment;
+  if (!hasDesktop && !hasIOS) return;
+
+  if (hasDesktop && _notesDirCache === null) {
+    const info = await window.electronAPI.notes.getDir();
+    _notesDirCache = info?.path || '';
+  }
+
+  for (const img of container.querySelectorAll('img[src^="attachment:"]')) {
+    const filename = img.getAttribute('src').slice('attachment:'.length);
+    if (hasDesktop && _notesDirCache) {
+      const attDir = noteNameToAttachmentDir(currentFileName);
+      img.src = encodeURI(`file://${_notesDirCache}/${attDir}/${filename}`);
+    } else if (hasIOS) {
+      const b64 = await window.CapacitorNoteStorage.readAttachment(currentFileName, filename);
+      if (b64) {
+        const ext = filename.split('.').pop();
+        img.src = `data:${mimeForExtension(ext)};base64,${b64}`;
+      }
+    }
+  }
+
+  for (const link of container.querySelectorAll('a[href^="attachment:"]')) {
+    const filename = link.getAttribute('href').slice('attachment:'.length);
+    if (hasDesktop && _notesDirCache) {
+      const attDir = noteNameToAttachmentDir(currentFileName);
+      link.href = encodeURI(`file://${_notesDirCache}/${attDir}/${filename}`);
+      link.setAttribute('target', '_blank');
+    } else if (hasIOS) {
+      // Non-image files can't be opened directly from WKWebView — show filename
+      link.href = '#';
+      link.addEventListener('click', e => { e.preventDefault(); updateStatus(`File: ${filename}`, true); });
+    }
+  }
+}
+
 async function renderPreview() {
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
@@ -825,6 +937,7 @@ async function renderPreview() {
   setupCollapsibleHeadings(previewDiv);
   alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
+  await resolveAttachments(previewDiv);
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]).then(() => {
       setupClickableMathFormulas();
@@ -852,8 +965,48 @@ async function toggleView() {
 
 toggleViewBtn.addEventListener('click', toggleView);
 
+// After a save, check whether any attachment alt-text / link-text was edited.
+// When the label no longer matches the filename (compared to the previous save),
+// rename the file to match so the two stay in sync.  Debounce is provided by
+// the auto-save timer itself — this only runs once per idle period.
+async function checkAttachmentRenames(prevContent, newContent, noteName) {
+  if (!noteName || !prevContent || !newContent) return;
+  if (!NoteStorage.renameAttachment) return;
+
+  const oldRefs = parseAttachmentRefs(prevContent);
+  const newRefs = parseAttachmentRefs(newContent);
+
+  let updatedContent = newContent;
+  let changed = false;
+
+  for (const [filename, newAlt] of newRefs) {
+    const oldAlt = oldRefs.get(filename);
+    if (oldAlt === undefined || oldAlt === newAlt) continue; // new or unchanged
+
+    // Derive new filename: strip extension from alt if present, keep original ext
+    const dotIdx  = filename.lastIndexOf('.');
+    const ext     = dotIdx >= 0 ? filename.slice(dotIdx + 1).toLowerCase() : '';
+    const altBase = newAlt.replace(/\.\w{1,5}$/, ''); // strip trailing .ext from alt
+    const newFilename = sanitizeAttachmentName(altBase) + (ext ? '.' + ext : '');
+    if (!newFilename || newFilename === filename) continue;
+
+    const ok = await NoteStorage.renameAttachment(noteName, filename, newFilename);
+    if (ok) {
+      updatedContent = updatedContent.split(`attachment:${filename}`).join(`attachment:${newFilename}`);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    textarea.value = updatedContent;
+    await NoteStorage.setNote(noteName, updatedContent);
+    _lastSavedContent = updatedContent;
+  }
+}
+
 async function autoSaveNote() {
   if (currentFileName === PROJECTS_NOTE) return;
+  const prevContent = _lastSavedContent; // capture before saving for rename check
   const name = getNoteTitle();
   if (!name) {
     updateStatus('File Not Saved. Please Add A Title Starting With "#".', false);
@@ -863,6 +1016,8 @@ async function autoSaveNote() {
     // Remove the old entry when the note title changes to avoid leaving
     // partially typed titles in storage.
     await NoteStorage.removeNote(currentFileName);
+    // Also move the attachment folder to the new name
+    await NoteStorage.renameAttachmentDir(currentFileName, name);
   }
 
   // If another note already exists with the new name, do not overwrite it.
@@ -889,6 +1044,8 @@ async function autoSaveNote() {
   const useICloud = !!(window.electronAPI?.notes ||
     (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
   updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
+  // Check if any attachment filenames need renaming to match their alt/link text
+  await checkAttachmentRenames(prevContent, textarea.value, currentFileName);
 }
 
 async function loadNote(name, fromLink = false) {
@@ -978,6 +1135,7 @@ async function deleteNote() {
   }
 
   await NoteStorage.removeNote(name);
+  await NoteStorage.removeAttachmentDir(name);
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
@@ -1236,6 +1394,7 @@ async function deleteSelectedNotes() {
   if (!confirm('Delete visible notes?')) return;
   for (const name of notes) {
     await NoteStorage.removeNote(name);
+    await NoteStorage.removeAttachmentDir(name);
     if (currentFileName === name) {
       textarea.value = '';
       currentFileName = null;
@@ -2161,6 +2320,54 @@ textarea.addEventListener('keydown', e => {
     textarea.selectionStart = textarea.selectionEnd = start + 1;
   }
 });
+
+// ── Attachment paste — handle non-text clipboard items ────────────────────
+
+textarea.addEventListener('paste', async (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const fileItems = Array.from(items).filter(it => it.kind === 'file');
+  if (fileItems.length === 0) return; // plain text — let browser handle
+  e.preventDefault();
+  for (const item of fileItems) {
+    const file = item.getAsFile();
+    if (file) await handleAttachmentPaste(file);
+  }
+});
+
+async function handleAttachmentPaste(file) {
+  if (!currentFileName) {
+    updateStatus('Open or create a note before attaching files.', false);
+    return;
+  }
+  // Build a safe filename from the original name
+  const rawName  = file.name || `attachment_${Date.now()}`;
+  const dotIdx   = rawName.lastIndexOf('.');
+  const ext      = dotIdx >= 0 ? rawName.slice(dotIdx + 1).toLowerCase() : '';
+  const base     = dotIdx >= 0 ? rawName.slice(0, dotIdx) : rawName;
+  const safeFilename = sanitizeAttachmentName(base) + (ext ? '.' + ext : '');
+
+  updateStatus(`Attaching ${safeFilename}\u2026`, true);
+  try {
+    const base64 = arrayBufferToBase64(await file.arrayBuffer());
+    const saved  = await NoteStorage.writeAttachment(currentFileName, safeFilename, base64);
+    if (!saved) {
+      updateStatus('Attachments require the desktop or iOS app.', false);
+      return;
+    }
+    const isImage = file.type.startsWith('image/');
+    const md = isImage
+      ? `![${safeFilename}](attachment:${safeFilename})`
+      : `[${safeFilename}](attachment:${safeFilename})`;
+    insertAtCursor(md);
+    updateStatus(`Attached ${safeFilename}.`, true);
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(autoSaveNote, 1000);
+  } catch (err) {
+    console.error('Attachment error:', err);
+    updateStatus('Failed to attach file.', false);
+  }
+}
 
 // ── Global Search & Replace ──────────────────────────────────────────────
 

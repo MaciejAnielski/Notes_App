@@ -54,7 +54,14 @@ window.NoteStorage = {
 
   // Backup/export to iCloud stubs — overridden by desktop/iOS implementations
   async writeBackup(filename, data) {},
-  async writeExport(filename, data) {}
+  async writeExport(filename, data) {},
+
+  // Attachment stubs — no-ops on web (localStorage has no binary file support)
+  async writeAttachment(noteName, filename, base64data) { return false; },
+  async readAttachment(noteName, filename) { return null; },
+  async renameAttachment(noteName, oldFilename, newFilename) { return false; },
+  async removeAttachmentDir(noteName) {},
+  async renameAttachmentDir(oldNoteName, newNoteName) {}
 };
 
 // ── Desktop (Electron) override ──
@@ -79,7 +86,12 @@ if (window.electronAPI?.notes) {
     },
     async clear()                  { return api.clear(); },
     async writeBackup(filename, data) { return api.writeBackup(filename, data); },
-    async writeExport(filename, data) { return api.writeExport(filename, data); }
+    async writeExport(filename, data) { return api.writeExport(filename, data); },
+    async writeAttachment(noteName, filename, data) { return api.writeAttachment(noteName, filename, data); },
+    async readAttachment(noteName, filename) { return api.readAttachment(noteName, filename); },
+    async renameAttachment(noteName, oldF, newF) { return api.renameAttachment(noteName, oldF, newF); },
+    async removeAttachmentDir(noteName) { return api.removeAttachmentDir(noteName); },
+    async renameAttachmentDir(oldN, newN) { return api.renameAttachmentDir(oldN, newN); }
   };
 }
 
