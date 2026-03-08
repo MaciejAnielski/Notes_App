@@ -9,7 +9,9 @@ const config: CapacitorConfig = {
     allowNavigation: ['cdn.jsdelivr.net']
   },
   ios: {
-    contentInset: 'always',
+    // Let the webview extend edge-to-edge (under notch and home indicator).
+    // Safe area insets are handled in CSS via env(safe-area-inset-*).
+    contentInset: 'never',
     preferredContentMode: 'mobile',
     scrollEnabled: true,
     allowsLinkPreview: false
