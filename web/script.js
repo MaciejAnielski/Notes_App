@@ -1186,7 +1186,8 @@ async function newNote() {
     textarea.focus();
   }
   // Deferred: full list refresh happens after the UI has already responded.
-  await updateFileList();
+  // Do not await — avoids blocking the busy guard while iCloud reads all notes.
+  updateFileList();
 }
 
 async function deleteNote() {
@@ -1201,14 +1202,15 @@ async function deleteNote() {
   }
 
   await NoteStorage.removeNote(name);
-  await NoteStorage.removeAttachmentDir(name);
+  NoteStorage.removeAttachmentDir(name);
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  await updateFileList();
   updateStatus(`Deleted "${name}".`, true);
+  // Do not await — avoids blocking the busy guard while iCloud reads all notes.
+  updateFileList();
 }
 
 async function deleteAllNotes() {
@@ -1219,8 +1221,8 @@ async function deleteAllNotes() {
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  await updateFileList();
   updateStatus(`Deleted ${count} Note${count === 1 ? '' : 's'}.`, true);
+  updateFileList();
 }
 
 // Format date as YYMMDDHHMMSS for backup/export filenames
@@ -1495,17 +1497,17 @@ async function deleteSelectedNotes() {
     return;
   }
   if (!confirm('Delete visible notes?')) return;
-  for (const name of notes) {
+  await Promise.all(notes.map(async name => {
     await NoteStorage.removeNote(name);
-    await NoteStorage.removeAttachmentDir(name);
+    NoteStorage.removeAttachmentDir(name);
     if (currentFileName === name) {
       textarea.value = '';
       currentFileName = null;
       localStorage.removeItem('current_file');
     }
-  }
-  await updateFileList();
+  }));
   updateStatus(`Deleted ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
+  updateFileList();
 }
 
 async function backupSelectedNotes() {

@@ -105,10 +105,12 @@ button {
   border-radius: 3px;
 }
 
-#button-container .button-group > button:not(.sub-button):hover,
-#tools-overflow-row .button-group > button:not(.sub-button):hover {
-  background-color: rgba(255, 255, 255, 0.07);
-  color: #e8dcf4;
+@media (hover: hover) {
+  #button-container .button-group > button:not(.sub-button):hover,
+  #tools-overflow-row .button-group > button:not(.sub-button):hover {
+    background-color: rgba(255, 255, 255, 0.07);
+    color: #e8dcf4;
+  }
 }
 
 /* Busy state — dimmed and non-interactive while an async action runs */
@@ -150,7 +152,14 @@ button.btn-busy {
   display: inline-block;
 }
 
-.button-group:hover .sub-buttons {
+@media (hover: hover) {
+  .button-group:hover .sub-buttons {
+    display: block;
+  }
+}
+
+/* Mobile: show sub-buttons when JS toggles .active on tap */
+.button-group.active .sub-buttons {
   display: block;
 }
 
@@ -181,9 +190,11 @@ button.btn-busy {
   border-radius: 0;
 }
 
-.sub-button:hover {
-  background-color: rgba(255, 255, 255, 0.07);
-  color: #e8dcf4;
+@media (hover: hover) {
+  .sub-button:hover {
+    background-color: rgba(255, 255, 255, 0.07);
+    color: #e8dcf4;
+  }
 }
 
 /* ── Search boxes ── */
@@ -1329,23 +1340,17 @@ body.panel-pinned {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Disable hover/active highlight on touch devices */
+  /* Disable :active highlight flash on touch devices */
   #button-container .button-group > button:not(.sub-button):active,
   #tools-overflow-row .button-group > button:not(.sub-button):active,
-  .sub-button:active,
-  #panel-pin:active,
-  #gs-find-btn:active,
-  #gs-replace-btn:active,
-  #gs-replace-all-btn:active,
-  #gs-close:active,
-  .schedule-date-row button:active {
+  .sub-button:active {
     background-color: transparent;
     color: inherit;
   }
 
-  /* Block pinch-to-zoom on iOS */
+  /* Eliminate 300ms tap delay and block pinch-to-zoom on iOS */
   * {
-    touch-action: pan-x pan-y;
+    touch-action: manipulation;
   }
 
   /* Minimum touch target size for iOS accessibility */
