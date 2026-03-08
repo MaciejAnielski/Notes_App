@@ -1158,12 +1158,14 @@ body.panel-pinned {
   #bottom-status-area {
     position: relative;
     flex-shrink: 0;
-    padding-bottom: env(safe-area-inset-bottom);
+    /* Use max() so the area is always clear of the home indicator even when
+       env(safe-area-inset-bottom) is unavailable (e.g. Capacitor edge-to-edge). */
+    padding-bottom: max(env(safe-area-inset-bottom), 24px);
   }
 
   #status-message {
     z-index: 2;
-    bottom: env(safe-area-inset-bottom);
+    bottom: max(env(safe-area-inset-bottom), 24px);
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
