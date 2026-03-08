@@ -3644,4 +3644,28 @@ if (savedChain) {
   if (savedPreview && !isPreview) {
     toggleView();
   }
+
+  // ── iOS keyboard / visual viewport handling ──────────────────────────────
+  // On iOS, the on-screen keyboard shrinks the visual viewport but the layout
+  // viewport stays the same size, causing the toolbar to scroll off-screen.
+  // Listen for visual viewport resize events and adjust body height so the
+  // flex layout keeps the toolbar visible and the editor fills the remaining
+  // space above the keyboard.
+  if (window.visualViewport) {
+    const adjustForKeyboard = () => {
+      const vv = window.visualViewport;
+      // Set body height to the visual viewport height so the flex column
+      // layout (toolbar → content) fits exactly in the visible area.
+      document.body.style.height = vv.height + 'px';
+      // Scroll the page back to top-left in case iOS shifted it
+      window.scrollTo(0, 0);
+    };
+
+    window.visualViewport.addEventListener('resize', adjustForKeyboard);
+    window.visualViewport.addEventListener('scroll', () => {
+      // iOS sometimes scrolls the visual viewport offset when the keyboard
+      // appears — reset it so the toolbar stays pinned to the top.
+      window.scrollTo(0, 0);
+    });
+  }
 })();
