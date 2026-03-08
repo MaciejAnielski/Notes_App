@@ -87,16 +87,6 @@ async function getVisibleNotes() {
 let statusTimeout = null;
 const backupStatusEl = document.getElementById('last-backup-status');
 
-// On iOS, tapping the backup status opens the Files app at the notes folder.
-if (window.Capacitor?.isNativePlatform()) {
-  backupStatusEl.style.cursor = 'pointer';
-  backupStatusEl.addEventListener('click', () => {
-    if (typeof window.iosOpenFilesLocation === 'function') {
-      window.iosOpenFilesLocation();
-    }
-  });
-}
-
 function updateStatus(message, success) {
   statusDiv.textContent = message;
   statusDiv.style.color = success ? 'green' : 'red';
