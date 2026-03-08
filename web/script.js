@@ -19,6 +19,12 @@ let autoSaveTimer = null;
 let currentFileName = null;
 let linkedNoteChain = [];
 
+// Track the last content that was saved or loaded from storage so we can
+// detect whether the user has unsaved edits when a sync event arrives.
+// If the user's textarea differs from _lastSavedContent, they have unsaved
+// work that must not be overwritten by an incoming sync.
+let _lastSavedContent = null;
+
 const PROJECTS_NOTE = 'Projects';
 const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 let projectsViewActive = false;
@@ -928,6 +934,7 @@ async function autoSaveNote() {
     updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
     return;
   }
+  _lastSavedContent = textarea.value;
   currentFileName = name;
   localStorage.setItem('current_file', name);
   await updateFileList();
@@ -949,6 +956,7 @@ async function loadNote(name, fromLink = false) {
     return;
   }
   textarea.value = content;
+  _lastSavedContent = content;
   currentFileName = name;
   localStorage.setItem('current_file', name);
 
@@ -3147,18 +3155,25 @@ window.addEventListener('storage', e => {
   if (e.key && e.key.startsWith('md_')) {
     const changedNote = e.key.slice(3);
     if (changedNote === currentFileName) {
+      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       if (e.newValue === null) {
-        // Note was deleted in another window
-        textarea.value = '';
-        currentFileName = null;
-        localStorage.removeItem('current_file');
-        if (isPreview) {
-          previewDiv.innerHTML = '';
+        // Note was deleted in another window — but protect non-empty content
+        if (textarea.value.trim()) {
+          updateStatus('Note deleted in another window — keeping your content. Save to restore.', false);
+        } else {
+          textarea.value = '';
+          currentFileName = null;
+          localStorage.removeItem('current_file');
+          if (isPreview) previewDiv.innerHTML = '';
+          updateStatus('Note Deleted In Another Window.', false);
         }
-        updateStatus('Note Deleted In Another Window.', false);
+      } else if (hasUnsavedEdits) {
+        // Don't overwrite unsaved user edits
+        updateStatus('Note updated in another window — keeping your edits.', true);
       } else {
-        // Note content changed in another window — refresh
+        // No unsaved edits — safe to accept
         textarea.value = e.newValue;
+        _lastSavedContent = e.newValue;
         if (isPreview) renderPreview();
         updateStatus('Note Updated From Another Window.', true);
       }
@@ -3183,17 +3198,47 @@ if (window.electronAPI?.notes?.onExternalChange) {
     // Ignore lock file changes in the file list
     if (data?.filename === '.edit_lock') return;
     if (currentFileName) {
+      // Determine if the user has unsaved edits (typed but auto-save
+      // hasn't run yet). If so, do NOT overwrite their work.
+      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
-        textarea.value = '';
-        currentFileName = null;
-        localStorage.removeItem('current_file');
-        if (isPreview) previewDiv.innerHTML = '';
-        updateStatus('iCloud: Current note deleted from another device.', false);
+        // File appears deleted — but if we have content, don't blank the
+        // editor. This could be a transient iCloud issue. Save it back.
+        if (textarea.value.trim()) {
+          try {
+            await NoteStorage.setNote(currentFileName, textarea.value);
+            _lastSavedContent = textarea.value;
+            updateStatus('iCloud: Note restored after sync conflict.', true);
+          } catch {
+            updateStatus('iCloud: Note may have been deleted on another device.', false);
+          }
+        } else {
+          currentFileName = null;
+          localStorage.removeItem('current_file');
+          if (isPreview) previewDiv.innerHTML = '';
+          updateStatus('iCloud: Current note deleted from another device.', false);
+        }
       } else if (content !== textarea.value) {
-        textarea.value = content;
-        if (isPreview) renderPreview();
-        updateStatus('iCloud: Note updated from another device.', true);
+        if (hasUnsavedEdits) {
+          // User has unsaved edits — don't overwrite. The user's version
+          // will be saved by the auto-save timer and win the next sync.
+          updateStatus('iCloud: Remote change detected — keeping your edits.', true);
+        } else if (content.trim() === '' && textarea.value.trim() !== '') {
+          // Incoming content is blank but we have real content — don't
+          // overwrite with empty. This prevents data loss from blank-sync.
+          try {
+            await NoteStorage.setNote(currentFileName, textarea.value);
+            _lastSavedContent = textarea.value;
+            updateStatus('iCloud: Rejected blank sync — keeping your content.', true);
+          } catch {}
+        } else {
+          // No unsaved edits — safe to accept the remote content
+          textarea.value = content;
+          _lastSavedContent = content;
+          if (isPreview) renderPreview();
+          updateStatus('iCloud: Note updated from another device.', true);
+        }
       } else if (changedNote && changedNote !== currentFileName) {
         // A different note changed — just reflect in file list
         updateStatus(`iCloud: "${changedNote}" synced.`, true);
@@ -3217,19 +3262,49 @@ if (window.Capacitor?.isNativePlatform()) {
     if (showStatus) updateStatus('Checking iCloud\u2026', true);
     let changed = false;
     if (currentFileName) {
+      // Determine if the user has unsaved edits (typed but auto-save
+      // hasn't run yet). If so, do NOT overwrite their work.
+      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
-        textarea.value = '';
-        currentFileName = null;
-        localStorage.removeItem('current_file');
-        if (isPreview) previewDiv.innerHTML = '';
-        updateStatus('iCloud: Current note deleted from another device.', false);
+        // File appears deleted — but if we have content, save it back
+        // rather than losing the user's work (could be transient iCloud issue).
+        if (textarea.value.trim()) {
+          try {
+            await NoteStorage.setNote(currentFileName, textarea.value);
+            _lastSavedContent = textarea.value;
+            updateStatus('iCloud: Note restored after sync conflict.', true);
+          } catch {
+            updateStatus('iCloud: Note may have been deleted on another device.', false);
+          }
+        } else {
+          currentFileName = null;
+          localStorage.removeItem('current_file');
+          if (isPreview) previewDiv.innerHTML = '';
+          updateStatus('iCloud: Current note deleted from another device.', false);
+        }
         changed = true;
       } else if (content !== textarea.value) {
-        textarea.value = content;
-        if (isPreview) renderPreview();
-        updateStatus('iCloud: Note updated from another device.', true);
-        changed = true;
+        if (hasUnsavedEdits) {
+          // User has unsaved edits — don't overwrite. Auto-save will
+          // persist the user's version shortly.
+          if (showStatus) updateStatus('iCloud: Remote change detected — keeping your edits.', true);
+        } else if (content.trim() === '' && textarea.value.trim() !== '') {
+          // Incoming content is blank but we have real content — don't
+          // overwrite with empty. Prevents data loss from blank-sync.
+          try {
+            await NoteStorage.setNote(currentFileName, textarea.value);
+            _lastSavedContent = textarea.value;
+            if (showStatus) updateStatus('iCloud: Rejected blank sync — keeping your content.', true);
+          } catch {}
+        } else {
+          // No unsaved edits — safe to accept the remote content
+          textarea.value = content;
+          _lastSavedContent = content;
+          if (isPreview) renderPreview();
+          updateStatus('iCloud: Note updated from another device.', true);
+          changed = true;
+        }
       } else if (showStatus) {
         updateStatus('iCloud: Up to date.', true);
       }

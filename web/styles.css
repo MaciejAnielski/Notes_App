@@ -1150,18 +1150,25 @@ body.panel-pinned {
   /* ── Status and backup messages overlay each other ── */
   #bottom-status-area {
     position: relative;
+    flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom);
+    /* Ensure the area is always visible and never pushed off-screen */
+    min-height: calc(20px + env(safe-area-inset-bottom));
   }
 
   #status-message {
     z-index: 2;
+    /* On mobile, position over the backup text but keep within the
+       parent's bounds so it doesn't overflow below the screen */
+    bottom: env(safe-area-inset-bottom);
   }
 
   #last-backup-status {
-    position: absolute;
-    bottom: env(safe-area-inset-bottom);
-    left: 0;
-    right: 0;
+    /* Keep static positioning so the parent has intrinsic height.
+       The absolute positioning was causing the parent to collapse,
+       pushing messages below the visible area on iOS. */
+    position: relative;
+    padding-bottom: 0;
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
