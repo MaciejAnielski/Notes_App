@@ -2469,9 +2469,12 @@ const gsResults         = document.getElementById('gs-results');
 
 let gsCurrentResults = [];
 let gsSelectedIndex  = -1;
+let gsKeyboardOffset = 0; // px the on-screen keyboard is currently occupying
 
 function openGlobalSearch() {
   globalSearchPanel.classList.remove('gs-hidden');
+  // Position panel above the keyboard if it is already visible
+  globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
   gsSearchInput.focus();
   gsSearchInput.select();
 }
@@ -3659,6 +3662,11 @@ if (savedChain) {
       document.body.style.height = vv.height + 'px';
       // Scroll the page back to top-left in case iOS shifted it
       window.scrollTo(0, 0);
+      // Move the find/replace panel above the on-screen keyboard so it
+      // remains visible while typing.  When the keyboard is gone the panel
+      // falls back to its default CSS position (bottom: 0).
+      gsKeyboardOffset = Math.max(0, window.innerHeight - vv.height);
+      globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
     };
 
     window.visualViewport.addEventListener('resize', adjustForKeyboard);
