@@ -1145,7 +1145,7 @@ async function loadNote(name, fromLink = false) {
     if (isPreview) renderPreview();
   }
 
-  updateFileList();
+  await updateFileList();
 }
 
 async function newNote() {
@@ -1170,6 +1170,9 @@ async function newNote() {
   saveChain();
   currentFileName = null;
   localStorage.removeItem('current_file');
+  // Record the initial content so the sync handler can detect unsaved
+  // edits if a remote change arrives before the first auto-save.
+  _lastSavedContent = textarea.value;
   // Immediately deselect the active item in the file list for instant
   // visual feedback, then refresh the full list in the background.
   const activeItem = fileList.querySelector('.active-file');
