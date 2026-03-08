@@ -1,50 +1,88 @@
 // iCloud Storage Bridge for iOS (Capacitor)
 //
-// This script provides a NoteStorage implementation backed by the custom
-// ICloudStorage native plugin, which uses NSFileManager's ubiquity container
-// API to read/write .md files in the app's iCloud Drive container.
-//
+// This script provides a NoteStorage implementation backed by the Capacitor
+// Filesystem plugin, writing .md files to the iCloud Documents directory.
 // It must be loaded before storage.js so that window.CapacitorNoteStorage is
 // available when storage.js checks for it.
 //
 // Xcode project requirements:
-//   1. Enable the "iCloud" capability (Signing & Capabilities → + Capability → iCloud)
-//   2. Check "iCloud Documents" (not CloudKit)
-//   3. Add container: iCloud.com.notesapp.ios
+//   1. Enable the "iCloud" capability
+//   2. Enable "iCloud Documents" (not CloudKit)
+//   3. Set iCloud container identifier: iCloud.com.notesapp.ios
 //
-// Native plugin files (must be added to the Xcode project):
-//   - ios/plugins/ICloudStoragePlugin.swift
-//   - ios/plugins/ICloudStoragePlugin.m
+// Files are stored in the app's iCloud container Documents folder, which
+// appears in the iOS Files app under "Notes App".
 
 (function () {
   // Only run on native iOS
   if (!window.Capacitor?.isNativePlatform()) return;
 
-  // Access the custom native ICloudStorage plugin via Capacitor's plugin registry
-  const ICloudStorage = window.Capacitor.Plugins.ICloudStorage;
-  if (!ICloudStorage) {
-    console.warn('icloud-bridge: ICloudStorage native plugin not available');
+  // Capacitor Filesystem plugin — imported via Capacitor's module system
+  const { Filesystem, Directory, Encoding } = window.Capacitor.Plugins.Filesystem || {};
+  if (!Filesystem) {
+    console.warn('icloud-bridge: @capacitor/filesystem plugin not available');
     return;
+  }
+
+  // Notes are stored in the iCloud Documents directory under a "Notes App" subfolder.
+  // On iOS with iCloud Documents enabled, Directory.ICloudDocuments maps to the
+  // app's iCloud container.
+  const NOTES_DIR = 'Notes App';
+  const DIRECTORY = Directory.ICloudDocuments || Directory.Documents;
+
+  // Sanitize note names for use as filenames
+  const UNSAFE_CHARS = /[/\\:*?"<>|]/g;
+  function noteNameToFileName(name) {
+    return name.replace(UNSAFE_CHARS, '_') + '.md';
+  }
+  function fileNameToNoteName(fileName) {
+    if (!fileName.endsWith('.md')) return null;
+    return fileName.slice(0, -3);
+  }
+
+  async function ensureDir() {
+    try {
+      await Filesystem.mkdir({
+        path: NOTES_DIR,
+        directory: DIRECTORY,
+        recursive: true
+      });
+    } catch {
+      // Directory may already exist
+    }
   }
 
   window.CapacitorNoteStorage = {
     async getNote(name) {
       try {
-        const result = await ICloudStorage.get({ name });
-        // Native plugin returns { content: string | null }
-        return result.content ?? null;
+        const result = await Filesystem.readFile({
+          path: `${NOTES_DIR}/${noteNameToFileName(name)}`,
+          directory: DIRECTORY,
+          encoding: Encoding.UTF8
+        });
+        return result.data;
       } catch {
         return null;
       }
     },
 
     async setNote(name, content) {
-      await ICloudStorage.set({ name, content });
+      await ensureDir();
+      await Filesystem.writeFile({
+        path: `${NOTES_DIR}/${noteNameToFileName(name)}`,
+        directory: DIRECTORY,
+        data: content,
+        encoding: Encoding.UTF8,
+        recursive: true
+      });
     },
 
     async removeNote(name) {
       try {
-        await ICloudStorage.remove({ name });
+        await Filesystem.deleteFile({
+          path: `${NOTES_DIR}/${noteNameToFileName(name)}`,
+          directory: DIRECTORY
+        });
       } catch {
         // File may not exist
       }
@@ -52,8 +90,16 @@
 
     async getAllNoteNames() {
       try {
-        const result = await ICloudStorage.list();
-        return result.names || [];
+        await ensureDir();
+        const result = await Filesystem.readdir({
+          path: NOTES_DIR,
+          directory: DIRECTORY
+        });
+        return result.files
+          .map(f => typeof f === 'string' ? f : f.name)
+          .filter(f => f.endsWith('.md'))
+          .map(f => fileNameToNoteName(f))
+          .filter(Boolean);
       } catch {
         return [];
       }
@@ -70,26 +116,11 @@
     },
 
     async clear() {
-      try {
-        const result = await ICloudStorage.clear();
-        return result.count || 0;
-      } catch {
-        return 0;
+      const names = await this.getAllNoteNames();
+      for (const name of names) {
+        await this.removeNote(name);
       }
-    },
-
-    async openFilesLocation() {
-      await ICloudStorage.openFilesLocation();
-    }
-  };
-
-  // Expose a top-level helper so script.js can call it without knowing
-  // about the Capacitor plugin directly.
-  window.iosOpenFilesLocation = async () => {
-    try {
-      await window.CapacitorNoteStorage.openFilesLocation();
-    } catch (e) {
-      console.warn('iosOpenFilesLocation failed:', e);
+      return names.length;
     }
   };
 })();
