@@ -70,8 +70,25 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         // Register a file presenter for the Notes App subdirectory on first
         // access so the iCloud daemon properly tracks our coordinated writes.
         if directoryPresenter == nil {
-            let notesDir = docs.appendingPathComponent("Notes App")
+            let notesDir = docs.appendingPathComponent("000_Notes")
             try? FileManager.default.createDirectory(at: notesDir, withIntermediateDirectories: true)
+            // Also create backup and export directories
+            let backupsDir = docs.appendingPathComponent("001_Backups")
+            try? FileManager.default.createDirectory(at: backupsDir, withIntermediateDirectories: true)
+            let exportsDir = docs.appendingPathComponent("002_Exports")
+            try? FileManager.default.createDirectory(at: exportsDir, withIntermediateDirectories: true)
+            // Migrate from old "Notes App" folder if it exists
+            let oldDir = docs.appendingPathComponent("Notes App")
+            if FileManager.default.fileExists(atPath: oldDir.path) {
+                if let files = try? FileManager.default.contentsOfDirectory(at: oldDir, includingPropertiesForKeys: nil) {
+                    for file in files where file.pathExtension == "md" {
+                        let dest = notesDir.appendingPathComponent(file.lastPathComponent)
+                        if !FileManager.default.fileExists(atPath: dest.path) {
+                            try? FileManager.default.moveItem(at: file, to: dest)
+                        }
+                    }
+                }
+            }
             let presenter = NotesDirectoryPresenter(url: notesDir)
             NSFileCoordinator.addFilePresenter(presenter)
             directoryPresenter = presenter

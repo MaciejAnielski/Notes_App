@@ -24,7 +24,10 @@
   // Only run on native iOS.
   if (!window.Capacitor?.isNativePlatform()) return;
 
-  const NOTES_DIR = 'Notes App';
+  const NOTES_DIR = '000_Notes';
+  const BACKUPS_DIR = '001_Backups';
+  const EXPORTS_DIR = '002_Exports';
+  const LOCK_FILE = '000_Notes/.edit_lock';
 
   // Sanitize note names for use as filenames.
   const UNSAFE_CHARS = /[/\\:*?"<>|]/g;
@@ -139,6 +142,38 @@
         // to App.openUrl() — the call silently fails with sandbox errors.
         // shareddocuments:// is the only public scheme that opens the Files app.
         try { await App.openUrl({ url: 'shareddocuments://' }); } catch {}
+      },
+
+      async writeLock(deviceId) {
+        if (!await isAvailable()) return;
+        await ICloudPlugin.mkdir({ path: NOTES_DIR });
+        const data = JSON.stringify({ deviceId, timestamp: Date.now() });
+        await ICloudPlugin.writeFile({ path: LOCK_FILE, data });
+      },
+
+      async readLock() {
+        if (!await isAvailable()) return null;
+        try {
+          const result = await ICloudPlugin.readFile({ path: LOCK_FILE });
+          return JSON.parse(result.data);
+        } catch { return null; }
+      },
+
+      async removeLock() {
+        if (!await isAvailable()) return;
+        try { await ICloudPlugin.deleteFile({ path: LOCK_FILE }); } catch {}
+      },
+
+      async writeBackup(filename, data) {
+        if (!await isAvailable()) return;
+        await ICloudPlugin.mkdir({ path: BACKUPS_DIR });
+        await ICloudPlugin.writeFile({ path: `${BACKUPS_DIR}/${filename}`, data });
+      },
+
+      async writeExport(filename, data) {
+        if (!await isAvailable()) return;
+        await ICloudPlugin.mkdir({ path: EXPORTS_DIR });
+        await ICloudPlugin.writeFile({ path: `${EXPORTS_DIR}/${filename}`, data });
       }
     };
 
@@ -237,6 +272,62 @@
       const App = window.Capacitor?.Plugins?.App;
       if (!App) return;
       try { await App.openUrl({ url: 'shareddocuments://' }); } catch {}
+    },
+
+    async writeLock(deviceId) {
+      try {
+        await Filesystem.mkdir({ path: NOTES_DIR, directory: DIRECTORY, recursive: true });
+        await Filesystem.writeFile({
+          path: `${NOTES_DIR}/.edit_lock`,
+          directory: DIRECTORY,
+          data: JSON.stringify({ deviceId, timestamp: Date.now() }),
+          encoding: Encoding.UTF8
+        });
+      } catch {}
+    },
+
+    async readLock() {
+      try {
+        const result = await Filesystem.readFile({
+          path: `${NOTES_DIR}/.edit_lock`,
+          directory: DIRECTORY,
+          encoding: Encoding.UTF8
+        });
+        return JSON.parse(result.data);
+      } catch { return null; }
+    },
+
+    async removeLock() {
+      try {
+        await Filesystem.deleteFile({
+          path: `${NOTES_DIR}/.edit_lock`,
+          directory: DIRECTORY
+        });
+      } catch {}
+    },
+
+    async writeBackup(filename, data) {
+      try {
+        await Filesystem.mkdir({ path: BACKUPS_DIR, directory: DIRECTORY, recursive: true });
+        await Filesystem.writeFile({
+          path: `${BACKUPS_DIR}/${filename}`,
+          directory: DIRECTORY,
+          data,
+          encoding: Encoding.UTF8
+        });
+      } catch {}
+    },
+
+    async writeExport(filename, data) {
+      try {
+        await Filesystem.mkdir({ path: EXPORTS_DIR, directory: DIRECTORY, recursive: true });
+        await Filesystem.writeFile({
+          path: `${EXPORTS_DIR}/${filename}`,
+          directory: DIRECTORY,
+          data,
+          encoding: Encoding.UTF8
+        });
+      } catch {}
     }
   };
 })();
