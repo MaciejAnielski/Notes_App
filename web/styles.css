@@ -1305,6 +1305,7 @@ body.panel-pinned {
     border-bottom: none;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
     padding-bottom: max(env(safe-area-inset-bottom), 24px);
+    transition: bottom 0.25s ease;
   }
 
   #global-search-panel .gs-row {
