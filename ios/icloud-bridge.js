@@ -54,6 +54,12 @@
         try {
           const result = await ICloudPlugin.isAvailable();
           _availableCache = !!result.available;
+          // Log the actual container path once so sync issues can be diagnosed.
+          if (_availableCache && ICloudPlugin.getContainerPath) {
+            ICloudPlugin.getContainerPath()
+              .then(r => console.log('[icloud-bridge] container path:', r.path))
+              .catch(() => {});
+          }
         } catch {
           _availableCache = false;
         }
