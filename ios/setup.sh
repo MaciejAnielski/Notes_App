@@ -36,7 +36,7 @@ npx cap sync ios
 # UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace cause the app's
 # iCloud container to appear in the iOS Files app under "Notes App" and in
 # Finder on macOS under iCloud Drive.
-INFO_PLIST="$SCRIPT_DIR/App/App/Info.plist"
+INFO_PLIST="$SCRIPT_DIR/ios/App/App/Info.plist"
 if [ -f "$INFO_PLIST" ]; then
   if ! grep -q "UIFileSharingEnabled" "$INFO_PLIST"; then
     # Insert keys before the closing </dict>
