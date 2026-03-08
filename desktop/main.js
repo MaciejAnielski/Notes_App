@@ -90,6 +90,15 @@ function noteNameToFileName(name) {
   return name.replace(UNSAFE_CHARS, '_') + '.md';
 }
 
+function noteNameToAttachmentDir(name) {
+  return name.replace(UNSAFE_CHARS, '_') + '.attachments';
+}
+
+// Remove a directory tree silently (no-op if missing)
+async function rmdir(dirPath) {
+  try { await fs.rm(dirPath, { recursive: true, force: true }); } catch {}
+}
+
 function fileNameToNoteName(fileName) {
   if (!fileName.endsWith('.md')) return null;
   return fileName.slice(0, -3);
@@ -212,6 +221,10 @@ function registerNoteHandlers() {
       await fs.unlink(path.join(notesDir, filename));
     } catch { /* may not exist */ }
     await deleteMirror(filename, iosNotesDir);
+    // Remove the attachments folder for this note
+    const attDir = noteNameToAttachmentDir(name);
+    await rmdir(path.join(notesDir, attDir));
+    if (iosNotesDir) await rmdir(path.join(iosNotesDir, attDir));
     setTimeout(() => _ourWrites.delete(filename), 500);
   });
 
@@ -237,6 +250,13 @@ function registerNoteHandlers() {
         _ourWrites.add(file);
         await fs.unlink(path.join(notesDir, file));
         await deleteMirror(file, iosNotesDir);
+        // Also remove the attachment directory for this note
+        const noteName = fileNameToNoteName(file);
+        if (noteName) {
+          const attDir = noteNameToAttachmentDir(noteName);
+          await rmdir(path.join(notesDir, attDir));
+          if (iosNotesDir) await rmdir(path.join(iosNotesDir, attDir));
+        }
         setTimeout(() => _ourWrites.delete(file), 500);
       }
       return mdFiles.length;
@@ -260,6 +280,78 @@ function registerNoteHandlers() {
     // Notify the renderer that notes may have changed after the sync.
     if (win && !win.isDestroyed()) {
       win.webContents.send('notes:changed', { eventType: 'change', filename: '*' });
+    }
+  });
+
+  // ── Attachment CRUD ──
+  ipcMain.handle('notes:writeAttachment', async (_event, noteName, filename, base64data) => {
+    if (!notesDir) return false;
+    const attDir = path.join(notesDir, noteNameToAttachmentDir(noteName));
+    await fs.mkdir(attDir, { recursive: true });
+    const buf = Buffer.from(base64data, 'base64');
+    await fs.writeFile(path.join(attDir, filename), buf);
+    if (iosNotesDir) {
+      const iosAttDir = path.join(iosNotesDir, noteNameToAttachmentDir(noteName));
+      try {
+        await fs.mkdir(iosAttDir, { recursive: true });
+        await fs.copyFile(path.join(attDir, filename), path.join(iosAttDir, filename));
+      } catch {}
+    }
+    return true;
+  });
+
+  ipcMain.handle('notes:readAttachment', async (_event, noteName, filename) => {
+    if (!notesDir) return null;
+    try {
+      const buf = await fs.readFile(path.join(notesDir, noteNameToAttachmentDir(noteName), filename));
+      return buf.toString('base64');
+    } catch { return null; }
+  });
+
+  ipcMain.handle('notes:renameAttachment', async (_event, noteName, oldFilename, newFilename) => {
+    if (!notesDir) return false;
+    const attDir = path.join(notesDir, noteNameToAttachmentDir(noteName));
+    try {
+      await fs.rename(path.join(attDir, oldFilename), path.join(attDir, newFilename));
+      if (iosNotesDir) {
+        const iosAttDir = path.join(iosNotesDir, noteNameToAttachmentDir(noteName));
+        try { await fs.rename(path.join(iosAttDir, oldFilename), path.join(iosAttDir, newFilename)); } catch {}
+      }
+      return true;
+    } catch { return false; }
+  });
+
+  ipcMain.handle('notes:removeAttachmentDir', async (_event, noteName) => {
+    if (!notesDir) return;
+    const attDir = noteNameToAttachmentDir(noteName);
+    await rmdir(path.join(notesDir, attDir));
+    if (iosNotesDir) await rmdir(path.join(iosNotesDir, attDir));
+  });
+
+  ipcMain.handle('notes:openAttachment', async (_event, noteName, filename) => {
+    if (!notesDir) return;
+    const filePath = path.join(notesDir, noteNameToAttachmentDir(noteName), filename);
+    await shell.openPath(filePath);
+  });
+
+  ipcMain.handle('notes:listAttachments', async (_event, noteName) => {
+    if (!notesDir) return [];
+    const attDir = path.join(notesDir, noteNameToAttachmentDir(noteName));
+    try {
+      const files = await fs.readdir(attDir);
+      return files.filter(f => !f.startsWith('.'));
+    } catch { return []; }
+  });
+
+  ipcMain.handle('notes:renameAttachmentDir', async (_event, oldNoteName, newNoteName) => {
+    if (!notesDir) return;
+    const oldDir = path.join(notesDir, noteNameToAttachmentDir(oldNoteName));
+    const newDir = path.join(notesDir, noteNameToAttachmentDir(newNoteName));
+    try { await fs.rename(oldDir, newDir); } catch {}
+    if (iosNotesDir) {
+      const iosOld = path.join(iosNotesDir, noteNameToAttachmentDir(oldNoteName));
+      const iosNew = path.join(iosNotesDir, noteNameToAttachmentDir(newNoteName));
+      try { await fs.rename(iosOld, iosNew); } catch {}
     }
   });
 

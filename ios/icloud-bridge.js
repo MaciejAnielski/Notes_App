@@ -36,6 +36,9 @@
     if (!fileName.endsWith('.md')) return null;
     return fileName.slice(0, -3);
   }
+  function noteNameToAttachmentDir(name) {
+    return name.replace(UNSAFE_CHARS, '_') + '.attachments';
+  }
 
   // ─── Path A: native ICloudPlugin (true iCloud Documents support) ───────────
   //
@@ -146,6 +149,93 @@
         // to App.openUrl() — the call silently fails with sandbox errors.
         // shareddocuments:// is the only public scheme that opens the Files app.
         try { await App.openUrl({ url: 'shareddocuments://' }); } catch {}
+      },
+
+      async writeAttachment(noteName, filename, base64data) {
+        if (!await isAvailable()) return false;
+        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        try {
+          await ICloudPlugin.mkdir({ path: attDir });
+          const writeFn = ICloudPlugin.writeBinaryFile || ICloudPlugin.writeFile;
+          await writeFn.call(ICloudPlugin, { path: `${attDir}/${filename}`, data: base64data });
+          return true;
+        } catch { return false; }
+      },
+
+      async readAttachment(noteName, filename) {
+        if (!await isAvailable()) return null;
+        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        try {
+          const readFn = ICloudPlugin.readBinaryFile || ICloudPlugin.readFile;
+          const result = await readFn.call(ICloudPlugin, { path: `${attDir}/${filename}` });
+          return result.data;
+        } catch { return null; }
+      },
+
+      async renameAttachment(noteName, oldFilename, newFilename) {
+        if (!await isAvailable()) return false;
+        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        try {
+          if (ICloudPlugin.rename) {
+            await ICloudPlugin.rename({ oldPath: `${attDir}/${oldFilename}`, newPath: `${attDir}/${newFilename}` });
+          } else {
+            const result = await ICloudPlugin.readFile({ path: `${attDir}/${oldFilename}` });
+            const writeFn = ICloudPlugin.writeBinaryFile || ICloudPlugin.writeFile;
+            await writeFn.call(ICloudPlugin, { path: `${attDir}/${newFilename}`, data: result.data });
+            await ICloudPlugin.deleteFile({ path: `${attDir}/${oldFilename}` });
+          }
+          return true;
+        } catch { return false; }
+      },
+
+      async listAttachments(noteName) {
+        if (!await isAvailable()) return [];
+        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        try {
+          const result = await ICloudPlugin.readdir({ path: attDir });
+          return result.files.map(f => (typeof f === 'string' ? f : f.name)).filter(f => !f.startsWith('.'));
+        } catch { return []; }
+      },
+
+      async removeAttachmentDir(noteName) {
+        if (!await isAvailable()) return;
+        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        try {
+          if (ICloudPlugin.rmdir) {
+            await ICloudPlugin.rmdir({ path: attDir, recursive: true });
+          } else {
+            try {
+              const result = await ICloudPlugin.readdir({ path: attDir });
+              const files = result.files.map(f => (typeof f === 'string' ? f : f.name));
+              for (const f of files) {
+                try { await ICloudPlugin.deleteFile({ path: `${attDir}/${f}` }); } catch {}
+              }
+            } catch {}
+          }
+        } catch {}
+      },
+
+      async renameAttachmentDir(oldNoteName, newNoteName) {
+        if (!await isAvailable()) return;
+        const oldDir = `${NOTES_DIR}/${noteNameToAttachmentDir(oldNoteName)}`;
+        const newDir = `${NOTES_DIR}/${noteNameToAttachmentDir(newNoteName)}`;
+        try {
+          if (ICloudPlugin.rename) {
+            await ICloudPlugin.rename({ oldPath: oldDir, newPath: newDir });
+          } else {
+            const result = await ICloudPlugin.readdir({ path: oldDir });
+            await ICloudPlugin.mkdir({ path: newDir });
+            const files = result.files.map(f => (typeof f === 'string' ? f : f.name));
+            for (const f of files) {
+              try {
+                const data = await ICloudPlugin.readFile({ path: `${oldDir}/${f}` });
+                const writeFn = ICloudPlugin.writeBinaryFile || ICloudPlugin.writeFile;
+                await writeFn.call(ICloudPlugin, { path: `${newDir}/${f}`, data: data.data });
+                await ICloudPlugin.deleteFile({ path: `${oldDir}/${f}` });
+              } catch {}
+            }
+          }
+        } catch {}
       },
 
       async writeBackup(filename, data) {
@@ -261,6 +351,56 @@
       const App = window.Capacitor?.Plugins?.App;
       if (!App) return;
       try { await App.openUrl({ url: 'shareddocuments://' }); } catch {}
+    },
+
+    async writeAttachment(noteName, filename, base64data) {
+      const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+      try {
+        await Filesystem.mkdir({ path: attDir, directory: DIRECTORY, recursive: true });
+        await Filesystem.writeFile({ path: `${attDir}/${filename}`, directory: DIRECTORY, data: base64data });
+        return true;
+      } catch { return false; }
+    },
+
+    async readAttachment(noteName, filename) {
+      const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+      try {
+        const result = await Filesystem.readFile({ path: `${attDir}/${filename}`, directory: DIRECTORY });
+        return result.data;
+      } catch { return null; }
+    },
+
+    async renameAttachment(noteName, oldFilename, newFilename) {
+      const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+      try {
+        await Filesystem.rename({
+          from: `${attDir}/${oldFilename}`,
+          to: `${attDir}/${newFilename}`,
+          directory: DIRECTORY
+        });
+        return true;
+      } catch { return false; }
+    },
+
+    async listAttachments(noteName) {
+      const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+      try {
+        const result = await Filesystem.readdir({ path: attDir, directory: DIRECTORY });
+        return result.files.map(f => (typeof f === 'string' ? f : f.name)).filter(f => !f.startsWith('.'));
+      } catch { return []; }
+    },
+
+    async removeAttachmentDir(noteName) {
+      const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+      try { await Filesystem.rmdir({ path: attDir, directory: DIRECTORY, recursive: true }); } catch {}
+    },
+
+    async renameAttachmentDir(oldNoteName, newNoteName) {
+      const oldDir = `${NOTES_DIR}/${noteNameToAttachmentDir(oldNoteName)}`;
+      const newDir = `${NOTES_DIR}/${noteNameToAttachmentDir(newNoteName)}`;
+      try {
+        await Filesystem.rename({ from: oldDir, to: newDir, directory: DIRECTORY });
+      } catch {}
     },
 
     async writeBackup(filename, data) {

@@ -18,6 +18,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openFolder: () => ipcRenderer.invoke('notes:openFolder'),
     forceSync: () => ipcRenderer.invoke('notes:forceSync'),
     writeBackup: (filename, data) => ipcRenderer.invoke('notes:writeBackup', filename, data),
-    writeExport: (filename, data) => ipcRenderer.invoke('notes:writeExport', filename, data)
+    writeExport: (filename, data) => ipcRenderer.invoke('notes:writeExport', filename, data),
+    writeAttachment: (noteName, filename, data) => ipcRenderer.invoke('notes:writeAttachment', noteName, filename, data),
+    readAttachment: (noteName, filename) => ipcRenderer.invoke('notes:readAttachment', noteName, filename),
+    renameAttachment: (noteName, oldF, newF) => ipcRenderer.invoke('notes:renameAttachment', noteName, oldF, newF),
+    removeAttachmentDir: (noteName) => ipcRenderer.invoke('notes:removeAttachmentDir', noteName),
+    renameAttachmentDir: (oldName, newName) => ipcRenderer.invoke('notes:renameAttachmentDir', oldName, newName),
+    openAttachment: (noteName, filename) => ipcRenderer.invoke('notes:openAttachment', noteName, filename),
+    listAttachments: (noteName) => ipcRenderer.invoke('notes:listAttachments', noteName)
   }
 });
