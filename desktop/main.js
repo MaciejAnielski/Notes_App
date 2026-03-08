@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -108,6 +108,16 @@ function registerNoteHandlers() {
       return mdFiles.length;
     } catch {
       return 0;
+    }
+  });
+
+  ipcMain.handle('notes:getDir', () => {
+    return { path: notesDir, iCloudAvailable };
+  });
+
+  ipcMain.handle('notes:openFolder', async () => {
+    if (notesDir) {
+      await shell.openPath(notesDir);
     }
   });
 }
