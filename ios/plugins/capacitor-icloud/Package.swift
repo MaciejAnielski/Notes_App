@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "CapacitorICloud",
+    name: "CapacitorIcloud",
     platforms: [.iOS(.v14)],
     products: [
         .library(
-            name: "CapacitorICloud",
+            name: "CapacitorIcloud",
             targets: ["ICloudPlugin"])
     ],
     dependencies: [
