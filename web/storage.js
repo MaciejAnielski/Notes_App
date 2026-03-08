@@ -61,7 +61,8 @@ window.NoteStorage = {
   async readAttachment(noteName, filename) { return null; },
   async renameAttachment(noteName, oldFilename, newFilename) { return false; },
   async removeAttachmentDir(noteName) {},
-  async renameAttachmentDir(oldNoteName, newNoteName) {}
+  async renameAttachmentDir(oldNoteName, newNoteName) {},
+  async listAttachments(noteName) { return []; }
 };
 
 // ── Desktop (Electron) override ──
@@ -91,7 +92,8 @@ if (window.electronAPI?.notes) {
     async readAttachment(noteName, filename) { return api.readAttachment(noteName, filename); },
     async renameAttachment(noteName, oldF, newF) { return api.renameAttachment(noteName, oldF, newF); },
     async removeAttachmentDir(noteName) { return api.removeAttachmentDir(noteName); },
-    async renameAttachmentDir(oldN, newN) { return api.renameAttachmentDir(oldN, newN); }
+    async renameAttachmentDir(oldN, newN) { return api.renameAttachmentDir(oldN, newN); },
+    async listAttachments(noteName) { return api.listAttachments(noteName); }
   };
 }
 

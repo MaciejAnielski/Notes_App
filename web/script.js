@@ -918,15 +918,42 @@ async function resolveAttachments(container) {
 
   for (const link of container.querySelectorAll('a[href^="attachment:"]')) {
     const filename = link.getAttribute('href').slice('attachment:'.length);
-    if (hasDesktop && _notesDirCache) {
-      const attDir = noteNameToAttachmentDir(currentFileName);
-      link.href = encodeURI(`file://${_notesDirCache}/${attDir}/${filename}`);
-      link.setAttribute('target', '_blank');
-    } else if (hasIOS) {
-      // Non-image files can't be opened directly from WKWebView — show filename
+    const noteName = currentFileName;
+    if (hasDesktop) {
       link.href = '#';
-      link.addEventListener('click', e => { e.preventDefault(); updateStatus(`File: ${filename}`, true); });
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        window.electronAPI.notes.openAttachment(noteName, filename);
+      });
+    } else if (hasIOS) {
+      link.href = '#';
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        openAttachmentOnIOS(noteName, filename);
+      });
     }
+  }
+}
+
+// Open an attachment on iOS via the system share sheet (Open In…).
+async function openAttachmentOnIOS(noteName, filename) {
+  try {
+    const b64 = await window.CapacitorNoteStorage.readAttachment(noteName, filename);
+    if (!b64) { updateStatus('File not found.', false); return; }
+    const ext = filename.split('.').pop();
+    const mime = mimeForExtension(ext);
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob = new Blob([arr], { type: mime });
+    const file = new File([blob], filename, { type: mime });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+    } else {
+      updateStatus('Cannot open file on this device.', false);
+    }
+  } catch {
+    updateStatus('Could not open file.', false);
   }
 }
 
@@ -1182,6 +1209,12 @@ async function downloadAllNotes() {
 
   for (const { name, content } of allNotes) {
     zip.file(name + '.md', content);
+    const attFiles = await NoteStorage.listAttachments(name);
+    const attDir = noteNameToAttachmentDir(name);
+    for (const filename of attFiles) {
+      const b64 = await NoteStorage.readAttachment(name, filename);
+      if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
+    }
   }
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
@@ -1203,10 +1236,39 @@ async function downloadAllNotes() {
   updateStatus(`Backed Up ${allNotes.length} Note${allNotes.length === 1 ? '' : 's'}.`, true);
 }
 
-function generateHtmlContent(title, markdown) {
+// Embed attachment: URLs in an HTML container as inline base64 data URIs,
+// making exported HTML files self-contained.
+async function embedAttachmentsInHtml(container, noteName) {
+  const hasDesktop = !!window.electronAPI?.notes?.readAttachment;
+  const hasIOS     = !!window.CapacitorNoteStorage?.readAttachment;
+  if (!hasDesktop && !hasIOS) return;
+  const readFn = hasDesktop
+    ? (n, f) => window.electronAPI.notes.readAttachment(n, f)
+    : (n, f) => window.CapacitorNoteStorage.readAttachment(n, f);
+  for (const img of container.querySelectorAll('img[src^="attachment:"]')) {
+    const filename = img.getAttribute('src').slice('attachment:'.length);
+    const b64 = await readFn(noteName, filename);
+    if (b64) {
+      const ext = filename.split('.').pop();
+      img.src = `data:${mimeForExtension(ext)};base64,${b64}`;
+    }
+  }
+  for (const link of container.querySelectorAll('a[href^="attachment:"]')) {
+    const filename = link.getAttribute('href').slice('attachment:'.length);
+    const b64 = await readFn(noteName, filename);
+    if (b64) {
+      const ext = filename.split('.').pop();
+      link.href = `data:${mimeForExtension(ext)};base64,${b64}`;
+      link.setAttribute('download', filename);
+    }
+  }
+}
+
+async function generateHtmlContent(title, markdown, noteName) {
   const container = document.createElement('div');
   container.innerHTML = marked.parse(preprocessMarkdown(markdown));
   styleTaskListItems(container);
+  if (noteName) await embedAttachmentsInHtml(container, noteName);
   const style = `
     body {
       width: 100%;
@@ -1257,17 +1319,18 @@ function noteNameToId(name) {
   return 'note-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function generateNotebookHtml(noteEntries) {
+async function generateNotebookHtml(noteEntries) {
   const noteNameSet = new Set(noteEntries.map(e => e.name));
 
   const tocItems = noteEntries.map(({ name }) =>
     `<li><a href="#${noteNameToId(name)}">${name}</a></li>`
   ).join('\n      ');
 
-  const sections = noteEntries.map(({ name, content }) => {
+  const sectionParts = await Promise.all(noteEntries.map(async ({ name, content }) => {
     const container = document.createElement('div');
     container.innerHTML = marked.parse(preprocessMarkdown(content));
     styleTaskListItems(container);
+    await embedAttachmentsInHtml(container, name);
     container.querySelectorAll('a').forEach(a => {
       const href = a.getAttribute('href');
       if (!href || href.startsWith('#') || /^[a-zA-Z]+:/.test(href)) return;
@@ -1278,7 +1341,8 @@ function generateNotebookHtml(noteEntries) {
     });
     alignTableColumns(container);
     return `<article id="${noteNameToId(name)}">\n${container.innerHTML}\n</article>`;
-  }).join('\n\n');
+  }));
+  const sections = sectionParts.join('\n\n');
 
   const style = `
     *, *::before, *::after { box-sizing: border-box; }
@@ -1345,7 +1409,7 @@ async function exportNote() {
     return;
   }
   const markdown = textarea.value;
-  const html = generateHtmlContent(name, markdown);
+  const html = await generateHtmlContent(name, markdown, name);
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
@@ -1367,7 +1431,7 @@ async function exportAllNotes() {
   const entries = await NoteStorage.getAllNotes();
   if (entries.length === 0) { alert('No notes found.'); return; }
   entries.sort((a, b) => b.name.localeCompare(a.name));
-  const html = generateNotebookHtml(entries);
+  const html = await generateNotebookHtml(entries);
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
@@ -1418,6 +1482,12 @@ async function backupSelectedNotes() {
     const content = await NoteStorage.getNote(name);
     if (content !== null) {
       zip.file(name + '.md', content);
+      const attFiles = await NoteStorage.listAttachments(name);
+      const attDir = noteNameToAttachmentDir(name);
+      for (const filename of attFiles) {
+        const b64 = await NoteStorage.readAttachment(name, filename);
+        if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
+      }
     }
   }
 
@@ -1446,7 +1516,7 @@ async function exportSelectedNotes() {
     const content = await NoteStorage.getNote(name);
     if (content !== null) entries.push({ name, content });
   }
-  const html = generateNotebookHtml(entries);
+  const html = await generateNotebookHtml(entries);
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
@@ -1468,14 +1538,29 @@ async function importNotesFromZip(file) {
   try {
     const zip = await JSZip.loadAsync(file);
     const entries = [];
+    const attachmentEntries = [];
     zip.forEach((relativePath, zipEntry) => {
-      if (!zipEntry.dir && relativePath.endsWith('.md')) {
+      if (zipEntry.dir) return;
+      if (relativePath.endsWith('.md')) {
         entries.push({ name: relativePath.replace(/\.md$/, ''), zipEntry });
+      } else if (relativePath.includes('.attachments/')) {
+        attachmentEntries.push({ relativePath, zipEntry });
       }
     });
     for (const { name, zipEntry } of entries) {
       const content = await zipEntry.async('string');
       await NoteStorage.setNote(name, content);
+    }
+    for (const { relativePath, zipEntry } of attachmentEntries) {
+      const slashIdx = relativePath.indexOf('/');
+      if (slashIdx < 0) continue;
+      const dirPart = relativePath.slice(0, slashIdx);
+      const filename = relativePath.slice(slashIdx + 1);
+      if (!filename) continue;
+      const matchedEntry = entries.find(e => noteNameToAttachmentDir(e.name) === dirPart);
+      if (!matchedEntry) continue;
+      const b64 = await zipEntry.async('base64');
+      await NoteStorage.writeAttachment(matchedEntry.name, filename, b64);
     }
     await updateFileList();
     importZipInput.value = '';

@@ -328,6 +328,21 @@ function registerNoteHandlers() {
     if (iosNotesDir) await rmdir(path.join(iosNotesDir, attDir));
   });
 
+  ipcMain.handle('notes:openAttachment', async (_event, noteName, filename) => {
+    if (!notesDir) return;
+    const filePath = path.join(notesDir, noteNameToAttachmentDir(noteName), filename);
+    await shell.openPath(filePath);
+  });
+
+  ipcMain.handle('notes:listAttachments', async (_event, noteName) => {
+    if (!notesDir) return [];
+    const attDir = path.join(notesDir, noteNameToAttachmentDir(noteName));
+    try {
+      const files = await fs.readdir(attDir);
+      return files.filter(f => !f.startsWith('.'));
+    } catch { return []; }
+  });
+
   ipcMain.handle('notes:renameAttachmentDir', async (_event, oldNoteName, newNoteName) => {
     if (!notesDir) return;
     const oldDir = path.join(notesDir, noteNameToAttachmentDir(oldNoteName));

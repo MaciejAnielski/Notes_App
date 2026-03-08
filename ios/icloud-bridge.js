@@ -188,6 +188,15 @@
         } catch { return false; }
       },
 
+      async listAttachments(noteName) {
+        if (!await isAvailable()) return [];
+        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        try {
+          const result = await ICloudPlugin.readdir({ path: attDir });
+          return result.files.map(f => (typeof f === 'string' ? f : f.name)).filter(f => !f.startsWith('.'));
+        } catch { return []; }
+      },
+
       async removeAttachmentDir(noteName) {
         if (!await isAvailable()) return;
         const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
@@ -371,6 +380,14 @@
         });
         return true;
       } catch { return false; }
+    },
+
+    async listAttachments(noteName) {
+      const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+      try {
+        const result = await Filesystem.readdir({ path: attDir, directory: DIRECTORY });
+        return result.files.map(f => (typeof f === 'string' ? f : f.name)).filter(f => !f.startsWith('.'));
+      } catch { return []; }
     },
 
     async removeAttachmentDir(noteName) {
