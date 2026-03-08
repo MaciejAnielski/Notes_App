@@ -35,6 +35,27 @@ let fileWatcher = null;
 // Track writes we initiated so the file watcher doesn't echo them back
 const _ourWrites = new Set(); // filenames currently being written by us
 
+// Content hash cache for change detection — avoids unnecessary IPC events
+// when mtimes change but content is identical (common with iCloud metadata sync)
+const _contentHashes = new Map(); // filename -> content hash string
+
+async function getFileHash(filePath) {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    // Simple fast hash: use content length + first/last chars + sample
+    // This is not cryptographic but sufficient for change detection
+    const len = content.length;
+    if (len === 0) return 'empty';
+    const mid = Math.floor(len / 2);
+    return `${len}:${content.charCodeAt(0)}:${content.charCodeAt(mid)}:${content.charCodeAt(len - 1)}:${content.slice(0, 100)}:${content.slice(-100)}`;
+  } catch {
+    return null; // file doesn't exist or can't be read
+  }
+}
+
+// Track files we recently wrote through to iOS to avoid re-syncing them back
+const _iosWriteThroughs = new Map(); // filename -> timestamp of write-through
+
 // ── Resolve storage directories ────────────────────────────────────────────
 function resolveNotesDir() {
   if (process.platform !== 'darwin') return;
@@ -138,6 +159,8 @@ async function writeThrough(filename, dir, iosDir) {
     const src = path.join(dir, filename);
     const dst = path.join(iosDir, filename);
     await fs.copyFile(src, dst);
+    // Track this write-through so polling doesn't re-sync it back
+    _iosWriteThroughs.set(filename, Date.now());
   } catch {
     // Non-fatal — iOS sync will catch up later
   }
@@ -169,7 +192,11 @@ function registerNoteHandlers() {
     const filename = noteNameToFileName(name);
     _ourWrites.add(filename);
     try {
-      await fs.writeFile(path.join(notesDir, filename), content, 'utf-8');
+      const filePath = path.join(notesDir, filename);
+      await fs.writeFile(filePath, content, 'utf-8');
+      // Update content hash so polling doesn't re-detect this write as a change
+      const hash = await getFileHash(filePath);
+      if (hash) _contentHashes.set(filename, hash);
       await writeThrough(filename, notesDir, iosNotesDir);
     } finally {
       // Delay clearing so the file watcher event can be filtered
@@ -345,6 +372,13 @@ function startFileWatcher(win) {
       clearTimeout(_watcherDebounce);
       _watcherDebounce = setTimeout(async () => {
         for (const [file, evt] of _watcherPending) {
+          // For .md files, verify content actually changed before notifying
+          if (file.endsWith('.md') && evt !== 'rename') {
+            const newHash = await getFileHash(path.join(notesDir, file));
+            const oldHash = _contentHashes.get(file);
+            if (newHash && newHash === oldHash) continue; // content unchanged
+            if (newHash) _contentHashes.set(file, newHash);
+          }
           win.webContents.send('notes:changed', { eventType: evt, filename: file });
           // Sync external edits to the iOS container
           if (file.endsWith('.md') && iosNotesDir) {
@@ -401,31 +435,50 @@ async function buildSnapshot(dir) {
   return snapshot;
 }
 
+// Grace period (ms) after a write-through before we consider iOS changes
+// as genuine external edits (prevents re-syncing our own write-throughs)
+const WRITE_THROUGH_GRACE_MS = 10000;
+
 function startICloudPolling(win) {
   if (!notesDir || pollTimer) return;
 
-  // Build initial snapshots
+  // Build initial snapshots and content hashes
   Promise.all([
     buildSnapshot(notesDir),
     buildSnapshot(iosNotesDir),
-  ]).then(([cloudSnap, iosSnap]) => {
+  ]).then(async ([cloudSnap, iosSnap]) => {
     lastPollSnapshot = cloudSnap;
     lastIosPollSnapshot = iosSnap;
+    // Seed content hashes so we can detect real content changes
+    for (const [file] of cloudSnap) {
+      const hash = await getFileHash(path.join(notesDir, file));
+      if (hash) _contentHashes.set(file, hash);
+    }
   });
 
   pollTimer = setInterval(async () => {
     if (!win || win.isDestroyed()) return;
 
     // 1. Check CloudDocs for changes (fallback for missed file watcher events)
+    //    Only notify the renderer if the file CONTENT actually changed, not
+    //    just the mtime (iCloud can update mtimes during metadata sync).
     const currentCloud = await buildSnapshot(notesDir);
     for (const [file, mtime] of currentCloud) {
       const prev = lastPollSnapshot.get(file);
       if (prev === undefined || prev !== mtime) {
-        win.webContents.send('notes:changed', { eventType: 'change', filename: file });
+        // mtime changed — check if content actually differs
+        const newHash = await getFileHash(path.join(notesDir, file));
+        const oldHash = _contentHashes.get(file);
+        if (newHash && newHash !== oldHash) {
+          _contentHashes.set(file, newHash);
+          win.webContents.send('notes:changed', { eventType: 'change', filename: file });
+        }
+        // If hash is the same, skip the notification — content didn't change
       }
     }
     for (const [file] of lastPollSnapshot) {
       if (!currentCloud.has(file)) {
+        _contentHashes.delete(file);
         win.webContents.send('notes:changed', { eventType: 'rename', filename: file });
       }
     }
@@ -435,30 +488,44 @@ function startICloudPolling(win) {
     if (iosNotesDir) {
       const currentIos = await buildSnapshot(iosNotesDir);
       let iosChanged = false;
+      const now = Date.now();
 
       // Detect new or modified files in iOS container
       for (const [file, mtime] of currentIos) {
         const prev = lastIosPollSnapshot.get(file);
         if (prev === undefined || prev !== mtime) {
-          // Copy newer iOS file to CloudDocs
-          await syncFile(file, iosNotesDir, notesDir);
-          iosChanged = true;
+          // Skip if we recently wrote this file through to iOS — it's our
+          // own write echoing back, not a genuine iOS edit.
+          const wtTime = _iosWriteThroughs.get(file);
+          if (wtTime && now - wtTime < WRITE_THROUGH_GRACE_MS) {
+            continue;
+          }
+          _iosWriteThroughs.delete(file);
+
+          // Verify the iOS file actually has different content before copying
+          const iosHash = await getFileHash(path.join(iosNotesDir, file));
+          const cloudHash = _contentHashes.get(file);
+          if (iosHash && iosHash !== cloudHash) {
+            await syncFile(file, iosNotesDir, notesDir);
+            // Update our content hash to the new content
+            const newHash = await getFileHash(path.join(notesDir, file));
+            if (newHash) _contentHashes.set(file, newHash);
+            iosChanged = true;
+          }
         }
       }
 
-      // Detect files deleted on iOS
+      // Detect files deleted on iOS — but do NOT propagate the deletion
+      // to CloudDocs. An iOS-side deletion could be a transient iCloud
+      // issue (file not yet downloaded, container temporarily unavailable).
+      // Genuine deletions should be made explicitly from the app's UI,
+      // which already handles cross-platform removal via deleteMirror().
+      // We only log the discrepancy; the file stays safe in CloudDocs.
       for (const [file] of lastIosPollSnapshot) {
         if (!currentIos.has(file)) {
-          // Only delete from CloudDocs if the file was also deleted there
-          // (avoid deleting files that were just added on desktop)
-          try {
-            await fs.access(path.join(notesDir, file));
-            // File exists in CloudDocs but was deleted on iOS — delete it
-            _ourWrites.add(file);
-            await fs.unlink(path.join(notesDir, file));
-            setTimeout(() => _ourWrites.delete(file), 500);
-            iosChanged = true;
-          } catch { /* already gone from CloudDocs */ }
+          // File disappeared from iOS container — do NOT delete from CloudDocs.
+          // Log for diagnostics only.
+          console.log(`[iCloud poll] "${file}" disappeared from iOS container — keeping CloudDocs copy.`);
         }
       }
 
