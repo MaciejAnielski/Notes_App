@@ -78,12 +78,13 @@ if (window.electronAPI?.notes) {
     async getAllNoteNames()         { return api.list(); },
     async getAllNotes() {
       const names = await api.list();
-      const notes = [];
-      for (const name of names) {
-        const content = await api.get(name);
-        if (content !== null) notes.push({ name, content });
-      }
-      return notes;
+      const results = await Promise.all(
+        names.map(async name => {
+          const content = await api.get(name);
+          return content !== null ? { name, content } : null;
+        })
+      );
+      return results.filter(Boolean);
     },
     async clear()                  { return api.clear(); },
     async writeBackup(filename, data) { return api.writeBackup(filename, data); },
