@@ -718,6 +718,13 @@ body.panel-pinned {
   box-sizing: border-box;
 }
 
+/* Prevent button container from overlapping the floating side panel */
+body.panel-visible:not(.panel-pinned) #button-container,
+body.panel-visible:not(.panel-pinned) #tools-overflow-row {
+  max-width: calc(100% - 300px);
+  overflow: hidden;
+}
+
 /* Arrow click cycles which container is shown */
 #files-container,
 #todo-container,

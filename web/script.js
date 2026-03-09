@@ -2409,13 +2409,17 @@ function showPanel() {
   if (isPanelPinned) return;
   clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
+  document.body.classList.add('panel-visible');
   updateBackupStatus();
 }
 
 function scheduleHidePanel() {
   if (isPanelPinned) return;
   clearTimeout(peekHideTimer);
-  peekHideTimer = setTimeout(() => panelLists.classList.remove('visible'), 100);
+  peekHideTimer = setTimeout(() => {
+    panelLists.classList.remove('visible');
+    document.body.classList.remove('panel-visible');
+  }, 100);
 }
 
 panelArrow.addEventListener('mouseenter', showPanel);
