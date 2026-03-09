@@ -1157,6 +1157,27 @@ body.panel-pinned {
   font-style: normal;
 }
 
+/* ── MathJax overflow: prevent horizontal overflow on narrow screens ── */
+/* Block / display math: scrollable if wider than screen */
+#preview mjx-container[display="true"] {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Inline math: allow wrapping so it doesn't push beyond the viewport */
+#preview mjx-container:not([display="true"]) {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+/* Fallback for older MathJax CHTML class names */
+#preview .MathJax_Display,
+#preview .MathJax[display="true"] {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
 /* ── Clickable Math Formulas ── */
 .math-evaluable {
   cursor: pointer;
@@ -1351,6 +1372,13 @@ body.panel-pinned {
   /* Eliminate 300ms tap delay and block pinch-to-zoom on iOS */
   * {
     touch-action: manipulation;
+  }
+
+  /* Restore vertical scrolling for preview — overrides the * rule above */
+  #preview {
+    touch-action: pan-y;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Minimum touch target size for iOS accessibility */
