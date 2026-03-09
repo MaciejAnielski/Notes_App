@@ -1697,6 +1697,7 @@ async function _doUpdateFileList() {
 }
 
 async function updateTodoList(cachedNotes) {
+  invalidateScheduleCache();
   todoList.innerHTML = '';
 
   const query = searchTasksBox.value.trim().toLowerCase();
@@ -2309,7 +2310,7 @@ checkToolbarOverflow();
 // ── End Tools overflow menu ────────────────────────────────────────────────
 
 searchBox.addEventListener('input', updateFileList);
-searchTasksBox.addEventListener('input', updateTodoList);
+searchTasksBox.addEventListener('input', () => updateTodoList());
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
