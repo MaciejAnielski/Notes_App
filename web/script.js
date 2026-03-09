@@ -1741,16 +1741,22 @@ async function updateTodoList(cachedNotes) {
           const span = document.createElement('span');
           span.innerHTML = marked.parseInline(text);
           span.style.cursor = 'pointer';
-          span.addEventListener('click', async () => {
-            await loadNote(fileName);
+          span.addEventListener('click', (e) => {
+            if (e.target.closest('a')) return;
+            loadNote(fileName);
             closeMobilePanel('right');
-            const lines = textarea.value.split('\n');
-            let charPos = 0;
-            for (let i = 0; i < t.idx; i++) {
-              charPos += lines[i].length + 1;
-            }
-            textarea.focus();
-            textarea.setSelectionRange(charPos, charPos + lines[t.idx].length);
+            setTimeout(() => {
+              if (isPreview) {
+                highlightTextInPreview(stripMarkdownText(rawText));
+              } else {
+                const lines = textarea.value.split('\n');
+                if (t.idx >= 0 && t.idx < lines.length) {
+                  const startOffset = lines.slice(0, t.idx).reduce((acc, l) => acc + l.length + 1, 0);
+                  textarea.setSelectionRange(startOffset, startOffset + lines[t.idx].length);
+                  textarea.focus();
+                }
+              }
+            }, 50);
           });
           todoLi.appendChild(span);
 
