@@ -20,6 +20,11 @@ window.NoteStorage = {
     localStorage.removeItem('md_' + name);
   },
 
+  async trashNote(name) {
+    // Web (localStorage) has no iCloud trash — just remove the note.
+    localStorage.removeItem('md_' + name);
+  },
+
   async getAllNoteNames() {
     const names = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -75,6 +80,7 @@ if (window.electronAPI?.notes) {
     async getNote(name)            { return api.get(name); },
     async setNote(name, content)   { return api.set(name, content); },
     async removeNote(name)         { return api.remove(name); },
+    async trashNote(name)          { return api.trash(name); },
     async getAllNoteNames()         { return api.list(); },
     async getAllNotes() {
       const names = await api.list();
