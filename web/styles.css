@@ -343,11 +343,13 @@ textarea:focus {
   box-sizing: border-box;
   background-color: #1e1e1e;
   color: #e8dcf4;
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 #preview p {
@@ -1374,11 +1376,9 @@ body.panel-pinned {
     touch-action: manipulation;
   }
 
-  /* Restore vertical scrolling for preview — overrides the * rule above */
+  /* Restore vertical scrolling for preview — overrides the pan-x/manipulation wildcard above */
   #preview {
     touch-action: pan-y;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   /* Minimum touch target size for iOS accessibility */
