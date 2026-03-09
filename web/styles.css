@@ -1253,7 +1253,7 @@ body.panel-pinned {
 
   /* Push editor/preview content above the fixed status bar */
   #editor-section {
-    padding-bottom: calc(28px + max(env(safe-area-inset-bottom), 24px));
+    padding-bottom: calc(45px + max(env(safe-area-inset-bottom), 24px));
   }
 
   #status-message {
