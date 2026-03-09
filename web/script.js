@@ -1741,7 +1741,8 @@ async function updateTodoList(cachedNotes) {
           const span = document.createElement('span');
           span.innerHTML = marked.parseInline(text);
           span.style.cursor = 'pointer';
-          span.addEventListener('click', () => {
+          span.addEventListener('click', (e) => {
+            if (e.target.closest('a')) return;
             loadNote(fileName);
             closeMobilePanel('right');
             setTimeout(() => {
