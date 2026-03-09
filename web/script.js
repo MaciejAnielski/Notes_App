@@ -1720,11 +1720,6 @@ async function updateTodoList(cachedNotes) {
         const title = document.createElement('strong');
         title.classList.add('todo-note-title');
         title.textContent = fileName;
-        title.style.cursor = 'pointer';
-        title.onclick = () => {
-          loadNote(fileName);
-          closeMobilePanel('right');
-        };
         noteLi.appendChild(title);
 
         const innerUl = document.createElement('ul');
@@ -1745,6 +1740,18 @@ async function updateTodoList(cachedNotes) {
           todoLi.appendChild(document.createTextNode(' '));
           const span = document.createElement('span');
           span.innerHTML = marked.parseInline(text);
+          span.style.cursor = 'pointer';
+          span.addEventListener('click', async () => {
+            await loadNote(fileName);
+            closeMobilePanel('right');
+            const lines = textarea.value.split('\n');
+            let charPos = 0;
+            for (let i = 0; i < t.idx; i++) {
+              charPos += lines[i].length + 1;
+            }
+            textarea.focus();
+            textarea.setSelectionRange(charPos, charPos + lines[t.idx].length);
+          });
           todoLi.appendChild(span);
 
           const schedDateMatch = t.line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
