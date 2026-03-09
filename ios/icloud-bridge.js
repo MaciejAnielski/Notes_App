@@ -27,6 +27,7 @@
   const NOTES_DIR = '000_Notes';
   const BACKUPS_DIR = '001_Backups';
   const EXPORTS_DIR = '002_Exports';
+  const DELETED_DIR = '003_Deleted';
   // Sanitize note names for use as filenames.
   const UNSAFE_CHARS = /[/\\:*?"<>|]/g;
   function noteNameToFileName(name) {
@@ -112,6 +113,47 @@
             path: `${NOTES_DIR}/${noteNameToFileName(name)}`
           });
         } catch {}
+      },
+
+      async trashNote(name) {
+        if (!await isAvailable()) return;
+        const filename = noteNameToFileName(name);
+        const attDirName = noteNameToAttachmentDir(name);
+        try {
+          await ICloudPlugin.mkdir({ path: DELETED_DIR });
+          // Move .md file: read → write to deleted → delete from notes
+          if (ICloudPlugin.rename) {
+            await ICloudPlugin.rename({
+              oldPath: `${NOTES_DIR}/${filename}`,
+              newPath: `${DELETED_DIR}/${filename}`
+            });
+          } else {
+            const result = await ICloudPlugin.readFile({ path: `${NOTES_DIR}/${filename}` });
+            await ICloudPlugin.writeFile({ path: `${DELETED_DIR}/${filename}`, data: result.data });
+            await ICloudPlugin.deleteFile({ path: `${NOTES_DIR}/${filename}` });
+          }
+        } catch {}
+        // Move attachments dir
+        try {
+          const oldAttDir = `${NOTES_DIR}/${attDirName}`;
+          const newAttDir = `${DELETED_DIR}/${attDirName}`;
+          if (ICloudPlugin.rename) {
+            await ICloudPlugin.rename({ oldPath: oldAttDir, newPath: newAttDir });
+          } else {
+            const result = await ICloudPlugin.readdir({ path: oldAttDir });
+            await ICloudPlugin.mkdir({ path: newAttDir });
+            const files = result.files.map(f => (typeof f === 'string' ? f : f.name));
+            for (const f of files) {
+              try {
+                const readFn = ICloudPlugin.readBinaryFile || ICloudPlugin.readFile;
+                const data = await readFn.call(ICloudPlugin, { path: `${oldAttDir}/${f}` });
+                const writeFn = ICloudPlugin.writeBinaryFile || ICloudPlugin.writeFile;
+                await writeFn.call(ICloudPlugin, { path: `${newAttDir}/${f}`, data: data.data });
+                await ICloudPlugin.deleteFile({ path: `${oldAttDir}/${f}` });
+              } catch {}
+            }
+          }
+        } catch { /* no attachments — skip */ }
       },
 
       async getAllNoteNames() {
@@ -325,6 +367,30 @@
           directory: DIRECTORY
         });
       } catch {}
+    },
+
+    async trashNote(name) {
+      const filename = noteNameToFileName(name);
+      const attDirName = noteNameToAttachmentDir(name);
+      try {
+        await Filesystem.mkdir({ path: DELETED_DIR, directory: DIRECTORY, recursive: true });
+        // Move .md file
+        try {
+          await Filesystem.rename({
+            from: `${NOTES_DIR}/${filename}`,
+            to: `${DELETED_DIR}/${filename}`,
+            directory: DIRECTORY
+          });
+        } catch {}
+      } catch {}
+      // Move attachments dir
+      try {
+        await Filesystem.rename({
+          from: `${NOTES_DIR}/${attDirName}`,
+          to: `${DELETED_DIR}/${attDirName}`,
+          directory: DIRECTORY
+        });
+      } catch { /* no attachments — skip */ }
     },
 
     async getAllNoteNames() {

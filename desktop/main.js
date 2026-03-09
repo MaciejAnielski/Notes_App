@@ -16,19 +16,23 @@ const CLOUD_DOCS        = path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', 'Notes A
 const CLOUD_DOCS_NOTES  = path.join(CLOUD_DOCS, '000_Notes');
 const CLOUD_DOCS_BACKUPS = path.join(CLOUD_DOCS, '001_Backups');
 const CLOUD_DOCS_EXPORTS = path.join(CLOUD_DOCS, '002_Exports');
+const CLOUD_DOCS_DELETED = path.join(CLOUD_DOCS, '003_Deleted');
 
 // iOS container (for syncing with iOS devices)
 const IOS_CONTAINER_DOCS = path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents');
 const IOS_CONTAINER_NOTES  = path.join(IOS_CONTAINER_DOCS, '000_Notes');
 const IOS_CONTAINER_BACKUPS = path.join(IOS_CONTAINER_DOCS, '001_Backups');
 const IOS_CONTAINER_EXPORTS = path.join(IOS_CONTAINER_DOCS, '002_Exports');
+const IOS_CONTAINER_DELETED = path.join(IOS_CONTAINER_DOCS, '003_Deleted');
 
 let notesDir = null;
 let backupsDir = null;
 let exportsDir = null;
+let deletedDir = null;
 let iosNotesDir = null;   // null if iOS container doesn't exist
 let iosBackupsDir = null;
 let iosExportsDir = null;
+let iosDeletedDir = null;
 let iCloudAvailable = false;
 let fileWatcher = null;
 
@@ -67,7 +71,8 @@ function resolveNotesDir() {
   notesDir = CLOUD_DOCS_NOTES;
   backupsDir = CLOUD_DOCS_BACKUPS;
   exportsDir = CLOUD_DOCS_EXPORTS;
-  for (const dir of [notesDir, backupsDir, exportsDir]) {
+  deletedDir = CLOUD_DOCS_DELETED;
+  for (const dir of [notesDir, backupsDir, exportsDir, deletedDir]) {
     if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
   }
   iCloudAvailable = true;
@@ -77,7 +82,8 @@ function resolveNotesDir() {
     iosNotesDir = IOS_CONTAINER_NOTES;
     iosBackupsDir = IOS_CONTAINER_BACKUPS;
     iosExportsDir = IOS_CONTAINER_EXPORTS;
-    for (const dir of [iosNotesDir, iosBackupsDir, iosExportsDir]) {
+    iosDeletedDir = IOS_CONTAINER_DELETED;
+    for (const dir of [iosNotesDir, iosBackupsDir, iosExportsDir, iosDeletedDir]) {
       if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
     }
   }
@@ -156,6 +162,7 @@ async function fullSync() {
     [notesDir, iosNotesDir],
     [backupsDir, iosBackupsDir],
     [exportsDir, iosExportsDir],
+    [deletedDir, iosDeletedDir],
   ];
 
   for (const [cloudDir, iosDir] of pairs) {
@@ -253,6 +260,56 @@ function registerNoteHandlers() {
     const attDir = noteNameToAttachmentDir(name);
     await rmdir(path.join(notesDir, attDir));
     if (iosNotesDir) await rmdir(path.join(iosNotesDir, attDir));
+    setTimeout(() => _ourWrites.delete(filename), 500);
+  });
+
+  ipcMain.handle('notes:trash', async (_event, name) => {
+    if (!notesDir || !deletedDir) return;
+    const filename = noteNameToFileName(name);
+    const attDirName = noteNameToAttachmentDir(name);
+    _ourWrites.add(filename);
+    try {
+      await fs.mkdir(deletedDir, { recursive: true });
+      // Move the .md file to 003_Deleted
+      try {
+        await fs.copyFile(path.join(notesDir, filename), path.join(deletedDir, filename));
+        await fs.unlink(path.join(notesDir, filename));
+      } catch { /* source may not exist */ }
+      // Move the attachments folder to 003_Deleted
+      const srcAtt = path.join(notesDir, attDirName);
+      const dstAtt = path.join(deletedDir, attDirName);
+      try {
+        const attStat = await fs.stat(srcAtt);
+        if (attStat.isDirectory()) {
+          await fs.mkdir(dstAtt, { recursive: true });
+          const attFiles = await fs.readdir(srcAtt);
+          for (const f of attFiles) {
+            await fs.copyFile(path.join(srcAtt, f), path.join(dstAtt, f));
+          }
+          await rmdir(srcAtt);
+        }
+      } catch { /* no attachments dir — skip */ }
+      // Mirror to iOS deleted dir
+      if (iosDeletedDir) {
+        await fs.mkdir(iosDeletedDir, { recursive: true });
+        try { await fs.copyFile(path.join(deletedDir, filename), path.join(iosDeletedDir, filename)); } catch {}
+      }
+      // Remove from iOS notes dir
+      if (iosNotesDir) {
+        try { await fs.unlink(path.join(iosNotesDir, filename)); } catch {}
+        await rmdir(path.join(iosNotesDir, attDirName));
+        if (iosDeletedDir) {
+          try {
+            const dstIosAtt = path.join(iosDeletedDir, attDirName);
+            await fs.mkdir(dstIosAtt, { recursive: true });
+            const dstAttFiles = await fs.readdir(dstAtt).catch(() => []);
+            for (const f of dstAttFiles) {
+              await fs.copyFile(path.join(dstAtt, f), path.join(dstIosAtt, f)).catch(() => {});
+            }
+          } catch {}
+        }
+      }
+    } catch { /* non-fatal */ }
     setTimeout(() => _ourWrites.delete(filename), 500);
   });
 

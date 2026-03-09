@@ -718,11 +718,15 @@ body.panel-pinned {
   box-sizing: border-box;
 }
 
-/* Prevent button container from overlapping the floating side panel */
-body.panel-visible:not(.panel-pinned) #button-container,
-body.panel-visible:not(.panel-pinned) #tools-overflow-row {
-  max-width: calc(100% - 306px);
-  overflow: hidden;
+/* Prevent button container from overlapping the floating side panel.
+   Only applies on desktop (>650px) — on mobile the panel is a full-screen
+   overlay and the toolbar should never be constrained by it. */
+@media (min-width: 651px) {
+  body.panel-visible:not(.panel-pinned) #button-container,
+  body.panel-visible:not(.panel-pinned) #tools-overflow-row {
+    max-width: calc(100% - 306px);
+    overflow: hidden;
+  }
 }
 
 /* Arrow click cycles which container is shown */

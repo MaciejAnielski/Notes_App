@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     get: (name) => ipcRenderer.invoke('notes:get', name),
     set: (name, content) => ipcRenderer.invoke('notes:set', name, content),
     remove: (name) => ipcRenderer.invoke('notes:remove', name),
+    trash: (name) => ipcRenderer.invoke('notes:trash', name),
     list: () => ipcRenderer.invoke('notes:list'),
     clear: () => ipcRenderer.invoke('notes:clear'),
     onExternalChange: (callback) => {

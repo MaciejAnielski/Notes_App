@@ -1204,27 +1204,27 @@ async function deleteNote() {
     return;
   }
 
-  await NoteStorage.removeNote(name);
-  NoteStorage.removeAttachmentDir(name);
+  await NoteStorage.trashNote(name);
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateStatus(`Deleted "${name}".`, true);
+  updateStatus(`Moved "${name}" to Deleted folder.`, true);
   // Do not await — avoids blocking the busy guard while iCloud reads all notes.
   updateFileList();
 }
 
 async function deleteAllNotes() {
-  if (!confirm('Delete all notes?')) return;
-  const count = await NoteStorage.clear();
+  if (!confirm('Move all notes to the Deleted folder?')) return;
+  const names = await NoteStorage.getAllNoteNames();
+  await Promise.all(names.map(name => NoteStorage.trashNote(name)));
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateStatus(`Deleted ${count} Note${count === 1 ? '' : 's'}.`, true);
+  updateStatus(`Moved ${names.length} Note${names.length === 1 ? '' : 's'} to Deleted folder.`, true);
   updateFileList();
 }
 
@@ -1501,15 +1501,14 @@ async function deleteSelectedNotes() {
   }
   if (!confirm('Delete visible notes?')) return;
   await Promise.all(notes.map(async name => {
-    await NoteStorage.removeNote(name);
-    NoteStorage.removeAttachmentDir(name);
+    await NoteStorage.trashNote(name);
     if (currentFileName === name) {
       textarea.value = '';
       currentFileName = null;
       localStorage.removeItem('current_file');
     }
   }));
-  updateStatus(`Deleted ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
+  updateStatus(`Moved ${notes.length} Note${notes.length === 1 ? '' : 's'} to Deleted folder.`, true);
   updateFileList();
 }
 
@@ -2326,6 +2325,13 @@ searchBox.addEventListener('input', updateFileList);
 searchTasksBox.addEventListener('input', () => updateTodoList());
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
+  // For new unsaved notes, don't start the auto-save timer until the user has
+  // pressed Enter to finish the title line. This prevents saving a partial
+  // date-only title and ensures attachments are linked to the correct note name.
+  if (currentFileName === null) {
+    const firstNewlineIdx = textarea.value.indexOf('\n');
+    if (firstNewlineIdx === -1 || textarea.selectionStart <= firstNewlineIdx) return;
+  }
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
 });
 
