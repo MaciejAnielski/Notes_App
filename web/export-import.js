@@ -176,6 +176,7 @@ async function exportNote() {
     alert('No note selected.');
     return;
   }
+  updateStatus(`Exporting\u2026`, true, true);
   const markdown = textarea.value;
   const html = await generateHtmlContent(name, markdown, name);
 
@@ -198,6 +199,7 @@ async function exportNote() {
 async function exportAllNotes() {
   const entries = await NoteStorage.getAllNotes();
   if (entries.length === 0) { alert('No notes found.'); return; }
+  updateStatus(`Exporting\u2026`, true, true);
   entries.sort((a, b) => b.name.localeCompare(a.name));
   const html = await generateNotebookHtml(entries);
 
@@ -220,6 +222,7 @@ async function exportAllNotes() {
 async function exportSelectedNotes() {
   const notes = await getVisibleNotes();
   if (notes.length === 0) { alert('No notes match the filter.'); return; }
+  updateStatus(`Exporting\u2026`, true, true);
   const entries = [];
   for (const name of notes) {
     const content = await NoteStorage.getNote(name);
@@ -248,6 +251,7 @@ async function exportSelectedNotes() {
 async function downloadAllNotes() {
   localStorage.setItem('last_backup_time', Date.now().toString());
   updateBackupStatus();
+  updateStatus(`Backing Up\u2026`, true, true);
   const zip = new JSZip();
 
   const allNotes = await NoteStorage.getAllNotes();
@@ -286,6 +290,7 @@ async function downloadAllNotes() {
 async function backupSelectedNotes() {
   localStorage.setItem('last_backup_time', Date.now().toString());
   updateBackupStatus();
+  updateStatus(`Backing Up\u2026`, true, true);
   const notes = await getVisibleNotes();
   if (notes.length === 0) {
     alert('No notes match the filter.');
@@ -325,6 +330,7 @@ async function backupSelectedNotes() {
 // ── Import ────────────────────────────────────────────────────────────────
 
 async function importNotesFromZip(file) {
+  updateStatus(`Importing\u2026`, true, true);
   try {
     const zip = await JSZip.loadAsync(file);
     const entries = [];

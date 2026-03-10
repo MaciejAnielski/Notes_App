@@ -162,7 +162,8 @@ async function updateTodoList(cachedNotes) {
           });
           todoLi.appendChild(span);
 
-          const schedDateMatch = t.line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+          // Extract primary date from any schedule format for dot coloring
+          const schedDateMatch = t.line.match(/>\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/);
           const dot = document.createElement('span');
           dot.className = 'task-status-dot';
           dot.classList.add(getTaskDotClass(schedDateMatch ? schedDateMatch[1] : null));
@@ -216,7 +217,7 @@ function setupPreviewTaskCheckboxes() {
     if (!isCompleted) {
       const dot = document.createElement('span');
       dot.className = 'task-status-dot dot-inline';
-      const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+      const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/);
       dot.classList.add(getTaskDotClass(schedDateMatch ? schedDateMatch[1] : null));
       const li = cb.closest('li');
       if (li) {

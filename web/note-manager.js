@@ -259,10 +259,11 @@ async function loadNote(name, fromLink = false) {
 
 async function newNote() {
   const today = getFormattedDate();
+  const defaultTitle = today + ' Daily Note';
   const existsInList = Array.from(fileList.querySelectorAll('span'))
-    .some(s => s.textContent === today);
+    .some(s => s.textContent === defaultTitle);
   if (!existsInList) {
-    textarea.value = '# ' + today + '\n\n';
+    textarea.value = '# ' + defaultTitle + '\n\n';
   } else {
     textarea.value = '';
   }
@@ -284,8 +285,8 @@ async function newNote() {
   const activeItem = fileList.querySelector('.active-file');
   if (activeItem) activeItem.classList.remove('active-file');
   updateStatus('', true);
-  if (existing === null) {
-    const pos = ('# ' + today).length;
+  if (!existsInList) {
+    const pos = ('# ' + defaultTitle).length;
     textarea.focus();
     textarea.setSelectionRange(pos, pos);
   } else {

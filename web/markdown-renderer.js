@@ -65,9 +65,12 @@ function preprocessMarkdown(text) {
     return `[${display}](${href})`;
   });
 
-  // ── Strip schedule syntax (> YYMMDD HHMM HHMM) from end of lines ──
+  // ── Strip schedule syntax from end of lines ──
+  // Handles: > YYMMDD HHMM HHMM  (timed)
+  //          > YYMMDD YYMMDD      (multi-day)
+  //          > YYMMDD             (all-day)
   {
-    const schedRe = /\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/;
+    const schedRe = /\s*>\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?\s*$/;
     const schedLines = text.split('\n');
     const schedOut = [];
     for (let si = 0; si < schedLines.length; si++) {
