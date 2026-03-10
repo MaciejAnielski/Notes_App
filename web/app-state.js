@@ -66,7 +66,11 @@ let _lastSavedContent = null;
 const PROJECTS_NOTE = 'Projects';
 const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 let projectsViewActive = false;
-const SCHEDULE_RE = /\s*>\s*\d{6}\s+\d{4}\s+\d{4}\s*$/;
+// Matches all schedule syntax variants:
+//   > YYMMDD HHMM HHMM   (timed)
+//   > YYMMDD YYMMDD       (multi-day all-day)
+//   > YYMMDD              (single all-day)
+const SCHEDULE_RE = /\s*>\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?\s*$/;
 
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');
@@ -163,16 +167,21 @@ function saveChain() {
 
 // ── Status display ────────────────────────────────────────────────────────
 
-function updateStatus(message, success) {
+// persistent=true: message stays visible until next updateStatus call
+function updateStatus(message, success, persistent = false) {
   statusDiv.textContent = toTitleCase(message);
   statusDiv.style.color = success ? 'green' : 'red';
   statusDiv.style.opacity = '1';
   backupStatusEl.style.opacity = '0';
   if (statusTimeout) clearTimeout(statusTimeout);
-  statusTimeout = setTimeout(() => {
-    statusDiv.style.opacity = '0';
-    backupStatusEl.style.opacity = '1';
-  }, 3000);
+  if (persistent) {
+    statusTimeout = null;
+  } else {
+    statusTimeout = setTimeout(() => {
+      statusDiv.style.opacity = '0';
+      backupStatusEl.style.opacity = '1';
+    }, 3000);
+  }
 }
 
 function updateBackupStatus() {
@@ -338,13 +347,30 @@ function makeTaskTermPredicate(token) {
 }
 
 function getTaskScheduleStatus(line) {
-  const m = line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
-  if (!m) return 'unscheduled';
   const todayStr = toYYMMDD(new Date());
-  const taskDateStr = m[1];
-  if (taskDateStr < todayStr) return 'overdue';
-  if (taskDateStr === todayStr) return 'today';
-  return 'future';
+  // Timed: > YYMMDD HHMM HHMM
+  let m = line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+  if (m) {
+    if (m[1] < todayStr) return 'overdue';
+    if (m[1] === todayStr) return 'today';
+    return 'future';
+  }
+  // Multi-day: > YYMMDD YYMMDD (start end)
+  m = line.match(/>\s*(\d{6})\s+(\d{6})\s*$/);
+  if (m) {
+    const endDate = m[2];
+    if (endDate < todayStr) return 'overdue';
+    if (m[1] <= todayStr && todayStr <= endDate) return 'today';
+    return 'future';
+  }
+  // All-day: > YYMMDD
+  m = line.match(/>\s*(\d{6})\s*$/);
+  if (m) {
+    if (m[1] < todayStr) return 'overdue';
+    if (m[1] === todayStr) return 'today';
+    return 'future';
+  }
+  return 'unscheduled';
 }
 
 function getTaskDotClass(scheduleDateStr) {

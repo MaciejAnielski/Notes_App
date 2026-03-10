@@ -941,6 +941,27 @@ body.panel-pinned {
   margin-top: 2px;
 }
 
+/* ── Schedule all-day section (above timed grid) ── */
+.schedule-allday-section {
+  padding: 4px 4px 4px 0;
+  border-bottom: 1px solid #444;
+  margin-bottom: 4px;
+}
+
+.schedule-allday-section .schedule-item {
+  position: relative;
+  top: auto;
+  left: 54px;
+  right: 4px;
+  margin-bottom: 2px;
+  box-sizing: border-box;
+}
+
+/* ── Conflict indicator: red text for items within 15 min of each other ── */
+.schedule-item.conflict .schedule-item-name {
+  color: #e05c5c;
+}
+
 /* ── Schedule now indicator ── */
 .schedule-now-indicator {
   position: absolute;

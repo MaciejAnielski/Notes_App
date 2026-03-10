@@ -487,6 +487,8 @@ window.addEventListener('storage', e => {
 // ── External file change sync (Desktop/iOS) ──────────────────────────────
 if (window.electronAPI?.notes?.onExternalChange) {
   window.electronAPI.notes.onExternalChange(async (data) => {
+    // Skip processing sync events while desktop is inactive (paused)
+    if (window._desktopSyncPaused?.()) return;
     invalidateScheduleCache();
     const changedNote = data?.filename?.endsWith('.md')
       ? data.filename.slice(0, -3)
@@ -539,7 +541,7 @@ if (window.Capacitor?.isNativePlatform()) {
   let _iCloudPollKnownNames = null;
   async function checkICloudChanges(showStatus) {
     invalidateScheduleCache();
-    if (showStatus) updateStatus('Checking iCloud\u2026', true);
+    if (showStatus) updateStatus('Syncing\u2026', true, true);
     let changed = false;
     if (currentFileName) {
       const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
@@ -607,6 +609,62 @@ if (window.Capacitor?.isNativePlatform()) {
   document.addEventListener('pause', stopIOSPoll);
 
   _forceSyncCallback = (showStatus) => checkICloudChanges(showStatus);
+
+  // ── iOS inactivity pause: stop polling after 30 min of no user interaction ─
+  {
+    const INACTIVITY_MS = 30 * 60 * 1000;
+    let _inactivityTimer = null;
+    let _iosInactivePaused = false;
+
+    function onIOSActivity() {
+      if (_inactivityTimer) clearTimeout(_inactivityTimer);
+      if (_iosInactivePaused) {
+        _iosInactivePaused = false;
+        startIOSPoll();
+        checkICloudChanges(false);
+      }
+      _inactivityTimer = setTimeout(() => {
+        _iosInactivePaused = true;
+        stopIOSPoll();
+      }, INACTIVITY_MS);
+    }
+
+    document.addEventListener('mousemove', onIOSActivity, { passive: true });
+    document.addEventListener('keydown', onIOSActivity, { passive: true });
+    document.addEventListener('touchstart', onIOSActivity, { passive: true });
+    document.addEventListener('click', onIOSActivity, { passive: true });
+    onIOSActivity();
+  }
+}
+
+// ── Desktop inactivity pause: skip sync processing after 30 min idle ─────────
+if (window.electronAPI?.notes && !window.Capacitor?.isNativePlatform()) {
+  const INACTIVITY_MS = 30 * 60 * 1000;
+  let _desktopInactivityTimer = null;
+  let _desktopInactivePaused = false;
+
+  function onDesktopActivity() {
+    if (_desktopInactivityTimer) clearTimeout(_desktopInactivityTimer);
+    if (_desktopInactivePaused) {
+      _desktopInactivePaused = false;
+      // Trigger a sync check to catch any changes missed while paused
+      if (window.electronAPI?.notes?.forceSync) {
+        window.electronAPI.notes.forceSync();
+      }
+    }
+    _desktopInactivityTimer = setTimeout(() => {
+      _desktopInactivePaused = true;
+    }, INACTIVITY_MS);
+  }
+
+  // Expose paused state so the external change handler can respect it
+  window._desktopSyncPaused = () => _desktopInactivePaused;
+
+  document.addEventListener('mousemove', onDesktopActivity, { passive: true });
+  document.addEventListener('keydown', onDesktopActivity, { passive: true });
+  document.addEventListener('touchstart', onDesktopActivity, { passive: true });
+  document.addEventListener('click', onDesktopActivity, { passive: true });
+  onDesktopActivity();
 }
 
 // ── Clickable status area — force iCloud sync ──────────────────────────────
@@ -624,8 +682,9 @@ if (window.Capacitor?.isNativePlatform()) {
 
   bottomArea.addEventListener('click', async () => {
     if (isDesktop) {
-      updateStatus('Syncing\u2026', true);
+      updateStatus('Syncing\u2026', true, true);
       await window.electronAPI.notes.forceSync();
+      updateStatus('Synced.', true);
     } else if (isIOS && _forceSyncCallback) {
       await _forceSyncCallback(true);
     }
