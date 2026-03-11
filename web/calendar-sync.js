@@ -12,7 +12,7 @@
 // checkbox syntax: [x] CalendarName or [ ] CalendarName.
 
 const CALENDARS_NOTE = 'Calendars';
-const DAILY_NOTE_SUFFIX = ' Daily Notes';
+const DAILY_NOTE_SUFFIX = ' Daily Note';
 const CALENDAR_META_RE = /<!-- calendar_events: ({.*?}) -->/;
 const CALENDAR_SYNC_INTERVAL = 300000; // 5 minutes
 
@@ -340,7 +340,7 @@ async function syncMarkdownToCalendar(calendarIds) {
 
   // Find all daily notes from first sync date onwards
   const allNotes = await NoteStorage.getAllNotes();
-  const dailyNoteRe = /^(\d{6}) Daily Notes$/;
+  const dailyNoteRe = /^(\d{6}) Daily Note$/;
 
   for (const { name, content } of allNotes) {
     const m = name.match(dailyNoteRe);
