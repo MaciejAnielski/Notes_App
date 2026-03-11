@@ -1191,17 +1191,28 @@ body.panel-pinned {
 }
 
 /* ── MathJax overflow: prevent horizontal overflow on narrow screens ── */
-/* Block / display math: scrollable if wider than screen */
-#preview mjx-container[display="true"] {
-  display: block;
+/* Block / display math: wrapped in a scrollable div by renderPreview() */
+.math-scroll-wrapper {
   overflow-x: auto;
+  overflow-y: hidden;
   max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px; /* breathing room for scrollbar */
 }
 
-/* Inline math: allow wrapping so it doesn't push beyond the viewport */
+/* Keep the mjx-container itself from forcing width on the wrapper */
+.math-scroll-wrapper mjx-container[display="true"],
+#preview mjx-container[display="true"] {
+  display: block;
+  max-width: none; /* let parent wrapper scroll it */
+}
+
+/* Inline math: allow overflowing line with scroll on narrow screens */
 #preview mjx-container:not([display="true"]) {
   max-width: 100%;
-  overflow-wrap: break-word;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  vertical-align: middle;
 }
 
 /* Fallback for older MathJax CHTML class names */

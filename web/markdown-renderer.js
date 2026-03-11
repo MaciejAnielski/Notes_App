@@ -274,10 +274,31 @@ async function setupNoteLinks(container = previewDiv) {
       }
       return;
     }
-    // External links: open in new tab
+    // External links: open in system default browser on desktop/iOS,
+    // or in a new tab on plain web.
     if (/^[a-zA-Z]+:/.test(href)) {
-      a.setAttribute('target', '_blank');
-      a.setAttribute('rel', 'noopener noreferrer');
+      if (window.electronAPI) {
+        // Electron desktop: route through shell.openExternal so the OS
+        // default browser is used instead of a new Electron window.
+        a.removeAttribute('target');
+        a.removeAttribute('rel');
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          window.electronAPI.notes.openExternal(href);
+        });
+      } else if (window.Capacitor) {
+        // iOS (Capacitor): use App.openUrl so the default browser opens.
+        a.removeAttribute('target');
+        a.removeAttribute('rel');
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          const App = window.Capacitor?.Plugins?.App;
+          if (App) App.openUrl({ url: href });
+        });
+      } else {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      }
       return;
     }
     // Anchor links: don't modify
@@ -454,6 +475,16 @@ async function renderPreview() {
   await resolveAttachments(previewDiv);
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]).then(() => {
+      // Wrap each block-level equation in a scrollable container so that
+      // long formulas scroll horizontally instead of spilling off-screen.
+      previewDiv.querySelectorAll('mjx-container[display="true"]').forEach(el => {
+        if (!el.parentElement.classList.contains('math-scroll-wrapper')) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'math-scroll-wrapper';
+          el.parentNode.insertBefore(wrapper, el);
+          wrapper.appendChild(el);
+        }
+      });
       setupClickableMathFormulas();
     });
   }

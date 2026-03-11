@@ -740,6 +740,18 @@ if (savedChain) {
       window.scrollTo(0, 0);
       gsKeyboardOffset = Math.max(0, fullViewportHeight - vv.height);
       globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
+
+      // Scroll the textarea so the cursor remains visible above the keyboard.
+      if (document.activeElement === textarea && !isPreview) {
+        const cursorPos = textarea.selectionStart;
+        const textBefore = textarea.value.substring(0, cursorPos);
+        const lineNumber = textBefore.split('\n').length;
+        const style = window.getComputedStyle(textarea);
+        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
+        const targetScroll = (lineNumber - 1) * lineHeight;
+        // Position cursor roughly one-third from the top of the visible area.
+        textarea.scrollTop = Math.max(0, targetScroll - vv.height / 3);
+      }
     };
 
     window.visualViewport.addEventListener('resize', adjustForKeyboard);
