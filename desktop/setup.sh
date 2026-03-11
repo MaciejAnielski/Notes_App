@@ -15,5 +15,6 @@ fi
 # Install npm dependencies
 cd "$SCRIPT_DIR"
 npm install
+npm audit fix
 echo ""
 echo "Setup complete! Run 'npm start' to launch the desktop app."
