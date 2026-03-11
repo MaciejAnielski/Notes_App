@@ -1162,7 +1162,6 @@ body.panel-pinned {
   color: #7a6a8a;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   display: block;
 }
 
@@ -1219,6 +1218,16 @@ body.panel-pinned {
   cursor: pointer;
   border-bottom: 1px dashed #a272b0;
   transition: opacity 0.15s;
+}
+
+/* Block (display) formulas: shrink the clickable container to fit-content so
+   the dashed underline only appears beneath the equation itself, not across
+   the full line width. */
+.math-evaluable[display="true"] {
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 .math-evaluable:hover {
