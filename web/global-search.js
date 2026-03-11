@@ -98,6 +98,17 @@ function gsRenderResults(results, query) {
     li.addEventListener('click', () => gsSelectResult(i));
     gsResults.appendChild(li);
   });
+
+  // Scroll each snippet so the highlighted match is always visible.
+  // overflow:hidden clips the text but still allows programmatic scrollLeft.
+  requestAnimationFrame(() => {
+    gsResults.querySelectorAll('.gs-snippet').forEach(snippet => {
+      const markEl = snippet.querySelector('mark');
+      if (markEl) {
+        snippet.scrollLeft = Math.max(0, markEl.offsetLeft - 30);
+      }
+    });
+  });
 }
 
 async function gsSelectResult(index) {

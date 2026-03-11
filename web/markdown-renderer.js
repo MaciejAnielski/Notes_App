@@ -474,6 +474,11 @@ async function renderPreview() {
   setupPreviewTaskCheckboxes();
   await resolveAttachments(previewDiv);
   if (window.MathJax) {
+    // Inform MathJax of the actual container width so that multline and
+    // automatic line-breaking lay out equations within the visible area.
+    if (MathJax.startup?.output?.options) {
+      MathJax.startup.output.options.containerWidth = previewDiv.clientWidth;
+    }
     MathJax.typesetPromise([previewDiv]).then(() => {
       setupClickableMathFormulas();
     });

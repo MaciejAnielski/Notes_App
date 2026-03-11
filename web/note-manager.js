@@ -218,6 +218,17 @@ async function autoSaveNote() {
 async function loadNote(name, fromLink = false) {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
+
+  // If reloading the same note that is already open, flush any pending edits
+  // to storage first so that changes (e.g. adding/removing ">" on a heading)
+  // are not lost when the content is read back from storage below.
+  if (currentFileName === name && textarea.value !== _lastSavedContent) {
+    try {
+      await NoteStorage.setNote(name, textarea.value);
+      _lastSavedContent = textarea.value;
+    } catch (_) { /* ignore — content is still in textarea */ }
+  }
+
   if (!fromLink) {
     linkedNoteChain = [];
     saveChain();
