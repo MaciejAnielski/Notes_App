@@ -944,7 +944,6 @@ body.panel-pinned {
 /* ── Schedule all-day section (above timed grid) ── */
 .schedule-allday-section {
   padding: 4px 4px 4px 0;
-  border-bottom: 1px solid #444;
   margin-bottom: 4px;
 }
 
