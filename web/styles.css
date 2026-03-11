@@ -1278,7 +1278,7 @@ body.panel-pinned {
 
   #status-message {
     z-index: 11;
-    bottom: max(env(safe-area-inset-bottom), 24px);
+    bottom: 4px;
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
