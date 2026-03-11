@@ -363,6 +363,7 @@ function registerNoteHandlers() {
   ipcMain.handle('notes:forceSync', async () => {
     await fullSync();
     // Notify the renderer that notes may have changed after the sync.
+    const win = BrowserWindow.getAllWindows()[0];
     if (win && !win.isDestroyed()) {
       win.webContents.send('notes:changed', { eventType: 'change', filename: '*' });
     }
