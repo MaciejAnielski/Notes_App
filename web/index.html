@@ -23,7 +23,9 @@
           packages: {'[+]': ['ams']}
         },
         chtml: {
-          linebreaks: { automatic: true }
+          // Disable automatic line-breaking — long equations scroll horizontally
+          // instead of being broken across multiple lines.
+          linebreaks: { automatic: false }
         },
         startup: {
           typeset: false
@@ -31,6 +33,20 @@
       };
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+      // Mermaid will be initialized after DOM load; configure dark theme.
+      window.addEventListener('load', () => {
+        if (window.mermaid) {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'strict',
+            fontFamily: 'Arial, sans-serif'
+          });
+        }
+      });
+    </script>
 
 </head>
 
@@ -151,6 +167,8 @@
   <script defer src="export-import.js"></script>
   <script defer src="global-search.js"></script>
   <script defer src="math-eval.js"></script>
+  <script defer src="notifications.js"></script>
+  <script defer src="calendar-sync.js"></script>
   <script defer src="app-init.js"></script>
 </body>
 </html>

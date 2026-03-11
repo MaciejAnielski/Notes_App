@@ -1189,21 +1189,24 @@ body.panel-pinned {
   font-style: normal;
 }
 
-/* ── MathJax overflow: constrain math to container width ── */
-/* Block / display math: override MathJax's inline max-width so the container
-   is capped at the parent's width; scroll horizontally when a formula is too
-   wide for MathJax's automatic line-breaking to handle. */
+/* ── MathJax overflow: long equations scroll horizontally ── */
+/* Block / display math: cap at parent width, scroll when too wide. */
 #preview mjx-container[display="true"] {
-  display: block;
+  display: block !important;
   max-width: 100% !important;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Inline math: same override so inline formulas never overflow the line */
+/* Inline math: cap at line width, scroll when too wide. */
 #preview mjx-container:not([display="true"]) {
+  display: inline-block;
   max-width: 100% !important;
   overflow-x: auto;
+  overflow-y: hidden;
   vertical-align: middle;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Fallback for older MathJax CHTML class names */
@@ -1211,6 +1214,33 @@ body.panel-pinned {
 #preview .MathJax[display="true"] {
   max-width: 100% !important;
   overflow-x: auto;
+}
+
+/* ── Plain (non-task) checkboxes ── */
+.plain-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin: 0.15em 0;
+}
+
+.plain-checkbox input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* ── Mermaid diagrams ── */
+.mermaid-diagram {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.75em 0;
+  text-align: center;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ── Clickable Math Formulas ── */

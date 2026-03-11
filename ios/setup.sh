@@ -17,7 +17,8 @@ cd "$SCRIPT_DIR"
 
 rm -rf ios
 
-# Install npm dependencies (also links the local capacitor-icloud plugin).
+# Install npm dependencies (also links the local capacitor-icloud and
+# capacitor-calendar plugins).
 npm install
 
 # Fix any npm issues
@@ -69,6 +70,18 @@ if [ -f "$INFO_PLIST" ]; then
   else
     echo "Info.plist already has file sharing keys."
   fi
+
+  # Add calendar permission keys if not present
+  if ! grep -q "NSCalendarsUsageDescription" "$INFO_PLIST"; then
+    sed -i '' 's|</dict>|<key>NSCalendarsUsageDescription</key>\
+	<string>Notes App uses your calendar to sync events with your daily notes.</string>\
+	<key>NSCalendarsFullAccessUsageDescription</key>\
+	<string>Notes App needs full calendar access to create, read, and update events for bidirectional sync with your daily notes.</string>\
+</dict>|' "$INFO_PLIST"
+    echo "Info.plist updated: Calendar permission descriptions added"
+  else
+    echo "Info.plist already has calendar permission keys."
+  fi
 else
   echo "WARNING: Info.plist not found. Add these keys manually in Xcode:"
   echo "  UIFileSharingEnabled = YES"
@@ -88,6 +101,7 @@ echo "  2. Set your Team (Apple Developer account)"
 echo "  3. If iCloud capability is not visible, click '+ Capability' > iCloud"
 echo "  4. Under iCloud, ensure 'iCloud Documents' is checked"
 echo "  5. Ensure container 'iCloud.com.notesapp.ios' is selected"
+echo "  6. Calendar access is configured automatically via Info.plist"
 echo ""
 echo "In Apple Developer Portal (developer.apple.com):"
 echo "  1. Go to Certificates, Identifiers & Profiles"
