@@ -13,6 +13,10 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Remove previous ios app folder.
+
+rm -rf SCRIPT_DIR
+
 # Install npm dependencies (also links the local capacitor-icloud plugin).
 npm install
 
@@ -66,43 +70,6 @@ else
   echo "  UIFileSharingEnabled = YES"
   echo "  LSSupportsOpeningDocumentsInPlace = YES"
   echo "  NSUbiquitousContainers with iCloud.com.notesapp.ios"
-fi
-
-# ── iCloud entitlements ──
-# After Capacitor generates the native project, inject the iCloud Documents
-# entitlement so the app can access its iCloud container.
-ENTITLEMENTS_FILE="$SCRIPT_DIR/App/App/App.entitlements"
-if [ -f "$ENTITLEMENTS_FILE" ]; then
-  # Check if iCloud entitlement already exists
-  if ! grep -q "com.apple.developer.icloud-container-identifiers" "$ENTITLEMENTS_FILE"; then
-    # Write the entitlements file with iCloud Documents enabled
-    cat > "$ENTITLEMENTS_FILE" << 'ENTITLEMENTS_EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>com.apple.developer.icloud-container-identifiers</key>
-	<array>
-		<string>iCloud.com.notesapp.ios</string>
-	</array>
-	<key>com.apple.developer.icloud-services</key>
-	<array>
-		<string>CloudDocuments</string>
-	</array>
-	<key>com.apple.developer.ubiquity-container-identifiers</key>
-	<array>
-		<string>iCloud.com.notesapp.ios</string>
-	</array>
-</dict>
-</plist>
-ENTITLEMENTS_EOF
-    echo "iCloud entitlements added to App.entitlements"
-  else
-    echo "iCloud entitlements already configured."
-  fi
-else
-  echo "WARNING: App.entitlements not found at $ENTITLEMENTS_FILE"
-  echo "You may need to add iCloud entitlements manually in Xcode."
 fi
 
 echo ""
