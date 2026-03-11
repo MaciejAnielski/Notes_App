@@ -15,7 +15,7 @@ cd "$SCRIPT_DIR"
 
 # Remove previous ios app folder.
 
-rm -rf SCRIPT_DIR
+rm -rf ios
 
 # Install npm dependencies (also links the local capacitor-icloud plugin).
 npm install
