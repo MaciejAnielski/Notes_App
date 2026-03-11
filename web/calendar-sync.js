@@ -256,12 +256,8 @@ async function syncCalendarToMarkdown(calendarIds) {
     let isNew = false;
 
     if (content === null) {
-      // Create daily note
-      const d = yymmddToDate(dateStr);
-      const title = d.toLocaleDateString('en-US', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
-      content = `# ${title}\n\n`;
+      // Create daily note — heading matches the file name
+      content = `# ${noteName}\n\n`;
       isNew = true;
     }
 
