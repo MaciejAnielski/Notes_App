@@ -211,6 +211,27 @@ function preprocessMarkdown(text) {
     text = out.join('\n');
   }
 
+  // ── Non-task checkboxes: [ ] text and [x] text (without leading "- ") ──
+  // These render as interactive checkboxes but are NOT counted as tasks.
+  {
+    const cbLines = text.split('\n');
+    let inFence = false;
+    text = cbLines.map(line => {
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (inFence) return line;
+      // Match lines starting with [ ] or [x]/[X] that are NOT preceded by "- "
+      const m = line.match(/^(\s*)\[( |[xX])\]\s(.*)$/);
+      if (m && !/^(\s*)- \[/.test(line)) {
+        const indent = m[1];
+        const checked = m[2] !== ' ';
+        const content = m[3];
+        const checkedAttr = checked ? ' checked' : '';
+        return `${indent}<label class="plain-checkbox"><input type="checkbox"${checkedAttr} data-plain-cb> ${content}</label>`;
+      }
+      return line;
+    }).join('\n');
+  }
+
   // ── Footnotes ──
   const defs = {};
   text = text.replace(/^\[\^([^\]]+)\]:\s*(.+)$/gm, (_, id, def) => {
@@ -465,6 +486,58 @@ async function openAttachmentOnIOS(noteName, filename) {
   }
 }
 
+function setupPlainCheckboxes(container) {
+  const checkboxes = container.querySelectorAll('input[data-plain-cb]');
+  checkboxes.forEach(cb => {
+    cb.disabled = false;
+    cb.addEventListener('change', () => {
+      // Find all plain checkboxes in source and toggle the matching one
+      const lines = textarea.value.split('\n');
+      const plainCbRe = /^(\s*)\[( |[xX])\]\s/;
+      let cbIndex = 0;
+      const allPlainCbs = container.querySelectorAll('input[data-plain-cb]');
+      const targetIdx = Array.from(allPlainCbs).indexOf(cb);
+
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(plainCbRe);
+        if (m && !/^\s*- \[/.test(lines[i])) {
+          if (cbIndex === targetIdx) {
+            lines[i] = lines[i].replace(plainCbRe, `$1[${cb.checked ? 'x' : ' '}] `);
+            break;
+          }
+          cbIndex++;
+        }
+      }
+      textarea.value = lines.join('\n');
+      if (currentFileName) {
+        NoteStorage.setNote(currentFileName, textarea.value);
+      }
+      renderPreview();
+    });
+  });
+}
+
+async function renderMermaidDiagrams(container) {
+  if (!window.mermaid) return;
+  const codeBlocks = container.querySelectorAll('pre code.language-mermaid');
+  let mermaidId = 0;
+  for (const codeEl of codeBlocks) {
+    const pre = codeEl.parentElement;
+    const source = codeEl.textContent;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mermaid-diagram';
+    const id = 'mermaid-' + Date.now() + '-' + (mermaidId++);
+    try {
+      const { svg } = await mermaid.render(id, source);
+      wrapper.innerHTML = svg;
+    } catch {
+      wrapper.textContent = 'Mermaid diagram error';
+      wrapper.style.color = '#e05c5c';
+    }
+    pre.replaceWith(wrapper);
+  }
+}
+
 async function renderPreview() {
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
@@ -472,13 +545,10 @@ async function renderPreview() {
   setupCollapsibleHeadings(previewDiv);
   alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
+  setupPlainCheckboxes(previewDiv);
   await resolveAttachments(previewDiv);
+  await renderMermaidDiagrams(previewDiv);
   if (window.MathJax) {
-    // Inform MathJax of the actual container width so that multline and
-    // automatic line-breaking lay out equations within the visible area.
-    if (MathJax.startup?.output?.options) {
-      MathJax.startup.output.options.containerWidth = previewDiv.clientWidth;
-    }
     MathJax.typesetPromise([previewDiv]).then(() => {
       setupClickableMathFormulas();
     });

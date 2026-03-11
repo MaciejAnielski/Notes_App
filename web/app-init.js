@@ -733,6 +733,29 @@ if (savedChain) {
   // ── iOS keyboard / visual viewport handling ──────────────────────────────
   if (window.visualViewport) {
     const fullViewportHeight = window.innerHeight;
+    let _keyboardScrollTimer = null;
+
+    const scrollCursorIntoView = () => {
+      if (document.activeElement !== textarea || isPreview) return;
+      const vv = window.visualViewport;
+      const cursorPos = textarea.selectionStart;
+      const textBefore = textarea.value.substring(0, cursorPos);
+      const lineNumber = textBefore.split('\n').length;
+      const style = window.getComputedStyle(textarea);
+      const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
+      const cursorY = (lineNumber - 1) * lineHeight;
+
+      // Visible height of the textarea within the viewport
+      const taRect = textarea.getBoundingClientRect();
+      const visibleHeight = Math.min(taRect.bottom, vv.height) - Math.max(taRect.top, 0);
+      const cursorInViewTop = cursorY - textarea.scrollTop;
+
+      // If cursor is below the visible area or too close to the bottom, scroll it into view
+      const padding = lineHeight * 2;
+      if (cursorInViewTop > visibleHeight - padding || cursorInViewTop < 0) {
+        textarea.scrollTop = Math.max(0, cursorY - visibleHeight / 3);
+      }
+    };
 
     const adjustForKeyboard = () => {
       const vv = window.visualViewport;
@@ -741,22 +764,29 @@ if (savedChain) {
       gsKeyboardOffset = Math.max(0, fullViewportHeight - vv.height);
       globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
 
-      // Scroll the textarea so the cursor remains visible above the keyboard.
-      if (document.activeElement === textarea && !isPreview) {
-        const cursorPos = textarea.selectionStart;
-        const textBefore = textarea.value.substring(0, cursorPos);
-        const lineNumber = textBefore.split('\n').length;
-        const style = window.getComputedStyle(textarea);
-        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
-        const targetScroll = (lineNumber - 1) * lineHeight;
-        // Position cursor roughly one-third from the top of the visible area.
-        textarea.scrollTop = Math.max(0, targetScroll - vv.height / 3);
-      }
+      // Debounce cursor scroll — the viewport fires multiple resize events
+      // when the iOS keyboard animates open; wait for it to settle.
+      clearTimeout(_keyboardScrollTimer);
+      _keyboardScrollTimer = setTimeout(scrollCursorIntoView, 100);
     };
 
     window.visualViewport.addEventListener('resize', adjustForKeyboard);
     window.visualViewport.addEventListener('scroll', () => {
       window.scrollTo(0, 0);
+    });
+
+    // Also scroll cursor into view on selection changes (e.g. tap to reposition)
+    textarea.addEventListener('input', () => {
+      if (gsKeyboardOffset > 0) {
+        clearTimeout(_keyboardScrollTimer);
+        _keyboardScrollTimer = setTimeout(scrollCursorIntoView, 50);
+      }
+    });
+    textarea.addEventListener('click', () => {
+      if (gsKeyboardOffset > 0) {
+        clearTimeout(_keyboardScrollTimer);
+        _keyboardScrollTimer = setTimeout(scrollCursorIntoView, 50);
+      }
     });
   }
 })();
