@@ -1190,26 +1190,28 @@ body.panel-pinned {
   font-style: normal;
 }
 
-/* ── MathJax overflow: allow block math to break across lines ── */
-/* Block / display math: constrain to container width so MathJax line-breaking applies */
+/* ── MathJax overflow: constrain math to container width ── */
+/* Block / display math: override MathJax's inline max-width so the container
+   is capped at the parent's width; scroll horizontally when a formula is too
+   wide for MathJax's automatic line-breaking to handle. */
 #preview mjx-container[display="true"] {
   display: block;
-  max-width: 100%;
-  overflow-x: visible;
+  max-width: 100% !important;
+  overflow-x: auto;
 }
 
-/* Inline math: constrain width, no horizontal scroll */
+/* Inline math: same override so inline formulas never overflow the line */
 #preview mjx-container:not([display="true"]) {
-  max-width: 100%;
-  overflow-x: visible;
+  max-width: 100% !important;
+  overflow-x: auto;
   vertical-align: middle;
 }
 
 /* Fallback for older MathJax CHTML class names */
 #preview .MathJax_Display,
 #preview .MathJax[display="true"] {
-  max-width: 100%;
-  overflow-x: visible;
+  max-width: 100% !important;
+  overflow-x: auto;
 }
 
 /* ── Clickable Math Formulas ── */
