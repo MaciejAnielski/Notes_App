@@ -256,12 +256,8 @@ async function syncCalendarToMarkdown(calendarIds) {
     let isNew = false;
 
     if (content === null) {
-      // Create daily note
-      const d = yymmddToDate(dateStr);
-      const title = d.toLocaleDateString('en-US', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
-      content = `# ${title}\n\n`;
+      // Create daily note — heading matches the file name
+      content = `# ${noteName}\n\n`;
       isNew = true;
     }
 
@@ -400,6 +396,58 @@ async function syncMarkdownToCalendar(calendarIds) {
   }
 }
 
+// ── One-time migration: "YYMMDD Daily Notes" → "YYMMDD Daily Note" ──────────
+// Also fixes the "# Title" heading inside each note to match the new name.
+
+const MIGRATION_KEY = 'calendar_daily_notes_migrated';
+
+async function migrateDailyNoteNames() {
+  if (localStorage.getItem(MIGRATION_KEY)) return;
+
+  const allNotes = await NoteStorage.getAllNotes();
+  const oldRe = /^(\d{6}) Daily Notes$/;
+
+  for (const { name, content } of allNotes) {
+    const m = name.match(oldRe);
+    if (!m) continue;
+
+    const dateStr = m[1];
+    const newName = dateStr + ' Daily Note';
+
+    // Check whether the new name already exists
+    const existing = await NoteStorage.getNote(newName);
+
+    let finalContent;
+    if (existing) {
+      // Merge: append old content (minus its heading) into the existing note
+      const oldBody = content.replace(/^#\s+.*\n?/, '');
+      finalContent = existing.trimEnd() + '\n' + oldBody;
+    } else {
+      finalContent = content;
+    }
+
+    // Fix the heading to match the new filename
+    if (/^#\s/.test(finalContent)) {
+      finalContent = finalContent.replace(/^#\s+.*/, `# ${newName}`);
+    } else {
+      finalContent = `# ${newName}\n` + finalContent;
+    }
+
+    await NoteStorage.setNote(newName, finalContent);
+    await NoteStorage.removeNote(name);
+
+    // If the user currently has the old note open, switch to the new one
+    if (currentFileName === name) {
+      currentFileName = newName;
+      localStorage.setItem('current_file', newName);
+      textarea.value = finalContent;
+      if (isPreview) renderPreview();
+    }
+  }
+
+  localStorage.setItem(MIGRATION_KEY, '1');
+}
+
 // ── Main sync orchestrator ───────────────────────────────────────────────────
 
 async function runCalendarSync() {
@@ -416,6 +464,9 @@ async function runCalendarSync() {
       access = await plugin.requestAccess();
     } catch { return; }
     if (!access.granted) return;
+
+    // One-time rename: "YYMMDD Daily Notes" → "YYMMDD Daily Note"
+    await migrateDailyNoteNames();
 
     // Ensure Calendars note exists
     await updateCalendarsNote();
