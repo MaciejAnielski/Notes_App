@@ -156,6 +156,10 @@ async function updateTodoList(cachedNotes) {
                   const startOffset = lines.slice(0, t.idx).reduce((acc, l) => acc + l.length + 1, 0);
                   textarea.setSelectionRange(startOffset, startOffset + lines[t.idx].length);
                   textarea.focus();
+                  // Scroll so the selected line is vertically centred in the textarea.
+                  const style = window.getComputedStyle(textarea);
+                  const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+                  textarea.scrollTop = Math.max(0, t.idx * lineHeight - textarea.clientHeight / 2);
                 }
               }
             }, 50);

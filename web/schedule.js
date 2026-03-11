@@ -251,6 +251,10 @@ function _makeScheduleBlock(item, extraClass) {
           textarea.setSelectionRange(startOffset,
             startOffset + lines[item.lineIndex].length);
           textarea.focus();
+          // Scroll so the selected line is vertically centred in the textarea.
+          const style = window.getComputedStyle(textarea);
+          const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+          textarea.scrollTop = Math.max(0, item.lineIndex * lineHeight - textarea.clientHeight / 2);
         }
       }
     }, 50);
@@ -280,7 +284,7 @@ async function renderSchedule() {
   const allDayItems = allItems.filter(it => it.isAllDay);
   const timedItems  = allItems.filter(it => !it.isAllDay);
 
-  // ── Conflict detection: timed items within 15 min of each other ───────────
+  // ── Conflict detection: timed items whose starts are < 15 min apart ─────
   timedItems.forEach((item, i) => {
     const startMin = parseInt(item.startTime.slice(0, 2)) * 60 +
                      parseInt(item.startTime.slice(2));
@@ -288,7 +292,7 @@ async function renderSchedule() {
       if (i === j) return false;
       const otherMin = parseInt(other.startTime.slice(0, 2)) * 60 +
                        parseInt(other.startTime.slice(2));
-      return Math.abs(startMin - otherMin) <= 15;
+      return Math.abs(startMin - otherMin) < 15;
     });
   });
 

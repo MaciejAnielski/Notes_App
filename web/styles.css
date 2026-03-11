@@ -1190,25 +1190,26 @@ body.panel-pinned {
   font-style: normal;
 }
 
-/* ── MathJax overflow: prevent horizontal overflow on narrow screens ── */
-/* Block / display math: scrollable if wider than screen */
+/* ── MathJax overflow: allow block math to break across lines ── */
+/* Block / display math: constrain to container width so MathJax line-breaking applies */
 #preview mjx-container[display="true"] {
   display: block;
-  overflow-x: auto;
   max-width: 100%;
+  overflow-x: visible;
 }
 
-/* Inline math: allow wrapping so it doesn't push beyond the viewport */
+/* Inline math: constrain width, no horizontal scroll */
 #preview mjx-container:not([display="true"]) {
   max-width: 100%;
-  overflow-wrap: break-word;
+  overflow-x: visible;
+  vertical-align: middle;
 }
 
 /* Fallback for older MathJax CHTML class names */
 #preview .MathJax_Display,
 #preview .MathJax[display="true"] {
-  overflow-x: auto;
   max-width: 100%;
+  overflow-x: visible;
 }
 
 /* ── Clickable Math Formulas ── */

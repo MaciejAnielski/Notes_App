@@ -265,7 +265,7 @@ async function newNote() {
   if (!existsInList) {
     textarea.value = '# ' + defaultTitle + '\n\n';
   } else {
-    textarea.value = '';
+    textarea.value = '# ';
   }
   if (isPreview) {
     toggleView();
@@ -291,6 +291,7 @@ async function newNote() {
     textarea.setSelectionRange(pos, pos);
   } else {
     textarea.focus();
+    textarea.setSelectionRange('# '.length, '# '.length);
   }
   updateFileList();
 }

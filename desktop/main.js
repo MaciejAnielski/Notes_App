@@ -420,6 +420,10 @@ function registerNoteHandlers() {
     await shell.openPath(filePath);
   });
 
+  ipcMain.handle('notes:openExternal', async (_event, url) => {
+    await shell.openExternal(url);
+  });
+
   ipcMain.handle('notes:listAttachments', async (_event, noteName) => {
     if (!notesDir) return [];
     const attDir = path.join(notesDir, noteNameToAttachmentDir(noteName));
