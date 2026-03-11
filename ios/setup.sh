@@ -20,6 +20,10 @@ rm -rf ios
 # Install npm dependencies (also links the local capacitor-icloud plugin).
 npm install
 
+# Fix any npm issues
+
+npm audit fix
+
 # Copy web files to www/
 mkdir -p www
 cp -r ../web/* www/
