@@ -36,7 +36,7 @@ body {
 
 /* ── Button container — Word-style menu bar ── */
 #button-container {
-  margin: 5px 0 0 6px;
+  margin: 0px;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -57,7 +57,7 @@ body {
   flex-shrink: 0;
   text-align: center;
   padding: 1px 0;
-  margin-bottom: 0;
+  margin-bottom: 0px;
   border-radius: 4px;
   transition: background-color 0.2s ease;
 }
@@ -1268,13 +1268,12 @@ body.panel-pinned {
     z-index: 10;
     background-color: #1e1e1e;
     text-align: center;
-    padding: 4px 0;
-    padding-bottom: max(env(safe-area-inset-bottom), 24px);
+    padding: 4px;
   }
 
   /* Push editor/preview content above the fixed status bar */
   #editor-section {
-    padding-bottom: calc(55px + max(env(safe-area-inset-bottom), 24px));
+    padding-bottom: calc(50px + env(safe-area-inset-bottom));
   }
 
   #status-message {
