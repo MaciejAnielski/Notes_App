@@ -475,16 +475,6 @@ async function renderPreview() {
   await resolveAttachments(previewDiv);
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]).then(() => {
-      // Wrap each block-level equation in a scrollable container so that
-      // long formulas scroll horizontally instead of spilling off-screen.
-      previewDiv.querySelectorAll('mjx-container[display="true"]').forEach(el => {
-        if (!el.parentElement.classList.contains('math-scroll-wrapper')) {
-          const wrapper = document.createElement('div');
-          wrapper.className = 'math-scroll-wrapper';
-          el.parentNode.insertBefore(wrapper, el);
-          wrapper.appendChild(el);
-        }
-      });
       setupClickableMathFormulas();
     });
   }
