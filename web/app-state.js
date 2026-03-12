@@ -71,7 +71,7 @@ let projectsViewActive = false;
 //   > YYMMDD HHMM HHMM   (timed)
 //   > YYMMDD YYMMDD       (multi-day all-day)
 //   > YYMMDD              (single all-day)
-const SCHEDULE_RE = /\s*>\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?\s*$/;
+const SCHEDULE_RE = /\s*>\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?(?:\s+@\S+)?\s*$/;
 
 const savedPreview = localStorage.getItem('is_preview') === 'true';
 const lastFile = localStorage.getItem('current_file');

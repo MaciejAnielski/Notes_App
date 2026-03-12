@@ -11,6 +11,7 @@ const {
   syncMarkdownToCalendar,
   syncCalendarToMarkdown,
   _resetForTesting,
+  getCalendarsByTitle,
 } = require('../calendar-sync.js');
 
 // ── Pure function tests ───────────────────────────────────────────────────────
@@ -167,6 +168,12 @@ function makePlugin(overrides = {}) {
     updateEvent: jest.fn().mockResolvedValue({}),
     deleteEvent: jest.fn().mockResolvedValue({}),
     getOrCreateCalendar: jest.fn().mockResolvedValue({ calendarId: 'notes-cal-id' }),
+    listCalendars: jest.fn().mockResolvedValue({
+      calendars: [
+        { id: 'work-cal-id',     title: 'Work' },
+        { id: 'personal-cal-id', title: 'Personal' },
+      ]
+    }),
     ...overrides,
   };
 }
@@ -375,6 +382,7 @@ describe('syncCalendarToMarkdown', () => {
       getFirstSyncDate: jest.fn().mockResolvedValue({ date: new Date('2026-01-01').toISOString() }),
       setFirstSyncDate: jest.fn().mockResolvedValue({}),
       fetchEvents: jest.fn().mockResolvedValue({ events }),
+      getOrCreateCalendar: jest.fn().mockResolvedValue({ calendarId: 'notes-cal-id' }),
     };
   }
 
@@ -382,10 +390,12 @@ describe('syncCalendarToMarkdown', () => {
     global.window.Capacitor = { Plugins: { CalendarPlugin: plugin } };
   }
 
-  const makeEvent = (id, title, allDay = true) => ({
+  const makeEvent = (id, title, allDay = true, calendarId = 'notes-cal-id', calendarTitle = 'Notes App Events') => ({
     eventId: id,
     title,
     allDay,
+    calendarId,
+    calendarTitle,
     startDate: new Date(FUTURE_DATE.getFullYear(), FUTURE_DATE.getMonth(), FUTURE_DATE.getDate()).toISOString(),
     endDate: new Date(FUTURE_DATE.getFullYear(), FUTURE_DATE.getMonth(), FUTURE_DATE.getDate() + 1).toISOString(),
   });
@@ -441,5 +451,214 @@ describe('syncCalendarToMarkdown', () => {
 
     expect(plugin.fetchEvents).not.toHaveBeenCalled();
     expect(NoteStorage.setNote).not.toHaveBeenCalled();
+  });
+
+  test('@tag: event from non-Notes-App-Events calendar gets @CalendarTitle appended', async () => {
+    const plugin = makeCalPlugin([
+      makeEvent('e5', 'Yoga Class', true, 'work-cal-id', 'Work'),
+    ]);
+    setupCalPlugin(plugin);
+
+    NoteStorage.getNote.mockResolvedValue(null);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncCalendarToMarkdown(['work-cal-id']);
+
+    const savedContent = NoteStorage.setNote.mock.calls[0][1];
+    expect(savedContent).toContain('@Work');
+    const meta = parseCalendarMetadata(savedContent);
+    expect(meta.events[0].calendarTag).toBe('Work');
+  });
+
+  test('@tag: event from Notes App Events calendar does NOT get @tag', async () => {
+    const plugin = makeCalPlugin([
+      makeEvent('e6', 'My Meeting', true, 'notes-cal-id', 'Notes App Events'),
+    ]);
+    setupCalPlugin(plugin);
+
+    NoteStorage.getNote.mockResolvedValue(null);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncCalendarToMarkdown(['notes-cal-id']);
+
+    const savedContent = NoteStorage.setNote.mock.calls[0][1];
+    expect(savedContent).not.toContain('@');
+    const meta = parseCalendarMetadata(savedContent);
+    expect(meta.events[0].calendarTag).toBeNull();
+  });
+
+  test('@tag: calendar title with spaces has spaces stripped in tag', async () => {
+    const plugin = makeCalPlugin([
+      makeEvent('e7', 'Sprint Review', true, 'team-cal-id', 'Team Calendar'),
+    ]);
+    setupCalPlugin(plugin);
+
+    NoteStorage.getNote.mockResolvedValue(null);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncCalendarToMarkdown(['team-cal-id']);
+
+    const savedContent = NoteStorage.setNote.mock.calls[0][1];
+    expect(savedContent).toContain('@TeamCalendar');
+    expect(savedContent).not.toContain('@ ');
+  });
+});
+
+// ── @CalendarName tag — parseMarkdownEvents tests ────────────────────────────
+
+describe('parseMarkdownEvents — @CalendarName tag', () => {
+  test('all-day event with @tag: captures calendarTag, text unaffected', () => {
+    const events = parseMarkdownEvents('Meeting > 260315 @Work\n', '260315');
+    expect(events).toHaveLength(1);
+    expect(events[0].text).toBe('Meeting');
+    expect(events[0].calendarTag).toBe('Work');
+    expect(events[0].allDay).toBe(true);
+  });
+
+  test('timed event with @tag: captures calendarTag, text unaffected', () => {
+    const events = parseMarkdownEvents('Standup > 260315 0900 0930 @Work\n', '260315');
+    expect(events).toHaveLength(1);
+    expect(events[0].text).toBe('Standup');
+    expect(events[0].calendarTag).toBe('Work');
+    expect(events[0].allDay).toBe(false);
+  });
+
+  test('multi-day event with @tag: captures calendarTag', () => {
+    const events = parseMarkdownEvents('Conference > 260315 260317 @Personal\n', '260315');
+    expect(events).toHaveLength(1);
+    expect(events[0].text).toBe('Conference');
+    expect(events[0].calendarTag).toBe('Personal');
+  });
+
+  test('no tag: calendarTag is null', () => {
+    const events = parseMarkdownEvents('Meeting > 260315\n', '260315');
+    expect(events).toHaveLength(1);
+    expect(events[0].calendarTag).toBeNull();
+  });
+
+  test('@tag in event title (before >) is not parsed as calendarTag', () => {
+    const events = parseMarkdownEvents('@Work Meeting > 260315\n', '260315');
+    expect(events).toHaveLength(1);
+    expect(events[0].text).toBe('@Work Meeting');
+    expect(events[0].calendarTag).toBeNull();
+  });
+});
+
+// ── @CalendarName tag — syncMarkdownToCalendar routing tests ─────────────────
+
+describe('syncMarkdownToCalendar — @CalendarName routing', () => {
+  function setupPlugin(plugin) {
+    global.window.Capacitor = { Plugins: { CalendarPlugin: plugin } };
+  }
+
+  test('@Work tag routes createEvent to Work calendar ID', async () => {
+    const plugin = makePlugin();
+    setupPlugin(plugin);
+
+    const noteContent = '# 260315 Daily Note\nStandup > 260315 @Work\n';
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    expect(plugin.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Standup', calendarId: 'work-cal-id' })
+    );
+  });
+
+  test('unknown @tag falls back to Notes App Events calendar', async () => {
+    const plugin = makePlugin();
+    setupPlugin(plugin);
+
+    const noteContent = '# 260315 Daily Note\nMeeting > 260315 @UnknownCalendar\n';
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    expect(plugin.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Meeting', calendarId: 'notes-cal-id' })
+    );
+  });
+
+  test('@tag stored in metadata calendarTag field', async () => {
+    const plugin = makePlugin();
+    setupPlugin(plugin);
+
+    const noteContent = '# 260315 Daily Note\nStandup > 260315 @Work\n';
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    const savedContent = NoteStorage.setNote.mock.calls[0][1];
+    const meta = parseCalendarMetadata(savedContent);
+    expect(meta.events[0].calendarTag).toBe('Work');
+  });
+
+  test('calendar tag change triggers delete + create in new calendar', async () => {
+    const plugin = makePlugin({
+      createEvent: jest.fn().mockResolvedValue({ eventId: 'new-personal-id' }),
+    });
+    setupPlugin(plugin);
+
+    // Metadata shows event was in Work calendar
+    const meta = {
+      events: [{
+        eventId: 'old-work-id',
+        title: 'Standup',
+        lineText: 'Standup > 260315 @Work',
+        lineIndex: 1,
+        calendarTag: 'Work',
+      }]
+    };
+    // Note now has @Personal instead of @Work
+    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nStandup > 260315 @Personal\n`;
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    // Old Work event should be deleted
+    expect(plugin.deleteEvent).toHaveBeenCalledWith({ eventId: 'old-work-id' });
+    // New event should be created in Personal calendar
+    expect(plugin.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Standup', calendarId: 'personal-cal-id' })
+    );
+    // updateEvent must NOT have been called
+    expect(plugin.updateEvent).not.toHaveBeenCalled();
+
+    const savedMeta = parseCalendarMetadata(NoteStorage.setNote.mock.calls[0][1]);
+    expect(savedMeta.events[0].calendarTag).toBe('Personal');
+    expect(savedMeta.events[0].eventId).toBe('new-personal-id');
+  });
+
+  test('removing @tag moves event back to Notes App Events', async () => {
+    const plugin = makePlugin({
+      createEvent: jest.fn().mockResolvedValue({ eventId: 'notes-app-id' }),
+    });
+    setupPlugin(plugin);
+
+    const meta = {
+      events: [{
+        eventId: 'work-id',
+        title: 'Standup',
+        lineText: 'Standup > 260315 @Work',
+        lineIndex: 1,
+        calendarTag: 'Work',
+      }]
+    };
+    // Tag removed — no @tag on line
+    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nStandup > 260315\n`;
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    expect(plugin.deleteEvent).toHaveBeenCalledWith({ eventId: 'work-id' });
+    expect(plugin.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Standup', calendarId: 'notes-cal-id' })
+    );
+    expect(plugin.updateEvent).not.toHaveBeenCalled();
   });
 });

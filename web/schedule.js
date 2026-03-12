@@ -13,9 +13,9 @@ async function _buildScheduleCache() {
   const cache = {};
   cache._multiday = [];
 
-  const reTimed    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})\s*$/;
-  const reMultiDay = />\s*(\d{6})\s+(\d{6})\s*$/;
-  const reAllDay   = />\s*(\d{6})\s*$/;
+  const reTimed    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@\S+)?\s*$/;
+  const reMultiDay = />\s*(\d{6})\s+(\d{6})(?:\s+@\S+)?\s*$/;
+  const reAllDay   = />\s*(\d{6})(?:\s+@\S+)?\s*$/;
 
   const allNotes = await NoteStorage.getAllNotes();
   for (const { name: fileName, content } of allNotes) {

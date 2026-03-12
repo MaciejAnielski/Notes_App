@@ -4,9 +4,14 @@
 // "# Title" line in daily notes named "YYMMDD Daily Notes.md".
 //
 // Event syntax in markdown:
-//   Event Text > YYMMDD              — all-day event
-//   Event Text > YYMMDD YYMMDD       — multi-day event
-//   Event Text > YYMMDD HHMM HHMM   — timed event
+//   Event Text > YYMMDD                        — all-day event
+//   Event Text > YYMMDD YYMMDD                 — multi-day event
+//   Event Text > YYMMDD HHMM HHMM              — timed event
+//   Event Text > YYMMDD @CalendarName          — routed to a specific calendar
+//   Event Text > YYMMDD HHMM HHMM @CalendarName
+//
+// The optional @CalendarName tag (no spaces; case-insensitive) routes new
+// events to a named iOS calendar.  If omitted, events go to "Notes App Events".
 //
 // Calendar selection is stored in a note called "Calendars" using plain
 // checkbox syntax: [x] CalendarName or [ ] CalendarName.
@@ -20,6 +25,7 @@ let _calendarPlugin = null;
 let _calendarSyncTimer = null;
 let _calendarSyncing = false;
 let _notesAppCalendarId = null;
+let _calendarsByTitle = null; // Map<lowerCaseTitle, calendarId>, built on demand
 
 // ── Plugin access ────────────────────────────────────────────────────────────
 
@@ -45,6 +51,23 @@ async function getOrCreateNotesAppCalendarId() {
     _notesAppCalendarId = null;
   }
   return _notesAppCalendarId;
+}
+
+// ── Calendar title → ID lookup ───────────────────────────────────────────────
+
+async function getCalendarsByTitle() {
+  if (_calendarsByTitle) return _calendarsByTitle;
+  const plugin = getCalendarPlugin();
+  if (!plugin) return new Map();
+  try {
+    const result = await plugin.listCalendars();
+    _calendarsByTitle = new Map(
+      (result.calendars || []).map(c => [c.title.toLowerCase(), c.id])
+    );
+  } catch {
+    _calendarsByTitle = new Map();
+  }
+  return _calendarsByTitle;
 }
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -136,12 +159,12 @@ async function updateCalendarsNote() {
 function parseMarkdownEvents(content, noteDate) {
   const events = [];
   const lines = content.split('\n');
-  // Timed: Text > YYMMDD HHMM HHMM
-  const reT = /^(.+?)\s*>\s*(\d{6})\s+(\d{4})\s+(\d{4})\s*$/;
-  // Multi-day: Text > YYMMDD YYMMDD
-  const reM = /^(.+?)\s*>\s*(\d{6})\s+(\d{6})\s*$/;
-  // All-day: Text > YYMMDD
-  const reA = /^(.+?)\s*>\s*(\d{6})\s*$/;
+  // Timed: Text > YYMMDD HHMM HHMM [@CalendarName]
+  const reT = /^(.+?)\s*>\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
+  // Multi-day: Text > YYMMDD YYMMDD [@CalendarName]
+  const reM = /^(.+?)\s*>\s*(\d{6})\s+(\d{6})(?:\s+@(\S+))?\s*$/;
+  // All-day: Text > YYMMDD [@CalendarName]
+  const reA = /^(.+?)\s*>\s*(\d{6})(?:\s+@(\S+))?\s*$/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -159,7 +182,7 @@ function parseMarkdownEvents(content, noteDate) {
       startDate.setHours(start.h, start.m, 0, 0);
       const endDate = new Date(date);
       endDate.setHours(end.h, end.m, 0, 0);
-      events.push({ text, startDate, endDate, allDay: false, lineIndex: i });
+      events.push({ text, startDate, endDate, allDay: false, lineIndex: i, calendarTag: m[5] || null });
     } else if ((m = line.match(reM))) {
       const text = m[1].replace(/^[-*+]\s+/, '').replace(/^#+\s*/, '').trim();
       if (!text) continue;
@@ -168,7 +191,8 @@ function parseMarkdownEvents(content, noteDate) {
         startDate: yymmddToDate(m[2]),
         endDate: yymmddToDate(m[3]),
         allDay: true,
-        lineIndex: i
+        lineIndex: i,
+        calendarTag: m[4] || null
       });
     } else if ((m = line.match(reA))) {
       const text = m[1].replace(/^[-*+]\s+/, '').replace(/^#+\s*/, '').trim();
@@ -176,7 +200,7 @@ function parseMarkdownEvents(content, noteDate) {
       const date = yymmddToDate(m[2]);
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() + 1);
-      events.push({ text, startDate: date, endDate, allDay: true, lineIndex: i });
+      events.push({ text, startDate: date, endDate, allDay: true, lineIndex: i, calendarTag: m[3] || null });
     }
   }
   return events;
@@ -221,6 +245,8 @@ function updateCalendarMetadata(content, metadata) {
 async function syncCalendarToMarkdown(calendarIds) {
   const plugin = getCalendarPlugin();
   if (!plugin || calendarIds.length === 0) return;
+
+  const notesAppCalendarId = await getOrCreateNotesAppCalendarId();
 
   // Determine sync range: from first sync date to 30 days in future
   let firstSyncDateStr;
@@ -290,6 +316,13 @@ async function syncCalendarToMarkdown(calendarIds) {
       const evtEnd = new Date(evt.endDate);
       let mdLine;
 
+      // Append @CalendarName tag for events not in Notes App Events
+      const isNotesAppEvent = evt.calendarId === notesAppCalendarId;
+      const calendarTag = isNotesAppEvent
+        ? null
+        : (evt.calendarTitle || '').replace(/\s+/g, '') || null;
+      const tagSuffix = calendarTag ? ` @${calendarTag}` : '';
+
       if (evt.allDay) {
         // Check if multi-day
         const startStr = dateToYYMMDD(evtStart);
@@ -298,23 +331,24 @@ async function syncCalendarToMarkdown(calendarIds) {
         const endStr = dateToYYMMDD(endDateAdj);
 
         if (startStr !== endStr && endStr > startStr) {
-          mdLine = `${evt.title} > ${startStr} ${endStr}`;
+          mdLine = `${evt.title} > ${startStr} ${endStr}${tagSuffix}`;
         } else {
-          mdLine = `${evt.title} > ${startStr}`;
+          mdLine = `${evt.title} > ${startStr}${tagSuffix}`;
         }
       } else {
         const hh1 = String(evtStart.getHours()).padStart(2, '0');
         const mm1 = String(evtStart.getMinutes()).padStart(2, '0');
         const hh2 = String(evtEnd.getHours()).padStart(2, '0');
         const mm2 = String(evtEnd.getMinutes()).padStart(2, '0');
-        mdLine = `${evt.title} > ${dateStr} ${hh1}${mm1} ${hh2}${mm2}`;
+        mdLine = `${evt.title} > ${dateStr} ${hh1}${mm1} ${hh2}${mm2}${tagSuffix}`;
       }
 
       content += mdLine + '\n';
       meta.events.push({
         eventId: evt.eventId,
         title: evt.title,
-        lineText: mdLine
+        lineText: mdLine,
+        calendarTag
       });
       modified = true;
     }
@@ -350,6 +384,15 @@ async function syncMarkdownToCalendar(calendarIds) {
 
   // Always write new events into the dedicated "Notes App Events" iCloud calendar.
   const notesAppCalendarId = await getOrCreateNotesAppCalendarId();
+
+  // Build calendar title → ID lookup for @CalendarName routing
+  const calendarsByTitle = await getCalendarsByTitle();
+  const defaultCalendarId = notesAppCalendarId ?? calendarIds[0];
+
+  function resolveCalendarId(tag) {
+    if (!tag) return defaultCalendarId;
+    return calendarsByTitle.get(tag.toLowerCase()) ?? defaultCalendarId;
+  }
 
   // Get the first sync date to limit scope
   let firstSyncDateStr;
@@ -417,6 +460,15 @@ async function syncMarkdownToCalendar(calendarIds) {
       if (metaIdx === -1) continue;
 
       const existing = meta.events[metaIdx];
+
+      // If the @CalendarName tag changed, skip Step 2: Step 4 will delete the
+      // old event and Step 3 will create a new one in the correct calendar.
+      const existingTag = existing.calendarTag ?? null;
+      if (existingTag !== evt.calendarTag) {
+        // Do NOT match — let delete+create handle the calendar change
+        continue;
+      }
+
       try {
         await plugin.updateEvent({
           eventId: existing.eventId,
@@ -429,7 +481,8 @@ async function syncMarkdownToCalendar(calendarIds) {
           eventId: existing.eventId,
           title: evt.text,
           lineText,
-          lineIndex: evt.lineIndex
+          lineIndex: evt.lineIndex,
+          calendarTag: evt.calendarTag
         };
         modified = true;
       } catch {
@@ -472,13 +525,14 @@ async function syncMarkdownToCalendar(calendarIds) {
           startDate: evt.startDate.toISOString(),
           endDate: evt.endDate.toISOString(),
           allDay: evt.allDay,
-          calendarId: notesAppCalendarId ?? calendarIds[0]
+          calendarId: resolveCalendarId(evt.calendarTag)
         });
         meta.events.push({
           eventId: result.eventId,
           title: evt.text,
           lineText,
-          lineIndex: evt.lineIndex
+          lineIndex: evt.lineIndex,
+          calendarTag: evt.calendarTag
         });
         modified = true;
       } catch {
@@ -658,10 +712,12 @@ if (typeof module !== 'undefined' && module.exports) {
     yymmddToDate, dateToYYMMDD, hhmmToTime, dailyNoteName,
     parseMarkdownEvents, parseCalendarMetadata, updateCalendarMetadata,
     syncMarkdownToCalendar, syncCalendarToMarkdown,
+    getCalendarsByTitle,
     // Resets module-level caches; call in beforeEach to isolate tests
     _resetForTesting() {
       _calendarPlugin = null;
       _notesAppCalendarId = null;
+      _calendarsByTitle = null;
     }
   };
 }
