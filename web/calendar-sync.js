@@ -15,10 +15,12 @@ const CALENDARS_NOTE = 'Calendars';
 const DAILY_NOTE_SUFFIX = ' Daily Note';
 const CALENDAR_META_RE = /<!-- calendar_events: ({.*?}) -->/;
 const CALENDAR_SYNC_INTERVAL = 300000; // 5 minutes
+const NOTES_APP_CALENDAR_NAME = 'Notes App Events';
 
 let _calendarPlugin = null;
 let _calendarSyncTimer = null;
 let _calendarSyncing = false;
+let _notesAppCalendarId = null;
 
 // ── Plugin access ────────────────────────────────────────────────────────────
 
@@ -29,6 +31,21 @@ function getCalendarPlugin() {
     return _calendarPlugin;
   }
   return null;
+}
+
+// ── Notes App Events calendar ────────────────────────────────────────────────
+
+async function getOrCreateNotesAppCalendarId() {
+  if (_notesAppCalendarId) return _notesAppCalendarId;
+  const plugin = getCalendarPlugin();
+  if (!plugin) return null;
+  try {
+    const result = await plugin.getOrCreateCalendar({ title: NOTES_APP_CALENDAR_NAME });
+    _notesAppCalendarId = result.calendarId || null;
+  } catch {
+    _notesAppCalendarId = null;
+  }
+  return _notesAppCalendarId;
 }
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -323,6 +340,9 @@ async function syncMarkdownToCalendar(calendarIds) {
   const plugin = getCalendarPlugin();
   if (!plugin || calendarIds.length === 0) return;
 
+  // Always write new events into the dedicated "Notes App Events" iCloud calendar.
+  const notesAppCalendarId = await getOrCreateNotesAppCalendarId();
+
   // Get the first sync date to limit scope
   let firstSyncDateStr;
   try {
@@ -370,7 +390,7 @@ async function syncMarkdownToCalendar(calendarIds) {
           startDate: evt.startDate.toISOString(),
           endDate: evt.endDate.toISOString(),
           allDay: evt.allDay,
-          calendarId: calendarIds[0] // Use first selected calendar for new events
+          calendarId: notesAppCalendarId ?? calendarIds[0]
         });
 
         meta.events.push({

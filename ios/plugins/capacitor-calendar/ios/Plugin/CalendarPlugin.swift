@@ -23,16 +23,17 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "CalendarPlugin"
     public let jsName = "CalendarPlugin"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "requestAccess",    returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "listCalendars",    returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "fetchEvents",      returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "createEvent",      returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "updateEvent",      returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "deleteEvent",      returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getFirstSyncDate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setFirstSyncDate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "startWatching",    returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "stopWatching",     returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestAccess",       returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listCalendars",        returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "fetchEvents",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "createEvent",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateEvent",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteEvent",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getFirstSyncDate",     returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setFirstSyncDate",     returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startWatching",        returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopWatching",         returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getOrCreateCalendar",  returnType: CAPPluginReturnPromise),
     ]
 
     private let store = EKEventStore()
@@ -261,6 +262,53 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
         call.resolve()
+    }
+
+    /// Find an existing calendar by title on the iCloud source, or create it if absent.
+    /// Parameters:
+    ///   - title (String) — calendar display name
+    /// Returns: { calendarId: String }
+    @objc func getOrCreateCalendar(_ call: CAPPluginCall) {
+        guard let title = call.getString("title") else {
+            call.reject("title is required")
+            return
+        }
+
+        resolve(call) {
+            // Prefer iCloud CalDAV source so the calendar syncs via iCloud.
+            let iCloudSource = self.store.sources.first {
+                $0.sourceType == .calDAV && $0.title.lowercased() == "icloud"
+            } ?? self.store.sources.first {
+                $0.sourceType == .calDAV
+            } ?? self.store.sources.first {
+                $0.sourceType == .local
+            }
+
+            // Look for an existing calendar with this title on the chosen source.
+            if let existing = self.store.calendars(for: .event).first(where: {
+                $0.title == title && ($0.source?.sourceIdentifier == iCloudSource?.sourceIdentifier)
+            }) {
+                call.resolve(["calendarId": existing.calendarIdentifier])
+                return
+            }
+
+            // Create a new calendar.
+            guard let source = iCloudSource else {
+                call.reject("No suitable calendar source found")
+                return
+            }
+
+            let calendar = EKCalendar(for: .event, eventStore: self.store)
+            calendar.title = title
+            calendar.source = source
+
+            do {
+                try self.store.saveCalendar(calendar, commit: true)
+                call.resolve(["calendarId": calendar.calendarIdentifier])
+            } catch {
+                call.reject("Failed to create calendar", nil, error)
+            }
+        }
     }
 
     /// Stop watching for EKEventStore changes.
