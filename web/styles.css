@@ -1198,14 +1198,19 @@ body.panel-pinned {
   font-style: normal;
 }
 
-/* ── MathJax overflow: long equations scroll horizontally ── */
+/* ── MathJax overflow: long equations scroll horizontally on all platforms ── */
 /* Block / display math: cap at parent width, scroll when too wide. */
 #preview mjx-container[display="true"] {
   display: block !important;
   max-width: 100% !important;
   overflow-x: auto;
   overflow-y: hidden;
+  /* iOS momentum scrolling */
   -webkit-overflow-scrolling: touch;
+  /* Android/iOS: allow horizontal pan inside this element without
+     triggering page-level swipe-back/forward navigation. */
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
 }
 
 /* Inline math: cap at line width, scroll when too wide. */
@@ -1216,6 +1221,8 @@ body.panel-pinned {
   overflow-y: hidden;
   vertical-align: middle;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
 }
 
 /* Fallback for older MathJax CHTML class names */
@@ -1223,6 +1230,7 @@ body.panel-pinned {
 #preview .MathJax[display="true"] {
   max-width: 100% !important;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 /* ── Plain (non-task) checkboxes ── */
