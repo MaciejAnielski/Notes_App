@@ -82,6 +82,16 @@ if [ -f "$INFO_PLIST" ]; then
   else
     echo "Info.plist already has calendar permission keys."
   fi
+
+  # Add notification permission key if not present
+  if ! grep -q "NSUserNotificationsUsageDescription" "$INFO_PLIST"; then
+    sed -i '' 's|</dict>|<key>NSUserNotificationsUsageDescription</key>\
+	<string>Notes App sends reminders for your scheduled tasks and events.</string>\
+</dict>|' "$INFO_PLIST"
+    echo "Info.plist updated: Notification permission description added"
+  else
+    echo "Info.plist already has notification permission key."
+  fi
 else
   echo "WARNING: Info.plist not found. Add these keys manually in Xcode:"
   echo "  UIFileSharingEnabled = YES"
