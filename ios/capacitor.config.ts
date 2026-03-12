@@ -15,6 +15,16 @@ const config: CapacitorConfig = {
     preferredContentMode: 'mobile',
     scrollEnabled: true,
     allowsLinkPreview: false
+  },
+  plugins: {
+    LocalNotifications: {
+      // Show notifications as banners even when the app is in the foreground.
+      foregroundPresentationOptions: {
+        badge: true,
+        sound: true,
+        alert: true
+      }
+    }
   }
 };
 
