@@ -420,3 +420,17 @@ function setupClickableMathFormulas() {
     }
   });
 }
+
+function setupMathWheelScroll() {
+  previewDiv.addEventListener('wheel', (e) => {
+    const container = e.target.closest('mjx-container');
+    if (!container) return;
+    // Only intercept when the formula can actually scroll horizontally.
+    if (container.scrollWidth <= container.clientWidth) return;
+    e.preventDefault();
+    container.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+  }, { passive: false });
+}
+
+// Register the wheel-scroll handler once after the DOM is ready.
+document.addEventListener('DOMContentLoaded', setupMathWheelScroll);
