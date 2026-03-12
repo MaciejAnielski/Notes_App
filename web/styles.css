@@ -277,6 +277,15 @@ button.btn-busy {
 }
 
 /* ── Hide scrollbars while keeping scroll functionality ── */
+/* Global scrollbar hiding for all elements */
+* {
+  scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
 textarea::-webkit-scrollbar,
 #preview::-webkit-scrollbar,
 #panel-lists::-webkit-scrollbar,
