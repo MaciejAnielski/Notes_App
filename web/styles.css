@@ -1225,28 +1225,6 @@ body.panel-pinned {
   touch-action: pan-x pan-y;
 }
 
-/* Show a thin scrollbar on math containers so users can discover horizontal
-   scrolling — overrides the global scrollbar-hiding rule above. */
-#preview mjx-container::-webkit-scrollbar {
-  display: block !important;
-  height: 3px;
-}
-
-#preview mjx-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#preview mjx-container::-webkit-scrollbar-thumb {
-  background: rgba(162, 114, 176, 0.45);
-  border-radius: 2px;
-}
-
-/* Firefox */
-#preview mjx-container {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(162, 114, 176, 0.45) transparent;
-}
-
 /* Fallback for older MathJax CHTML class names */
 #preview .MathJax_Display,
 #preview .MathJax[display="true"] {
