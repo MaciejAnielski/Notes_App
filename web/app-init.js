@@ -751,15 +751,18 @@ if (savedChain) {
       const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
       const cursorY = (lineNumber - 1) * lineHeight;
 
-      // Visible height of the textarea within the viewport
+      // Cursor's current position on screen (viewport coordinates)
       const taRect = textarea.getBoundingClientRect();
-      const visibleHeight = Math.min(taRect.bottom, vv.height) - Math.max(taRect.top, 0);
-      const cursorInViewTop = cursorY - textarea.scrollTop;
+      const cursorScreenY = taRect.top + cursorY - textarea.scrollTop;
 
-      // If cursor is below the visible area or too close to the bottom, scroll it into view
+      // If cursor is outside the visible area above the keyboard, scroll it into view.
+      // Use vv.height (the settled visual viewport height) as the reference so the
+      // calculation is not thrown off by mid-animation values of the textarea's rect.
       const padding = lineHeight * 2;
-      if (cursorInViewTop > visibleHeight - padding || cursorInViewTop < 0) {
-        textarea.scrollTop = Math.max(0, cursorY - visibleHeight / 3);
+      if (cursorScreenY > vv.height - padding || cursorScreenY < Math.max(taRect.top, 0)) {
+        // Target: place cursor at 1/4 of the way down the visible area above the keyboard.
+        // textarea.scrollTop = taRect.top + cursorY - targetScreenY
+        textarea.scrollTop = Math.max(0, taRect.top + cursorY - vv.height / 4);
       }
     };
 
@@ -771,9 +774,9 @@ if (savedChain) {
       globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
 
       // Debounce cursor scroll — the viewport fires multiple resize events
-      // when the iOS keyboard animates open; wait for it to settle.
+      // when the iOS keyboard animates open; wait for it to fully settle.
       clearTimeout(_keyboardScrollTimer);
-      _keyboardScrollTimer = setTimeout(scrollCursorIntoView, 100);
+      _keyboardScrollTimer = setTimeout(scrollCursorIntoView, 250);
     };
 
     window.visualViewport.addEventListener('resize', adjustForKeyboard);
