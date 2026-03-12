@@ -735,9 +735,12 @@ function startICloudPolling(win) {
         }
       }
 
-      // Detect files deleted on iOS and propagate to CloudDocs.
-      // Skip files we recently wrote through — the iOS container may
-      // just not have received them yet.
+      // Detect files missing from iOS container.
+      // CloudDocs is the source of truth — NEVER delete from CloudDocs
+      // just because a file is missing from the iOS container. iCloud
+      // may evict files from the container (optimized storage), or sync
+      // may simply be slow after a cold start. Instead, re-sync the
+      // file from CloudDocs → iOS so both sides stay consistent.
       for (const [file] of lastIosPollSnapshot) {
         if (!currentIos.has(file)) {
           const wtTime = _iosWriteThroughs.get(file);
@@ -745,12 +748,18 @@ function startICloudPolling(win) {
             console.log(`[iCloud poll] "${file}" missing from iOS — skipping (recent write-through).`);
             continue;
           }
-          console.log(`[iCloud poll] "${file}" deleted on iOS — removing from CloudDocs.`);
+          // Check if the file still exists in CloudDocs (source of truth)
           try {
-            await fs.unlink(path.join(notesDir, file));
-          } catch { /* may already be gone */ }
-          _contentHashes.delete(file);
-          iosChanged = true;
+            await fs.access(path.join(notesDir, file));
+            // File exists in CloudDocs but missing from iOS — re-sync it
+            console.log(`[iCloud poll] "${file}" missing from iOS — re-syncing from CloudDocs.`);
+            await writeThrough(file, notesDir, iosNotesDir);
+          } catch {
+            // File is gone from both CloudDocs and iOS — already deleted
+            console.log(`[iCloud poll] "${file}" gone from both iOS and CloudDocs.`);
+            _contentHashes.delete(file);
+            iosChanged = true;
+          }
         }
       }
 

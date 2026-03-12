@@ -699,10 +699,12 @@ if (savedChain) {
 }
 
 (async () => {
-  // Migrate localStorage notes to iCloud on first launch (desktop/iOS only)
+  // Migrate localStorage notes to iCloud on first launch (desktop/iOS only).
+  // Only runs once — uses a flag to prevent re-running if iCloud is transiently
+  // empty (e.g. slow sync on cold start), which would destroy localStorage data.
   if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
-    const iCloudNames = await NoteStorage.getAllNoteNames();
-    if (iCloudNames.length === 0) {
+    const migrationDone = localStorage.getItem('icloud_migration_done');
+    if (!migrationDone) {
       const lsNotes = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -711,12 +713,16 @@ if (savedChain) {
         }
       }
       if (lsNotes.length > 0) {
-        for (const { name, content } of lsNotes) {
-          await NoteStorage.setNote(name, content);
+        const iCloudNames = await NoteStorage.getAllNoteNames();
+        if (iCloudNames.length === 0) {
+          for (const { name, content } of lsNotes) {
+            await NoteStorage.setNote(name, content);
+          }
+          lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
+          updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
         }
-        lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
-        updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
       }
+      localStorage.setItem('icloud_migration_done', '1');
     }
   }
 
