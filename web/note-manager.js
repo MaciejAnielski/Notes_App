@@ -243,7 +243,9 @@ async function loadNote(name, fromLink = false) {
   currentFileName = name;
   localStorage.setItem('current_file', name);
 
-  if (name === PROJECTS_NOTE) {
+  const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE;
+
+  if (isReadOnlyNote) {
     textarea.readOnly = true;
     toggleViewBtn.disabled = true;
     renderPreview();
