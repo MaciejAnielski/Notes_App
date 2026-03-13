@@ -18,6 +18,7 @@
 
 const DAILY_NOTE_SUFFIX = ' Daily Note';
 const CALENDAR_META_RE = /<!-- calendar_events: ({.*?}) -->/;
+const CALENDAR_METADATA_NOTE = '.calendar_metadata';
 const CALENDAR_SYNC_INTERVAL = 300000; // 5 minutes
 const NOTES_APP_CALENDAR_NAME = 'Notes App Events';
 
@@ -239,6 +240,54 @@ function updateCalendarMetadata(content, metadata) {
   return lines.join('\n');
 }
 
+// ── Centralised metadata store ───────────────────────────────────────────────
+// All per-note event metadata is stored in a single hidden note so that daily
+// notes remain free of machine-generated HTML comments.
+
+async function loadMetadataStore() {
+  const content = await NoteStorage.getNote(CALENDAR_METADATA_NOTE);
+  if (!content) return {};
+  try { return JSON.parse(content); } catch { return {}; }
+}
+
+async function saveMetadataStore(store) {
+  await NoteStorage.setNote(CALENDAR_METADATA_NOTE, JSON.stringify(store));
+}
+
+// One-time migration: strip legacy <!-- calendar_events: ... --> comments from
+// daily notes and move their data into the centralised store.
+async function migrateInlineMetadata(store) {
+  const allNotes = await NoteStorage.getAllNotes();
+  for (const { name, content } of allNotes) {
+    if (name === CALENDAR_METADATA_NOTE) continue;
+    if (!CALENDAR_META_RE.test(content)) continue;
+
+    const lines = content.split('\n');
+    const commentIdx = lines.findIndex(l => CALENDAR_META_RE.test(l));
+
+    if (!store[name]) {
+      const meta = parseCalendarMetadata(content);
+      if (meta) {
+        // Removing the comment line shifts all subsequent lines up by one.
+        for (const evt of meta.events) {
+          if (evt.lineIndex != null && evt.lineIndex > commentIdx) {
+            evt.lineIndex -= 1;
+          }
+        }
+        store[name] = meta;
+      }
+    }
+
+    lines.splice(commentIdx, 1);
+    const cleanedContent = lines.join('\n');
+    await NoteStorage.setNote(name, cleanedContent);
+    if (currentFileName === name) {
+      textarea.value = cleanedContent;
+      if (isPreview) renderPreview();
+    }
+  }
+}
+
 // ── Sync: Calendar → Markdown ────────────────────────────────────────────────
 // Fetches events from iOS calendar and appends missing ones to daily notes.
 
@@ -247,6 +296,8 @@ async function syncCalendarToMarkdown(calendarIds) {
   if (!plugin || calendarIds.length === 0) return;
 
   const notesAppCalendarId = await getOrCreateNotesAppCalendarId();
+  const store = await loadMetadataStore();
+  let storeModified = false;
 
   // Determine sync range: from first sync date to 30 days in future
   let firstSyncDateStr;
@@ -303,8 +354,8 @@ async function syncCalendarToMarkdown(calendarIds) {
       isNew = true;
     }
 
-    // Parse existing metadata to avoid duplicates
-    const meta = parseCalendarMetadata(content) || { events: [] };
+    // Load existing metadata from store to avoid duplicates
+    const meta = store[noteName] || { events: [] };
     const existingIds = new Set(meta.events.map(e => e.eventId));
     let modified = false;
 
@@ -354,7 +405,8 @@ async function syncCalendarToMarkdown(calendarIds) {
     }
 
     if (modified) {
-      content = updateCalendarMetadata(content, meta);
+      store[noteName] = meta;
+      storeModified = true;
       await NoteStorage.setNote(noteName, content);
 
       // Update editor if this note is open
@@ -364,6 +416,8 @@ async function syncCalendarToMarkdown(calendarIds) {
       }
     }
   }
+
+  if (storeModified) await saveMetadataStore(store);
 }
 
 // ── Sync: Markdown → Calendar ────────────────────────────────────────────────
@@ -388,6 +442,9 @@ async function syncMarkdownToCalendar(calendarIds) {
   // Build calendar title → ID lookup for @CalendarName routing
   const calendarsByTitle = await getCalendarsByTitle();
   const defaultCalendarId = notesAppCalendarId ?? calendarIds[0];
+
+  const store = await loadMetadataStore();
+  let storeModified = false;
 
   function resolveCalendarId(tag) {
     if (!tag) return defaultCalendarId;
@@ -418,7 +475,7 @@ async function syncMarkdownToCalendar(calendarIds) {
     if (noteDate < firstSyncYYMMDD) continue;
 
     const mdEvents = parseMarkdownEvents(content, noteDate);
-    const meta = parseCalendarMetadata(content) || { events: [] };
+    const meta = store[name] || { events: [] };
 
     // Skip notes with no current events and no previously synced events
     if (mdEvents.length === 0 && meta.events.length === 0) continue;
@@ -553,15 +610,12 @@ async function syncMarkdownToCalendar(calendarIds) {
     }
 
     if (modified) {
-      const updatedContent = updateCalendarMetadata(content, meta);
-      await NoteStorage.setNote(name, updatedContent);
-
-      if (currentFileName === name) {
-        textarea.value = updatedContent;
-        if (isPreview) renderPreview();
-      }
+      store[name] = meta;
+      storeModified = true;
     }
   }
+
+  if (storeModified) await saveMetadataStore(store);
 }
 
 // ── One-time migration: "YYMMDD Daily Notes" → "YYMMDD Daily Note" ──────────
@@ -635,6 +689,12 @@ async function runCalendarSync() {
 
     // One-time rename: "YYMMDD Daily Notes" → "YYMMDD Daily Note"
     await migrateDailyNoteNames();
+
+    // One-time migration: move inline <!-- calendar_events: ... --> comments
+    // out of daily notes and into the centralised .calendar_metadata store.
+    const metaStore = await loadMetadataStore();
+    await migrateInlineMetadata(metaStore);
+    await saveMetadataStore(metaStore);
 
     // Ensure Calendars note exists
     await updateCalendarsNote();
@@ -711,6 +771,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     yymmddToDate, dateToYYMMDD, hhmmToTime, dailyNoteName,
     parseMarkdownEvents, parseCalendarMetadata, updateCalendarMetadata,
+    loadMetadataStore, saveMetadataStore, migrateInlineMetadata,
     syncMarkdownToCalendar, syncCalendarToMarkdown,
     getCalendarsByTitle,
     // Resets module-level caches; call in beforeEach to isolate tests
