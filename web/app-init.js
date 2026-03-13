@@ -744,12 +744,11 @@ if (savedChain) {
     const scrollCursorIntoView = () => {
       if (document.activeElement !== textarea || isPreview) return;
       const vv = window.visualViewport;
-      const cursorPos = textarea.selectionStart;
-      const textBefore = textarea.value.substring(0, cursorPos);
-      const lineNumber = textBefore.split('\n').length;
       const style = window.getComputedStyle(textarea);
       const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
-      const cursorY = (lineNumber - 1) * lineHeight;
+
+      // Measure the true cursor Y offset, accounting for wrapped lines.
+      const cursorY = getLineScrollY(textarea, textarea.selectionStart);
 
       // Cursor's current position on screen (viewport coordinates)
       const taRect = textarea.getBoundingClientRect();

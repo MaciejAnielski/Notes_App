@@ -252,9 +252,7 @@ function _makeScheduleBlock(item, extraClass) {
             startOffset + lines[item.lineIndex].length);
           textarea.focus();
           // Scroll so the selected line is vertically centred in the textarea.
-          const style = window.getComputedStyle(textarea);
-          const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
-          textarea.scrollTop = Math.max(0, item.lineIndex * lineHeight - textarea.clientHeight / 2);
+          textarea.scrollTop = Math.max(0, getLineScrollY(textarea, startOffset) - textarea.clientHeight / 2);
         }
       }
     }, 50);
