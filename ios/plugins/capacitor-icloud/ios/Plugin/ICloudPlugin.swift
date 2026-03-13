@@ -123,21 +123,42 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// Wait for a cloud-only file to be downloaded, with a timeout.
-    /// Returns true if the file exists on disk after waiting.
+    /// Wait for a file to be fully downloaded from iCloud, with a timeout.
+    /// Always requests the latest version from iCloud so that already-cached
+    /// files that have a newer cloud version are also updated before reading.
+    /// Returns true if the file is present and not actively downloading.
     private func waitForDownload(at url: URL, timeout: TimeInterval = 10.0) -> Bool {
-        if FileManager.default.fileExists(atPath: url.path) { return true }
-
-        // Trigger download of the cloud-only placeholder.
+        // Always request the latest version. For cloud-only placeholders this
+        // triggers the initial download. For already-cached files this tells
+        // iCloud to deliver any pending newer version from the cloud.
         try? FileManager.default.startDownloadingUbiquitousItem(at: url)
 
-        // Poll until the file appears or timeout expires.
         let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if FileManager.default.fileExists(atPath: url.path) { return true }
+        repeat {
+            if FileManager.default.fileExists(atPath: url.path) {
+                // File is present locally. Check whether iCloud is still
+                // actively writing a newer version into place.
+                if let values = try? url.resourceValues(forKeys: [.ubiquitousItemIsDownloadingKey]),
+                   values.ubiquitousItemIsDownloading == true {
+                    // A newer version is actively being downloaded — wait for it.
+                    Thread.sleep(forTimeInterval: 0.25)
+                    continue
+                }
+                return true
+            }
             Thread.sleep(forTimeInterval: 0.25)
-        }
+        } while Date() < deadline
+
         return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    /// Returns true if this URL is a cloud-only iCloud placeholder
+    /// (i.e. a ".filename.icloud" file exists instead of the real file).
+    private func isCloudOnlyPlaceholder(at url: URL) -> Bool {
+        let name = url.lastPathComponent
+        let placeholder = url.deletingLastPathComponent()
+            .appendingPathComponent(".\(name).icloud")
+        return FileManager.default.fileExists(atPath: placeholder.path)
     }
 
     /// Reads a UTF-8 file relative to the iCloud container Documents folder.
@@ -157,9 +178,15 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             let fileURL = base.appendingPathComponent(path)
 
-            // Wait for download if the file is cloud-only (.icloud placeholder).
+            // Ensure we have the latest version from iCloud before reading.
             if !self.waitForDownload(at: fileURL) {
-                call.reject("File not found: \(path)")
+                // Distinguish a genuine deletion from a download timeout so
+                // the JS layer can show the right error to the user.
+                if self.isCloudOnlyPlaceholder(at: fileURL) {
+                    call.reject("Download timed out: \(path)")
+                } else {
+                    call.reject("File not found: \(path)")
+                }
                 return
             }
 

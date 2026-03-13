@@ -528,9 +528,15 @@ if (window.electronAPI?.notes?.onExternalChange) {
         }
       } else if (changedNote && changedNote !== currentFileName) {
         updateStatus(`iCloud: "${changedNote}" synced.`, true);
+      } else if (!changedNote) {
+        // Wildcard event (from force sync): current note is already up to date.
+        updateStatus('iCloud: Up to date.', true);
       }
     } else if (changedNote) {
       updateStatus(`iCloud: "${changedNote}" synced.`, true);
+    } else {
+      // Wildcard force sync with no note open and nothing changed.
+      updateStatus('iCloud: Up to date.', true);
     }
     await updateFileList();
   });
@@ -546,6 +552,11 @@ if (window.Capacitor?.isNativePlatform()) {
     if (currentFileName) {
       const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       const content = await NoteStorage.getNote(currentFileName);
+      if (content === null && NoteStorage._lastGetNoteTimedOut) {
+        // Download timed out (slow network) — do not treat as deletion.
+        if (showStatus) updateStatus('iCloud: Sync timed out — check your connection.', false);
+        return;
+      }
       if (content === null) {
         if (textarea.value.trim()) {
           try {
@@ -629,7 +640,6 @@ if (window.Capacitor?.isNativePlatform()) {
       }, INACTIVITY_MS);
     }
 
-    document.addEventListener('mousemove', onIOSActivity, { passive: true });
     document.addEventListener('keydown', onIOSActivity, { passive: true });
     document.addEventListener('touchstart', onIOSActivity, { passive: true });
     document.addEventListener('click', onIOSActivity, { passive: true });
@@ -681,10 +691,18 @@ if (window.electronAPI?.notes && !window.Capacitor?.isNativePlatform()) {
   bottomArea.title = 'Tap to sync';
 
   bottomArea.addEventListener('click', async () => {
+    // Flush any pending auto-save before syncing so that hasUnsavedEdits is
+    // false when the sync handler runs.  autoSaveNote is a no-op if the note
+    // has no # title, preserving the "must have title to save" invariant.
+    if (autoSaveTimer !== null) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+      await autoSaveNote();
+    }
     if (isDesktop) {
       updateStatus('Syncing\u2026', true, true);
       await window.electronAPI.notes.forceSync();
-      updateStatus('Synced.', true);
+      // Do not overwrite status here — onExternalChange sets the final message.
     } else if (isIOS && _forceSyncCallback) {
       await _forceSyncCallback(true);
     }
