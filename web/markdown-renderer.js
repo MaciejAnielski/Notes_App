@@ -69,8 +69,9 @@ function preprocessMarkdown(text) {
   // Handles: > YYMMDD HHMM HHMM  (timed)
   //          > YYMMDD YYMMDD      (multi-day)
   //          > YYMMDD             (all-day)
+  //          > YYMMDD @Calendar   (with calendar name)
   {
-    const schedRe = /\s*>\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?\s*$/;
+    const schedRe = /\s*>\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?(?:\s+@\S+)?\s*$/;
     const schedLines = text.split('\n');
     const schedOut = [];
     for (let si = 0; si < schedLines.length; si++) {
@@ -563,12 +564,19 @@ async function toggleView() {
     toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
+    const cursorY = getLineScrollY(textarea, textarea.selectionStart);
+    textarea.scrollTop = Math.max(0, cursorY - textarea.clientHeight / 2);
   } else {
-    renderPreview();
+    const cursorOffset = textarea.selectionStart;
+    const totalLen = textarea.value.length;
+    const ratio = totalLen > 0 ? cursorOffset / totalLen : 0;
+    await renderPreview();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
     toggleViewBtn.textContent = 'Edit';
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
+    const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
+    if (maxScroll > 0) previewDiv.scrollTop = ratio * maxScroll;
   }
 }
