@@ -35,14 +35,81 @@
     <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script>
-      // Mermaid will be initialized after DOM load; configure dark theme.
+      // Mermaid initialized with a custom theme matching the app's dark purple palette.
       window.addEventListener('load', () => {
         if (window.mermaid) {
           mermaid.initialize({
             startOnLoad: false,
-            theme: 'dark',
+            theme: 'base',
+            darkMode: true,
             securityLevel: 'strict',
-            fontFamily: 'Arial, sans-serif'
+            fontFamily: 'Arial, sans-serif',
+            themeVariables: {
+              // ── Core ──────────────────────────────────────────────
+              darkMode: true,
+              background:          '#1e1e1e',
+              primaryColor:        '#2e2e2e',
+              primaryTextColor:    '#e8dcf4',
+              primaryBorderColor:  '#a272b0',
+              lineColor:           '#a272b0',
+              // ── Secondary / tertiary nodes ─────────────────────────
+              secondaryColor:      '#262030',
+              secondaryTextColor:  '#e8dcf4',
+              secondaryBorderColor:'#7a5a8a',
+              tertiaryColor:       '#2a2040',
+              tertiaryTextColor:   '#e8dcf4',
+              tertiaryBorderColor: '#6b4e7a',
+              // ── Text & labels ─────────────────────────────────────
+              titleColor:          '#c89fdf',
+              edgeLabelBackground: '#2a2040',
+              // ── Subgraphs / clusters ──────────────────────────────
+              clusterBkg:          '#2a2040',
+              clusterBorder:       '#6b4e7a',
+              // ── Notes ─────────────────────────────────────────────
+              noteBkgColor:        '#262030',
+              noteTextColor:       '#e8dcf4',
+              noteBorderColor:     '#a272b0',
+              // ── Sequence diagrams ─────────────────────────────────
+              actorBkg:            '#2e2e2e',
+              actorBorder:         '#a272b0',
+              actorTextColor:      '#e8dcf4',
+              actorLineColor:      '#a272b0',
+              signalColor:         '#c89fdf',
+              signalTextColor:     '#e8dcf4',
+              labelBoxBkgColor:    '#2a2040',
+              labelBoxBorderColor: '#a272b0',
+              labelTextColor:      '#e8dcf4',
+              loopTextColor:       '#e8dcf4',
+              activationBorderColor:'#c89fdf',
+              activationBkgColor:  '#3a1060',
+              sequenceNumberColor: '#e8dcf4',
+              // ── Gantt charts ──────────────────────────────────────
+              gridColor:           '#3a2a4a',
+              todayLineColor:      '#e05c5c',
+              taskBkgColor:        '#2e2e2e',
+              taskBorderColor:     '#a272b0',
+              taskTextColor:       '#e8dcf4',
+              taskTextOutsideColor:'#e8dcf4',
+              taskTextLightColor:  '#e8dcf4',
+              activeTaskBkgColor:  '#3a1060',
+              activeTaskBorderColor:'#c89fdf',
+              doneTaskBkgColor:    '#1a3a2a',
+              doneTaskBorderColor: '#4caf72',
+              critBkgColor:        '#3a1a1a',
+              critBorderColor:     '#e05c5c',
+              critTextColor:       '#e8dcf4',
+              // ── Git graphs ────────────────────────────────────────
+              git0: '#a272b0', git1: '#9cdcfe', git2: '#4caf72',
+              git3: '#d4a24a', git4: '#c89fdf', git5: '#e05c5c',
+              git6: '#7a5a8a', git7: '#262030',
+              gitBranchLabel0: '#e8dcf4', gitBranchLabel1: '#1e1e1e',
+              gitBranchLabel2: '#1e1e1e', gitBranchLabel3: '#1e1e1e',
+              gitBranchLabel4: '#1e1e1e', gitBranchLabel5: '#e8dcf4',
+              gitBranchLabel6: '#e8dcf4', gitBranchLabel7: '#e8dcf4',
+              gitInv0: '#e8dcf4', gitInv1: '#1e1e1e', gitInv2: '#1e1e1e',
+              gitInv3: '#1e1e1e', gitInv4: '#1e1e1e', gitInv5: '#e8dcf4',
+              gitInv6: '#e8dcf4', gitInv7: '#e8dcf4'
+            }
           });
         }
       });
