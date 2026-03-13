@@ -120,7 +120,18 @@ async function syncFile(filename, srcDir, dstDir) {
     let needsCopy = false;
     try {
       const dstStat = await fs.stat(dstPath);
-      needsCopy = srcStat.mtimeMs > dstStat.mtimeMs + 1000; // 1s tolerance
+      if (srcStat.mtimeMs > dstStat.mtimeMs + 1000) {
+        needsCopy = true;
+      } else if (filename.endsWith('.md') && srcStat.mtimeMs >= dstStat.mtimeMs) {
+        // Mtimes are within the 1s tolerance — fall back to content comparison
+        // so nearly-simultaneous edits (e.g. rapid cross-device saves) are
+        // still synced when the src is at least as new as the dst.
+        const [srcHash, dstHash] = await Promise.all([
+          getFileHash(srcPath),
+          getFileHash(dstPath),
+        ]);
+        needsCopy = !!(srcHash && dstHash && srcHash !== dstHash);
+      }
     } catch {
       needsCopy = true; // dst doesn't exist
     }

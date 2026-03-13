@@ -84,14 +84,23 @@
       // The main app reads this flag to decide whether to show "Saved to iCloud."
       get isICloudEnabled() { return _availableCache !== false; },
 
+      // Set to true if the most recent getNote call failed due to a download
+      // timeout rather than a genuine missing file.  Callers that care about
+      // the distinction (e.g. checkICloudChanges) should check this flag.
+      _lastGetNoteTimedOut: false,
+
       async getNote(name) {
+        this._lastGetNoteTimedOut = false;
         if (!await isAvailable()) return null;
         try {
           const result = await ICloudPlugin.readFile({
             path: `${NOTES_DIR}/${noteNameToFileName(name)}`
           });
           return result.data;
-        } catch {
+        } catch (e) {
+          if (typeof e?.message === 'string' && e.message.startsWith('Download timed out')) {
+            this._lastGetNoteTimedOut = true;
+          }
           return null;
         }
       },
