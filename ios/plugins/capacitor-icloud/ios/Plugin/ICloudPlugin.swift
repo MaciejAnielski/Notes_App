@@ -161,6 +161,24 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         return FileManager.default.fileExists(atPath: placeholder.path)
     }
 
+    /// Returns the actual on-disk URL for a file that may be stored as a
+    /// cloud-only placeholder.  If the real file exists, returns it as-is.
+    /// If only the ".filename.icloud" placeholder exists, returns that URL
+    /// instead so callers can perform coordinated moves/deletes on it.
+    /// Returns nil when neither the file nor a placeholder is found.
+    private func resolveActualURL(for url: URL) -> URL? {
+        if FileManager.default.fileExists(atPath: url.path) {
+            return url
+        }
+        let name = url.lastPathComponent
+        let placeholder = url.deletingLastPathComponent()
+            .appendingPathComponent(".\(name).icloud")
+        if FileManager.default.fileExists(atPath: placeholder.path) {
+            return placeholder
+        }
+        return nil
+    }
+
     /// Reads a UTF-8 file relative to the iCloud container Documents folder.
     /// Uses NSFileCoordinator to ensure cloud-only files are downloaded first.
     /// Call parameters:
@@ -268,13 +286,18 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             let fileURL = base.appendingPathComponent(path)
-            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            // resolveActualURL handles both fully-downloaded files and
+            // cloud-only ".filename.icloud" placeholders.  Without this,
+            // deleting a note that has never been downloaded would silently
+            // succeed without removing the placeholder, causing the note to
+            // reappear in the list on the next poll.
+            guard let actualURL = self.resolveActualURL(for: fileURL) else {
                 call.resolve()
                 return
             }
             var coordinatorError: NSError?
             let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
-            coordinator.coordinate(writingItemAt: fileURL, options: .forDeleting, error: &coordinatorError) { url in
+            coordinator.coordinate(writingItemAt: actualURL, options: .forDeleting, error: &coordinatorError) { url in
                 try? FileManager.default.removeItem(at: url)
             }
             call.resolve()
@@ -434,6 +457,9 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Renames (moves) a file or directory within the iCloud container.
+    /// Handles cloud-only ".filename.icloud" placeholders: when the source
+    /// file has not been downloaded yet the placeholder is moved instead,
+    /// which iCloud correctly treats as a coordinated move operation.
     /// Call parameters:
     ///   - oldPath (String, required): current relative path
     ///   - newPath (String, required): desired relative path
@@ -453,11 +479,33 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 let dstDir = dstURL.deletingLastPathComponent()
                 try FileManager.default.createDirectory(at: dstDir, withIntermediateDirectories: true)
+
+                // Resolve the actual source: a real file or a cloud-only
+                // placeholder.  Without this, trashNote() for a note that has
+                // never been downloaded would fail silently (moveItem throws
+                // because foo.md doesn't exist, only .foo.md.icloud does),
+                // causing the deleted note to reappear on the next poll.
+                guard let actualSrcURL = self.resolveActualURL(for: srcURL) else {
+                    call.reject("Source file not found: \(oldPath)")
+                    return
+                }
+
+                // When moving a placeholder (.foo.md.icloud), the destination
+                // must also use the placeholder name so iCloud tracks the move.
+                let actualDstURL: URL
+                if actualSrcURL == srcURL {
+                    actualDstURL = dstURL
+                } else {
+                    let dstName = dstURL.lastPathComponent
+                    actualDstURL = dstURL.deletingLastPathComponent()
+                        .appendingPathComponent(".\(dstName).icloud")
+                }
+
                 var coordinatorError: NSError?
                 var moveError: Error?
                 let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
-                coordinator.coordinate(writingItemAt: srcURL, options: .forMoving,
-                                       writingItemAt: dstURL, options: .forReplacing,
+                coordinator.coordinate(writingItemAt: actualSrcURL, options: .forMoving,
+                                       writingItemAt: actualDstURL, options: .forReplacing,
                                        error: &coordinatorError) { src, dst in
                     do {
                         try FileManager.default.moveItem(at: src, to: dst)
