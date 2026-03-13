@@ -744,12 +744,33 @@ if (savedChain) {
     const scrollCursorIntoView = () => {
       if (document.activeElement !== textarea || isPreview) return;
       const vv = window.visualViewport;
-      const cursorPos = textarea.selectionStart;
-      const textBefore = textarea.value.substring(0, cursorPos);
-      const lineNumber = textBefore.split('\n').length;
       const style = window.getComputedStyle(textarea);
       const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
-      const cursorY = (lineNumber - 1) * lineHeight;
+
+      // Measure the true cursor Y offset with a mirror div so that long lines
+      // which wrap across multiple visual rows are counted correctly.
+      // (The simple (lineNumber-1)*lineHeight approach only counts \n characters
+      // and treats every logical line as a single row.)
+      const paddingL = parseFloat(style.paddingLeft) || 0;
+      const paddingR = parseFloat(style.paddingRight) || 0;
+      const mirror = document.createElement('div');
+      mirror.style.cssText =
+        'position:absolute;top:0;left:-9999px;visibility:hidden;overflow:hidden;' +
+        'white-space:pre-wrap;word-break:break-word;' +
+        'width:' + (textarea.clientWidth - paddingL - paddingR) + 'px;' +
+        'font-family:' + style.fontFamily + ';' +
+        'font-size:' + style.fontSize + ';' +
+        'font-weight:' + style.fontWeight + ';' +
+        'font-style:' + style.fontStyle + ';' +
+        'line-height:' + style.lineHeight + ';' +
+        'letter-spacing:' + style.letterSpacing + ';';
+      mirror.appendChild(document.createTextNode(textarea.value.substring(0, textarea.selectionStart)));
+      const caret = document.createElement('span');
+      caret.textContent = '\u200b'; // zero-width space marks cursor position
+      mirror.appendChild(caret);
+      document.body.appendChild(mirror);
+      const cursorY = caret.offsetTop;
+      document.body.removeChild(mirror);
 
       // Cursor's current position on screen (viewport coordinates)
       const taRect = textarea.getBoundingClientRect();
