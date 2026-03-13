@@ -8,11 +8,21 @@ const {
   parseMarkdownEvents,
   parseCalendarMetadata,
   updateCalendarMetadata,
+  loadMetadataStore,
+  saveMetadataStore,
+  migrateInlineMetadata,
   syncMarkdownToCalendar,
   syncCalendarToMarkdown,
   _resetForTesting,
   getCalendarsByTitle,
 } = require('../calendar-sync.js');
+
+// Returns the metadata store object saved to '.calendar_metadata' during the
+// most recent sync, or null if no such call was made.
+function getSavedStore() {
+  const call = NoteStorage.setNote.mock.calls.find(([n]) => n === '.calendar_metadata');
+  return call ? JSON.parse(call[1]) : null;
+}
 
 // ── Pure function tests ───────────────────────────────────────────────────────
 
@@ -158,6 +168,106 @@ describe('updateCalendarMetadata', () => {
   });
 });
 
+// ── loadMetadataStore / saveMetadataStore / migrateInlineMetadata tests ───────
+
+describe('loadMetadataStore', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    _resetForTesting();
+  });
+
+  test('returns {} when note does not exist', async () => {
+    NoteStorage.getNote.mockResolvedValue(null);
+    expect(await loadMetadataStore()).toEqual({});
+  });
+
+  test('returns parsed object when valid JSON is stored', async () => {
+    const store = { '260315 Daily Note': { events: [{ eventId: 'x' }] } };
+    NoteStorage.getNote.mockResolvedValue(JSON.stringify(store));
+    expect(await loadMetadataStore()).toEqual(store);
+  });
+
+  test('returns {} on malformed JSON', async () => {
+    NoteStorage.getNote.mockResolvedValue('{broken json');
+    expect(await loadMetadataStore()).toEqual({});
+  });
+});
+
+describe('saveMetadataStore', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    _resetForTesting();
+  });
+
+  test('calls NoteStorage.setNote with ".calendar_metadata" and JSON content', async () => {
+    NoteStorage.setNote.mockResolvedValue();
+    const store = { '260315 Daily Note': { events: [] } };
+    await saveMetadataStore(store);
+    expect(NoteStorage.setNote).toHaveBeenCalledWith('.calendar_metadata', JSON.stringify(store));
+  });
+});
+
+describe('migrateInlineMetadata', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    _resetForTesting();
+  });
+
+  test('migrates inline comment into store and strips it from note', async () => {
+    const meta = { events: [{ eventId: 'abc', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 2 }] };
+    const content = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nMeeting > 260315\n`;
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    const store = {};
+    await migrateInlineMetadata(store);
+
+    // Metadata moved into store with lineIndex decremented by 1
+    expect(store['260315 Daily Note'].events[0].eventId).toBe('abc');
+    expect(store['260315 Daily Note'].events[0].lineIndex).toBe(1);
+    // Note saved without the comment
+    expect(NoteStorage.setNote).toHaveBeenCalledWith('260315 Daily Note', expect.not.stringContaining('<!-- calendar_events:'));
+  });
+
+  test('does not overwrite existing store entry', async () => {
+    const meta = { events: [{ eventId: 'abc', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 2 }] };
+    const content = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nMeeting > 260315\n`;
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    const existingMeta = { events: [{ eventId: 'existing', title: 'Other' }] };
+    const store = { '260315 Daily Note': existingMeta };
+    await migrateInlineMetadata(store);
+
+    // Existing store entry preserved
+    expect(store['260315 Daily Note'].events[0].eventId).toBe('existing');
+    // Note still stripped of comment
+    expect(NoteStorage.setNote).toHaveBeenCalledWith('260315 Daily Note', expect.not.stringContaining('<!-- calendar_events:'));
+  });
+
+  test('skips notes without inline comments', async () => {
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: '# Note\nJust text\n' }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    const store = {};
+    await migrateInlineMetadata(store);
+
+    expect(NoteStorage.setNote).not.toHaveBeenCalled();
+    expect(store).toEqual({});
+  });
+
+  test('skips .calendar_metadata note itself', async () => {
+    NoteStorage.getAllNotes.mockResolvedValue([
+      { name: '.calendar_metadata', content: '{"some":"json"}' },
+    ]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    const store = {};
+    await migrateInlineMetadata(store);
+    expect(NoteStorage.setNote).not.toHaveBeenCalled();
+  });
+});
+
 // ── syncMarkdownToCalendar integration tests ─────────────────────────────────
 
 // Helper: build a mock plugin
@@ -186,6 +296,9 @@ beforeEach(() => {
   global.currentFileName = null;
   global.textarea = { value: '' };
   global.isPreview = false;
+  // Ensure NoteStorage.getNote returns null by default so that
+  // mockImplementation calls in individual tests don't bleed across tests.
+  NoteStorage.getNote.mockResolvedValue(null);
 });
 
 describe('syncMarkdownToCalendar', () => {
@@ -206,8 +319,8 @@ describe('syncMarkdownToCalendar', () => {
     expect(plugin.createEvent).toHaveBeenCalledTimes(1);
     expect(plugin.createEvent).toHaveBeenCalledWith(expect.objectContaining({ title: 'Meeting' }));
 
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    const meta = parseCalendarMetadata(savedContent);
+    const store = getSavedStore();
+    const meta = store['260315 Daily Note'];
     expect(meta.events).toHaveLength(1);
     expect(meta.events[0].eventId).toBe('new-id-1');
     expect(meta.events[0].lineText).toBe('Meeting > 260315');
@@ -219,8 +332,12 @@ describe('syncMarkdownToCalendar', () => {
     setupPlugin(plugin);
 
     const meta = { events: [{ eventId: 'existing-id', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 1 }] };
-    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nMeeting > 260315\n`;
+    const noteContent = `# 260315 Daily Note\nMeeting > 260315\n`;
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 
@@ -233,12 +350,16 @@ describe('syncMarkdownToCalendar', () => {
     const plugin = makePlugin();
     setupPlugin(plugin);
 
-    // Metadata records original text at lineIndex 2
-    const meta = { events: [{ eventId: 'evt-1', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 2 }] };
-    // Note now has updated text at lineIndex 2
-    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nTeam Meeting > 260315\n`;
+    // Metadata records original text at lineIndex 1 (no inline comment in note)
+    const meta = { events: [{ eventId: 'evt-1', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 1 }] };
+    // Note has updated text at lineIndex 1
+    const noteContent = `# 260315 Daily Note\nTeam Meeting > 260315\n`;
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
     NoteStorage.setNote.mockResolvedValue();
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 
@@ -249,8 +370,7 @@ describe('syncMarkdownToCalendar', () => {
     }));
     expect(plugin.createEvent).not.toHaveBeenCalled();
 
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    const savedMeta = parseCalendarMetadata(savedContent);
+    const savedMeta = getSavedStore()['260315 Daily Note'];
     expect(savedMeta.events[0].lineText).toBe('Team Meeting > 260315');
     expect(savedMeta.events[0].eventId).toBe('evt-1');
   });
@@ -260,19 +380,22 @@ describe('syncMarkdownToCalendar', () => {
     setupPlugin(plugin);
 
     // Metadata has an event, but it's no longer in the note content
-    const meta = { events: [{ eventId: 'evt-del', title: 'Old Meeting', lineText: 'Old Meeting > 260315', lineIndex: 2 }] };
+    const meta = { events: [{ eventId: 'evt-del', title: 'Old Meeting', lineText: 'Old Meeting > 260315', lineIndex: 1 }] };
     // Note no longer contains the event line
-    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nJust some text\n`;
+    const noteContent = `# 260315 Daily Note\nJust some text\n`;
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
     NoteStorage.setNote.mockResolvedValue();
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 
     expect(plugin.deleteEvent).toHaveBeenCalledTimes(1);
     expect(plugin.deleteEvent).toHaveBeenCalledWith({ eventId: 'evt-del' });
 
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    const savedMeta = parseCalendarMetadata(savedContent);
+    const savedMeta = getSavedStore()['260315 Daily Note'];
     expect(savedMeta.events).toHaveLength(0);
   });
 
@@ -301,9 +424,13 @@ describe('syncMarkdownToCalendar', () => {
     });
     setupPlugin(plugin);
 
-    const meta = { events: [{ eventId: 'evt-1', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 2 }] };
-    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nTeam Meeting > 260315\n`;
+    const meta = { events: [{ eventId: 'evt-1', title: 'Meeting', lineText: 'Meeting > 260315', lineIndex: 1 }] };
+    const noteContent = `# 260315 Daily Note\nTeam Meeting > 260315\n`;
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 
@@ -320,34 +447,37 @@ describe('syncMarkdownToCalendar', () => {
     });
     setupPlugin(plugin);
 
-    // evt-edit at lineIndex 2 will be edited; evt-del at lineIndex 5 will be deleted
-    // (its line is absent in the new content); Brand New at lineIndex 3 is a new line
+    // evt-edit at lineIndex 1 will be edited; evt-del at lineIndex 4 will be deleted
+    // (its line is absent in the new content); Brand New at lineIndex 2 is a new line
     const meta = {
       events: [
-        { eventId: 'evt-edit', title: 'Old Title', lineText: 'Old Title > 260315', lineIndex: 2 },
-        { eventId: 'evt-del',  title: 'Removed',   lineText: 'Removed > 260315',   lineIndex: 5 },
+        { eventId: 'evt-edit', title: 'Old Title', lineText: 'Old Title > 260315', lineIndex: 1 },
+        { eventId: 'evt-del',  title: 'Removed',   lineText: 'Removed > 260315',   lineIndex: 4 },
       ]
     };
     const noteContent = [
       '# 260315 Daily Note',
-      `<!-- calendar_events: ${JSON.stringify(meta)} -->`,
-      'New Title > 260315',  // lineIndex 2 — edit of evt-edit
-      'Brand New > 260315',  // lineIndex 3 — new event (no prior meta at lineIndex 3)
-      // lineIndex 4: (trailing newline — no event at lineIndex 5)
+      'New Title > 260315',  // lineIndex 1 — edit of evt-edit
+      'Brand New > 260315',  // lineIndex 2 — new event (no prior meta at lineIndex 2)
+      // lineIndex 3: (trailing newline — no event at lineIndex 4)
     ].join('\n') + '\n';
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
     NoteStorage.setNote.mockResolvedValue();
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 
     // evt-edit should be updated (same lineIndex, different text)
     expect(plugin.updateEvent).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'evt-edit', title: 'New Title' }));
-    // evt-del should be deleted (lineIndex 5 no longer has an event line)
+    // evt-del should be deleted (lineIndex 4 no longer has an event line)
     expect(plugin.deleteEvent).toHaveBeenCalledWith({ eventId: 'evt-del' });
-    // Brand New should be created (new line at lineIndex 3)
+    // Brand New should be created (new line at lineIndex 2)
     expect(plugin.createEvent).toHaveBeenCalledWith(expect.objectContaining({ title: 'Brand New' }));
 
-    const savedMeta = parseCalendarMetadata(NoteStorage.setNote.mock.calls[0][1]);
+    const savedMeta = getSavedStore()['260315 Daily Note'];
     expect(savedMeta.events).toHaveLength(2);
     const titles = savedMeta.events.map(e => e.title);
     expect(titles).toContain('New Title');
@@ -404,30 +534,31 @@ describe('syncCalendarToMarkdown', () => {
     const plugin = makeCalPlugin([makeEvent('e1', 'Doctor Appointment')]);
     setupCalPlugin(plugin);
 
-    NoteStorage.getNote.mockResolvedValue(`# ${noteName}\n\nSome existing text\n`);
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return null;
+      return `# ${noteName}\n\nSome existing text\n`;
+    });
     NoteStorage.setNote.mockResolvedValue();
 
     await syncCalendarToMarkdown(['cal-1']);
 
-    expect(NoteStorage.setNote).toHaveBeenCalledTimes(1);
-    const [savedName, savedContent] = NoteStorage.setNote.mock.calls[0];
-    expect(savedName).toBe(noteName);
-    expect(savedContent).toContain('Doctor Appointment');
+    const noteCall = NoteStorage.setNote.mock.calls.find(([n]) => n === noteName);
+    expect(noteCall).toBeDefined();
+    expect(noteCall[1]).toContain('Doctor Appointment');
   });
 
   test('creates a new daily note when none exists', async () => {
     const plugin = makeCalPlugin([makeEvent('e2', 'New Event')]);
     setupCalPlugin(plugin);
 
-    NoteStorage.getNote.mockResolvedValue(null);
     NoteStorage.setNote.mockResolvedValue();
 
     await syncCalendarToMarkdown(['cal-1']);
 
-    expect(NoteStorage.setNote).toHaveBeenCalledTimes(1);
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    expect(savedContent).toContain(`# ${noteName}`);
-    expect(savedContent).toContain('New Event');
+    const noteCall = NoteStorage.setNote.mock.calls.find(([n]) => n === noteName);
+    expect(noteCall).toBeDefined();
+    expect(noteCall[1]).toContain(`# ${noteName}`);
+    expect(noteCall[1]).toContain('New Event');
   });
 
   test('does not duplicate an event already in metadata', async () => {
@@ -435,8 +566,11 @@ describe('syncCalendarToMarkdown', () => {
     setupCalPlugin(plugin);
 
     const meta = { events: [{ eventId: 'e3', title: 'Recurring Meeting', lineText: `Recurring Meeting > ${dateStr}` }] };
-    const existingContent = `# ${noteName}\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nRecurring Meeting > ${dateStr}\n`;
-    NoteStorage.getNote.mockResolvedValue(existingContent);
+    const existingContent = `# ${noteName}\nRecurring Meeting > ${dateStr}\n`;
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ [noteName]: meta });
+      return existingContent;
+    });
 
     await syncCalendarToMarkdown(['cal-1']);
 
@@ -464,10 +598,10 @@ describe('syncCalendarToMarkdown', () => {
 
     await syncCalendarToMarkdown(['work-cal-id']);
 
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    expect(savedContent).toContain('@Work');
-    const meta = parseCalendarMetadata(savedContent);
-    expect(meta.events[0].calendarTag).toBe('Work');
+    const noteCall = NoteStorage.setNote.mock.calls.find(([n]) => n === noteName);
+    expect(noteCall[1]).toContain('@Work');
+    const store = getSavedStore();
+    expect(store[noteName].events[0].calendarTag).toBe('Work');
   });
 
   test('@tag: event from Notes App Events calendar does NOT get @tag', async () => {
@@ -481,10 +615,10 @@ describe('syncCalendarToMarkdown', () => {
 
     await syncCalendarToMarkdown(['notes-cal-id']);
 
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    expect(savedContent).not.toContain('@');
-    const meta = parseCalendarMetadata(savedContent);
-    expect(meta.events[0].calendarTag).toBeNull();
+    const noteCall = NoteStorage.setNote.mock.calls.find(([n]) => n === noteName);
+    expect(noteCall[1]).not.toContain('@');
+    const store = getSavedStore();
+    expect(store[noteName].events[0].calendarTag).toBeNull();
   });
 
   test('@tag: calendar title with spaces has spaces stripped in tag', async () => {
@@ -591,9 +725,8 @@ describe('syncMarkdownToCalendar — @CalendarName routing', () => {
 
     await syncMarkdownToCalendar(['cal-1']);
 
-    const savedContent = NoteStorage.setNote.mock.calls[0][1];
-    const meta = parseCalendarMetadata(savedContent);
-    expect(meta.events[0].calendarTag).toBe('Work');
+    const store = getSavedStore();
+    expect(store['260315 Daily Note'].events[0].calendarTag).toBe('Work');
   });
 
   test('calendar tag change triggers delete + create in new calendar', async () => {
@@ -602,7 +735,7 @@ describe('syncMarkdownToCalendar — @CalendarName routing', () => {
     });
     setupPlugin(plugin);
 
-    // Metadata shows event was in Work calendar
+    // Metadata shows event was in Work calendar (lineIndex 1, no inline comment)
     const meta = {
       events: [{
         eventId: 'old-work-id',
@@ -613,9 +746,13 @@ describe('syncMarkdownToCalendar — @CalendarName routing', () => {
       }]
     };
     // Note now has @Personal instead of @Work
-    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nStandup > 260315 @Personal\n`;
+    const noteContent = `# 260315 Daily Note\nStandup > 260315 @Personal\n`;
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
     NoteStorage.setNote.mockResolvedValue();
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 
@@ -628,7 +765,7 @@ describe('syncMarkdownToCalendar — @CalendarName routing', () => {
     // updateEvent must NOT have been called
     expect(plugin.updateEvent).not.toHaveBeenCalled();
 
-    const savedMeta = parseCalendarMetadata(NoteStorage.setNote.mock.calls[0][1]);
+    const savedMeta = getSavedStore()['260315 Daily Note'];
     expect(savedMeta.events[0].calendarTag).toBe('Personal');
     expect(savedMeta.events[0].eventId).toBe('new-personal-id');
   });
@@ -649,9 +786,13 @@ describe('syncMarkdownToCalendar — @CalendarName routing', () => {
       }]
     };
     // Tag removed — no @tag on line
-    const noteContent = `# 260315 Daily Note\n<!-- calendar_events: ${JSON.stringify(meta)} -->\nStandup > 260315\n`;
+    const noteContent = `# 260315 Daily Note\nStandup > 260315\n`;
     NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
     NoteStorage.setNote.mockResolvedValue();
+    NoteStorage.getNote.mockImplementation(async (name) => {
+      if (name === '.calendar_metadata') return JSON.stringify({ '260315 Daily Note': meta });
+      return null;
+    });
 
     await syncMarkdownToCalendar(['cal-1']);
 

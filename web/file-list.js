@@ -9,6 +9,7 @@ async function getVisibleNotes() {
   const notes = [];
   const allNotes = await NoteStorage.getAllNotes();
   for (const { name, content } of allNotes) {
+    if (name === '.calendar_metadata') continue;
     if (matches(name.toLowerCase(), content.toLowerCase())) {
       notes.push(name);
     }
@@ -49,6 +50,7 @@ async function _doUpdateFileList() {
   const allNotes = await NoteStorage.getAllNotes();
 
   for (const { name: fileName, content } of allNotes) {
+    if (fileName === '.calendar_metadata') continue;
     if (matches(fileName.toLowerCase(), content.toLowerCase())) {
       const li = document.createElement('li');
       const span = document.createElement('span');
@@ -107,6 +109,7 @@ async function updateTodoList(cachedNotes) {
 
   const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name: fileName, content: noteContent } of allNotes) {
+    if (fileName === '.calendar_metadata') continue;
     {
       const lines = noteContent.split(/\n/);
       const todos = lines
