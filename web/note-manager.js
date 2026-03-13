@@ -273,8 +273,8 @@ async function loadNote(name, fromLink = false) {
 async function newNote() {
   const today = getFormattedDate();
   const defaultTitle = today + ' Daily Note';
-  const existsInList = Array.from(fileList.querySelectorAll('span'))
-    .some(s => s.textContent === defaultTitle);
+  const allNames = await NoteStorage.getAllNoteNames();
+  const existsInList = allNames.includes(defaultTitle);
   if (!existsInList) {
     textarea.value = '# ' + defaultTitle + '\n\n';
   } else {
@@ -319,6 +319,7 @@ async function deleteNote() {
     alert('File not found.');
     return;
   }
+  if (!confirm(`Move "${name}" to the Deleted folder?`)) return;
 
   await NoteStorage.trashNote(name);
   textarea.value = '';
