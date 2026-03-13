@@ -143,12 +143,7 @@ async function gsSelectResult(index) {
       if (idx !== -1) {
         textarea.focus();
         textarea.setSelectionRange(idx, idx + query.length);
-        const textBefore = textarea.value.substring(0, idx);
-        const lineNumber = textBefore.split('\n').length;
-        const style = window.getComputedStyle(textarea);
-        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
-        const targetScroll = (lineNumber * lineHeight) - (textarea.clientHeight / 2);
-        textarea.scrollTop = Math.max(0, targetScroll);
+        textarea.scrollTop = Math.max(0, getLineScrollY(textarea, idx) - textarea.clientHeight / 2);
       }
     }
   }, 50);

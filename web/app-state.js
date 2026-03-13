@@ -88,6 +88,36 @@ let scheduleNowTimer = null;
 let peekHideTimer = null;
 let isPanelPinned = localStorage.getItem('panel_pinned') === 'true';
 
+// ── Helper: measure true visual Y offset of a character position ──────────
+// Returns the pixel distance from the top of the textarea's content area to
+// the line that contains charOffset, correctly accounting for long lines that
+// wrap across multiple visual rows (unlike the naive lineCount * lineHeight
+// approach which only counts \n characters).
+function getLineScrollY(ta, charOffset) {
+  const style = window.getComputedStyle(ta);
+  const paddingL = parseFloat(style.paddingLeft) || 0;
+  const paddingR = parseFloat(style.paddingRight) || 0;
+  const mirror = document.createElement('div');
+  mirror.style.cssText =
+    'position:absolute;top:0;left:-9999px;visibility:hidden;overflow:hidden;' +
+    'white-space:pre-wrap;word-break:break-word;' +
+    'width:' + (ta.clientWidth - paddingL - paddingR) + 'px;' +
+    'font-family:' + style.fontFamily + ';' +
+    'font-size:' + style.fontSize + ';' +
+    'font-weight:' + style.fontWeight + ';' +
+    'font-style:' + style.fontStyle + ';' +
+    'line-height:' + style.lineHeight + ';' +
+    'letter-spacing:' + style.letterSpacing + ';';
+  mirror.appendChild(document.createTextNode(ta.value.substring(0, charOffset)));
+  const caret = document.createElement('span');
+  caret.textContent = '\u200b';
+  mirror.appendChild(caret);
+  document.body.appendChild(mirror);
+  const y = caret.offsetTop;
+  document.body.removeChild(mirror);
+  return y;
+}
+
 // ── Helper: close mobile panel overlay ────────────────────────────────────
 function closeMobilePanel(panelSide) {
   if (!mobileMediaQuery.matches) return;
