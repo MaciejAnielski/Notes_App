@@ -197,6 +197,14 @@ function highlightMarkdown(rawText) {
   return result.join('\n');
 }
 
+// ── Public API ────────────────────────────────────────────────────────────
+
+// Call after programmatically setting textarea.value to keep the highlight
+// layer in sync (e.g. when loading a different note in edit mode).
+function refreshHighlight() {
+  _updateHighlight();
+}
+
 // ── Auto-init ─────────────────────────────────────────────────────────────
 
 if (document.readyState === 'loading') {

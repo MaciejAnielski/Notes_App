@@ -251,6 +251,7 @@ async function loadNote(name, fromLink = false) {
   textarea.value = content;
   _lastSavedContent = content;
   currentFileName = name;
+  refreshHighlight();
   localStorage.setItem('current_file', name);
 
   const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE || name === GRAPH_NOTE;
