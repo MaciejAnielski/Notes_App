@@ -427,6 +427,19 @@ function stripMarkdownText(text) {
   return text.trim();
 }
 
+// ── Expand collapsed <details> ancestors ─────────────────────────────────
+// Opens the given element and all ancestor <details> elements up to previewDiv.
+// Used to reveal content that is hidden inside a collapsed heading section.
+function expandCollapsedAncestors(el) {
+  let node = el;
+  while (node && node !== previewDiv) {
+    if (node.tagName === 'DETAILS' && !node.open) {
+      node.open = true;
+    }
+    node = node.parentElement;
+  }
+}
+
 function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0) {
   const needle = caseSensitive ? text : text.toLowerCase();
   const elements = previewDiv.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th');
@@ -436,6 +449,7 @@ function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0
     const haystack = caseSensitive ? el.textContent : el.textContent.toLowerCase();
     if (haystack.includes(needle)) {
       if (seen === occurrenceIndex) {
+        expandCollapsedAncestors(el);
         el.classList.add('schedule-highlight');
         el.scrollIntoView({ block: 'center', behavior: 'smooth' });
         setTimeout(() => el.classList.remove('schedule-highlight'), 2000);
@@ -446,6 +460,7 @@ function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0
     }
   }
   if (lastMatch) {
+    expandCollapsedAncestors(lastMatch);
     lastMatch.classList.add('schedule-highlight');
     lastMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
     setTimeout(() => lastMatch.classList.remove('schedule-highlight'), 2000);

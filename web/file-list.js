@@ -191,7 +191,7 @@ async function updateTodoList(cachedNotes) {
 }
 
 function setupPreviewTaskCheckboxes() {
-  const checkboxes = previewDiv.querySelectorAll('input[type="checkbox"]');
+  const checkboxes = previewDiv.querySelectorAll('input[type="checkbox"]:not([data-plain-cb])');
   const lines = textarea.value.split(/\n/);
   const taskIndices = [];
   lines.forEach((line, idx) => {

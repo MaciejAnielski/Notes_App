@@ -213,25 +213,46 @@ function preprocessMarkdown(text) {
   }
 
   // ── Non-task checkboxes: [ ] text and [x] text (without leading "- ") ──
-  // These render as interactive checkboxes but are NOT counted as tasks.
+  // These render identically to - [ ] task items (same list structure, same
+  // spacing) but are NOT picked up by the task list or treated as tasks.
+  // Consecutive plain-checkbox lines are grouped into a single <ul> so their
+  // spacing is indistinguishable from a run of - [ ] items.
   {
     const cbLines = text.split('\n');
     let inFence = false;
-    text = cbLines.map(line => {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
-      if (inFence) return line;
+    const cbOut = [];
+    let i = 0;
+    while (i < cbLines.length) {
+      const line = cbLines[i];
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; cbOut.push(line); i++; continue; }
+      if (inFence) { cbOut.push(line); i++; continue; }
       // Match lines starting with [ ] or [x]/[X] that are NOT preceded by "- "
       const m = line.match(/^(\s*)\[( |[xX])\]\s(.*)$/);
       if (m && !/^(\s*)- \[/.test(line)) {
-        const indent = m[1];
-        const checked = m[2] !== ' ';
-        const checkedAttr = checked ? ' checked' : '';
-        // Hide {calendarId} codes at end of label (used in Settings note)
-        const content = m[3].replace(/(\s*\{[^}]+\})\s*$/, '<span style="display:none">$1</span>');
-        return `${indent}<label class="plain-checkbox"><input type="checkbox"${checkedAttr} data-plain-cb> ${content}</label>`;
+        // Collect all consecutive plain-checkbox lines into one <ul>
+        const items = [];
+        let j = i;
+        while (j < cbLines.length) {
+          const ln = cbLines[j];
+          if (/^[ \t]*(`{3,}|~{3,})/.test(ln)) break;
+          const lm = ln.match(/^(\s*)\[( |[xX])\]\s(.*)$/);
+          if (!lm || /^(\s*)- \[/.test(ln)) break;
+          const checked = lm[2] !== ' ';
+          const checkedAttr = checked ? ' checked' : '';
+          // Hide {calendarId} codes at end of item (used in Settings note)
+          const rawContent = lm[3].replace(/(\s*\{[^}]+\})\s*$/, '<span style="display:none">$1</span>');
+          const content = marked.parseInline(rawContent);
+          items.push(`<li><input type="checkbox"${checkedAttr} data-plain-cb> ${content}</li>`);
+          j++;
+        }
+        cbOut.push(`<ul class="contains-task-list plain-cb-list">\n${items.join('\n')}\n</ul>`);
+        i = j;
+      } else {
+        cbOut.push(line);
+        i++;
       }
-      return line;
-    }).join('\n');
+    }
+    text = cbOut.join('\n');
   }
 
   // ── Footnotes ──
@@ -540,26 +561,39 @@ async function renderMermaidDiagrams(container) {
   }
 }
 
+// Per-note collapse state: tracks the open/closed state of collapsible headings
+// for the currently displayed note. Cleared whenever a different note is rendered,
+// so every fresh note open uses the markdown's default ("> " markers).
+let _collapseStateFile = null;
+let _collapseState = {};
+
 async function renderPreview() {
-  // Snapshot open/closed state of collapsible sections before wiping the DOM,
-  // so that a checkbox toggle (which re-renders) doesn't reset user-expanded sections.
-  const collapseState = {};
-  previewDiv.querySelectorAll('details').forEach(d => {
-    const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
-    if (h) collapseState[h.tagName + ':' + h.textContent.trim()] = d.open;
-  });
+  // Snapshot open/closed state of collapsible sections before wiping the DOM.
+  // Only restore the snapshot if we are re-rendering the same note (e.g. a
+  // checkbox toggle). When the note changes, start fresh so the markdown's
+  // default collapse markers take effect on every new open.
+  if (_collapseStateFile === currentFileName) {
+    _collapseState = {};
+    previewDiv.querySelectorAll('details').forEach(d => {
+      const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
+      if (h) _collapseState[h.tagName + ':' + h.textContent.trim()] = d.open;
+    });
+  } else {
+    _collapseState = {};
+  }
+  _collapseStateFile = currentFileName;
 
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
   await setupNoteLinks(previewDiv);
   setupCollapsibleHeadings(previewDiv);
 
-  // Restore collapse state after re-render
+  // Restore collapse state after re-render (only applies to same-note re-renders)
   previewDiv.querySelectorAll('details').forEach(d => {
     const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
     if (h) {
       const key = h.tagName + ':' + h.textContent.trim();
-      if (key in collapseState) d.open = collapseState[key];
+      if (key in _collapseState) d.open = _collapseState[key];
     }
   });
 
@@ -589,12 +623,44 @@ async function toggleView() {
     const cursorOffset = textarea.selectionStart;
     const totalLen = textarea.value.length;
     const ratio = totalLen > 0 ? cursorOffset / totalLen : 0;
+
+    // Identify which heading section the cursor is in so we can expand it
+    // after rendering if it happens to be collapsed.
+    const sourceLines = textarea.value.split('\n');
+    let charCount = 0;
+    let cursorLineIdx = 0;
+    for (let li = 0; li < sourceLines.length; li++) {
+      if (charCount + sourceLines[li].length >= cursorOffset) { cursorLineIdx = li; break; }
+      charCount += sourceLines[li].length + 1;
+    }
+    let cursorSectionHeading = null;
+    for (let li = cursorLineIdx; li >= 0; li--) {
+      const hm = sourceLines[li].match(/^#{1,6}\s+(.*?)$/);
+      if (hm) {
+        // Strip trailing collapse marker ">" and any injected HTML
+        cursorSectionHeading = hm[1].replace(/\s*>\s*$/, '').replace(/<[^>]*>/g, '').trim();
+        break;
+      }
+    }
+
     await renderPreview();
     previewDiv.style.display = 'block';
     textarea.style.display = 'none';
     toggleViewBtn.textContent = 'Edit';
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
+
+    // Expand any collapsed heading section that contains the cursor position.
+    if (cursorSectionHeading) {
+      for (const d of previewDiv.querySelectorAll('details')) {
+        const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
+        if (h && h.textContent.trim() === cursorSectionHeading) {
+          expandCollapsedAncestors(d);
+          break;
+        }
+      }
+    }
+
     const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
     if (maxScroll > 0) previewDiv.scrollTop = ratio * maxScroll;
   }
