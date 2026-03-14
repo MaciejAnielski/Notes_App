@@ -130,9 +130,10 @@ async function checkScheduleNotifications() {
 
     if (diff > 0 && diff <= NOTIF_ADVANCE_MINUTES) {
       const label = item.isTask ? 'Task' : 'Event';
+      const cleanText = stripMarkdownText(item.text || '') || 'Upcoming scheduled item';
       sendNotification(
         `${label} in ${diff} minute${diff > 1 ? 's' : ''}`,
-        item.text || 'Upcoming scheduled item',
+        cleanText,
         `advance-${todayStr}-${item.startTime}-${item.text}`
       );
     }
@@ -140,9 +141,10 @@ async function checkScheduleNotifications() {
     // Also notify at the exact start time
     if (diff >= -1 && diff <= 0) {
       const label = item.isTask ? 'Task' : 'Event';
+      const cleanText = stripMarkdownText(item.text || '') || 'Scheduled item starting';
       sendNotification(
         `${label} starting now`,
-        item.text || 'Scheduled item starting',
+        cleanText,
         `start-${todayStr}-${item.startTime}-${item.text}`
       );
     }

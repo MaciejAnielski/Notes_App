@@ -395,7 +395,8 @@ function setupCollapsibleHeadings(container) {
     return null;
   }
 
-  const headings = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')].reverse();
+  // H1 is never collapsible — it acts as the note title
+  const headings = [...container.querySelectorAll('h2,h3,h4,h5,h6')].reverse();
 
   headings.forEach(heading => {
     const level = headingLevel(heading);
@@ -568,6 +569,9 @@ let _collapseStateFile = null;
 let _collapseState = {};
 
 async function renderPreview() {
+  // Reset any overflow override left by graph view so normal notes scroll correctly.
+  previewDiv.style.overflow = '';
+
   // Note Graph: delegate entirely to graph-view.js renderer.
   if (currentFileName === GRAPH_NOTE) {
     await renderNoteGraph();
@@ -593,6 +597,21 @@ async function renderPreview() {
   styleTaskListItems(previewDiv);
   await setupNoteLinks(previewDiv);
   setupCollapsibleHeadings(previewDiv);
+
+  // H1 title: clicking navigates back to the previously accessed note (breadcrumb).
+  previewDiv.querySelectorAll('h1').forEach(h1 => {
+    if (linkedNoteChain.length > 0) {
+      h1.classList.add('note-title-back');
+      h1.title = `Back to "${linkedNoteChain[0]}"`;
+    }
+    h1.addEventListener('click', () => {
+      if (linkedNoteChain.length === 0) return;
+      const prevNote = linkedNoteChain[0];
+      linkedNoteChain = linkedNoteChain.slice(1);
+      saveChain();
+      loadNote(prevNote, true);
+    });
+  });
 
   // Restore collapse state after re-render (only applies to same-note re-renders)
   previewDiv.querySelectorAll('details').forEach(d => {

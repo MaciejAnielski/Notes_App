@@ -331,11 +331,126 @@ textarea {
   margin: 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
+  line-height: 1.5;
   flex: 1;
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
 }
+
+/* ── Editor wrapper — contains highlight pre + transparent textarea ── */
+#editor-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background-color: #1e1e1e;
+}
+
+/* Textarea inside wrapper: transparent text, visible caret */
+#editor-wrapper > textarea {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%;
+  height: 100%;
+  flex: none;
+  background: transparent;
+  color: transparent;
+  caret-color: #e8dcf4;
+  z-index: 1;
+  /* Keep same base metrics as highlight pre */
+  line-height: 1.5;
+}
+
+/* Placeholder text remains visible even with transparent textarea color */
+#editor-wrapper > textarea::placeholder {
+  color: #5a5070;
+  opacity: 1;
+}
+
+/* ── Syntax highlight pre layer ── */
+/* CRITICAL: font-family, font-size, font-weight, line-height, padding,
+   white-space, word-wrap, tab-size, and box-sizing MUST exactly match
+   the textarea above — any difference drifts the cursor out of sync.   */
+#editor-highlight {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  /* Metrics — must identically match textarea */
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1.5;
+  padding: var(--gap);
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  tab-size: 4;
+  -moz-tab-size: 4;
+  box-sizing: border-box;
+  background-color: #1e1e1e;
+  color: #e8dcf4;
+  border: none;
+  border-radius: 0;
+}
+
+/* ── Syntax highlight token colours ── */
+/* Rule: colour only — never font-size, font-weight, font-style,
+   letter-spacing, or word-spacing (those break cursor alignment). */
+
+/* Headings — descending purple shades */
+.hl-h1 { color: #d4b8ff; }
+.hl-h2 { color: #c0a0f0; }
+.hl-h3 { color: #aa8ae0; }
+.hl-h4 { color: #9474cc; }
+.hl-h5 { color: #7e60b8; }
+.hl-h6 { color: #6a4ea4; }
+
+/* The # markers are slightly darker than heading text */
+.hl-heading-marker { color: #7a5a8a; }
+
+/* Bold (colour only — do NOT add font-weight) */
+.hl-bold        { color: #f0e0ff; }
+/* Italic (colour only — do NOT add font-style) */
+.hl-italic      { color: #c8a8f0; }
+/* Bold-italic combination */
+.hl-bold-italic { color: #f8e8ff; }
+
+/* Inline code */
+.hl-code { color: #79d9a0; background-color: #112318; }
+
+/* Fenced code block fence lines and content */
+.hl-fence      { color: #a272b0; }
+.hl-code-block { color: #79d9a0; }
+
+/* Strikethrough */
+.hl-strike { color: #7a6a8a; }
+
+/* Highlight ==text== — golden, inner text inherits so nesting stays gold */
+.hl-highlight      { color: #f5d76e; }
+.hl-highlight-text { color: #f5d76e; }
+.hl-highlight-text * { color: inherit; }
+
+/* Links and wiki-links */
+.hl-link { color: #9cdcfe; }
+.hl-wiki { color: #7ec8f0; }
+
+/* List markers */
+.hl-list-marker { color: #a272b0; }
+
+/* Blockquote > marker and text */
+.hl-blockquote        { color: #b8a8cc; }
+.hl-blockquote-marker { color: #a272b0; }
+
+/* Horizontal rule lines */
+.hl-hr { color: #6b4e7a; }
+
+/* Schedule syntax at end of line */
+.hl-schedule { color: #6b4e7a; }
 
 textarea:focus {
   outline: none;
@@ -359,6 +474,73 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ── Preview heading colours — descending purple shades ── */
+#preview h1 {
+  color: #d4b8ff;
+  border-bottom: 1px solid #a272b0;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  margin-top: 8px;
+}
+
+#preview h2 { color: #c0a0f0; }
+#preview h3 { color: #aa8ae0; }
+#preview h4 { color: #9474cc; }
+#preview h5 { color: #7e60b8; }
+#preview h6 { color: #6a4ea4; }
+
+/* ── Inline emphasis in preview ── */
+/* Bold uses slightly brighter purple-white */
+#preview strong { color: #f0e0ff; }
+/* Italic uses soft lavender */
+#preview em { color: #c8a8f0; }
+/* Strikethrough muted */
+#preview del { color: #7a6a8a; }
+
+/* ── Inline code ── */
+#preview code {
+  color: #79d9a0;
+  background-color: #112318;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+/* Code inside a fenced block — reset inline styling */
+#preview pre code {
+  color: #79d9a0;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Fenced code block container */
+#preview pre {
+  background-color: #141c1a;
+  border: 1px solid #2a3a30;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.75em 0;
+}
+
+/* ── Highlights (==text==) — golden; nested elements inherit the colour ── */
+#preview mark,
+#preview mark * { color: #f5d76e; }
+
+/* ── H1 note title: navigates back when a breadcrumb chain exists ── */
+#preview h1.note-title-back {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+@media (hover: hover) {
+  #preview h1.note-title-back:hover {
+    opacity: 0.75;
+  }
 }
 
 #preview p {
@@ -422,7 +604,6 @@ textarea:focus {
   display: none;
 }
 
-#preview details > summary h1,
 #preview details > summary h2,
 #preview details > summary h3,
 #preview details > summary h4,
@@ -1460,8 +1641,9 @@ body.panel-pinned {
     touch-action: manipulation;
   }
 
-  /* Restore vertical scrolling for preview — overrides the pan-x/manipulation wildcard above */
-  #preview {
+  /* Restore vertical scrolling for preview and editor — overrides pan-x/manipulation wildcard */
+  #preview,
+  #editor-wrapper > textarea {
     touch-action: pan-y;
   }
 
