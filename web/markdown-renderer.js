@@ -568,6 +568,12 @@ let _collapseStateFile = null;
 let _collapseState = {};
 
 async function renderPreview() {
+  // Note Graph: delegate entirely to graph-view.js renderer.
+  if (currentFileName === GRAPH_NOTE) {
+    await renderNoteGraph();
+    return;
+  }
+
   // Snapshot open/closed state of collapsible sections before wiping the DOM.
   // Only restore the snapshot if we are re-rendering the same note (e.g. a
   // checkbox toggle). When the note changes, start fresh so the markdown's
@@ -634,9 +640,12 @@ async function toggleView() {
       charCount += sourceLines[li].length + 1;
     }
     let cursorSectionHeading = null;
+    let cursorSectionDefaultCollapsed = false;
     for (let li = cursorLineIdx; li >= 0; li--) {
       const hm = sourceLines[li].match(/^#{1,6}\s+(.*?)$/);
       if (hm) {
+        // Check if this heading is default-collapsed (has trailing ">")
+        cursorSectionDefaultCollapsed = /\s*>\s*$/.test(hm[1]);
         // Strip trailing collapse marker ">" and any injected HTML
         cursorSectionHeading = hm[1].replace(/\s*>\s*$/, '').replace(/<[^>]*>/g, '').trim();
         break;
@@ -650,8 +659,11 @@ async function toggleView() {
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
 
-    // Expand any collapsed heading section that contains the cursor position.
-    if (cursorSectionHeading) {
+    // Expand any collapsed heading section that contains the cursor position,
+    // but only if the heading is not default-collapsed (marked with ">").
+    // Respecting default-collapsed markers prevents repeated toggle from
+    // permanently uncollapsing sections the user intended to keep collapsed.
+    if (cursorSectionHeading && !cursorSectionDefaultCollapsed) {
       for (const d of previewDiv.querySelectorAll('details')) {
         const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
         if (h && h.textContent.trim() === cursorSectionHeading) {

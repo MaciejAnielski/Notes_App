@@ -103,7 +103,7 @@ function substituteVarsInLatex(texExpr, varMap) {
   let result = texExpr;
 
   for (const [varName, val] of latexVars) {
-    const esc = varName.replace(/\\/g, '\\\\');
+    const esc = varName.replace(/[\\{}()[\]^$.*+?|]/g, '\\$&');
     result = result.replace(new RegExp(esc + '(?![a-zA-Z])', 'g'), `(${val})`);
   }
 
@@ -189,6 +189,13 @@ function latexToJsExpr(tex) {
   expr = expr.replace(/\\right\s*\]/g, ')');
   expr = expr.replace(/\\right\s*\|/g, ')');
 
+  // Strip \text{...} typographic labels — one level of nested braces supported.
+  // This handles decorative subscript labels like x_{\text{net}} and standalone
+  // text annotations like \text{some label} that are not numeric.
+  expr = expr.replace(/\\text\{(?:[^{}]|\{[^}]*\})*\}/g, '');
+  // Remove any empty subscripts/superscripts left after text stripping
+  expr = expr.replace(/[_^]\{\s*\}/g, '');
+
   expr = expr.replace(/\^\{/g, '**(');
   expr = expr.replace(/\^([a-zA-Z0-9.(])/g, '**$1');
 
@@ -219,7 +226,7 @@ function evaluateLatexExpr(texExpr, varMap) {
 
 function buildMathVariableMap(expressions) {
   const varMap = {};
-  const assignRe = /^(\\?[a-zA-Z][a-zA-Z0-9]*(?:_\{[^}]+\}|_[a-zA-Z0-9])?)\s*=\s*(.+)$/;
+  const assignRe = /^(\\text\{[^}]+\}|\\?[a-zA-Z][a-zA-Z0-9]*(?:_\{(?:[^{}]|\{[^}]*\})*\}|_[a-zA-Z0-9])?)\s*=\s*(.+)$/;
   const numericRe = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
   for (const { tex } of expressions) {

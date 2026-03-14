@@ -124,6 +124,12 @@ async function generateProjectsNoteContent() {
   return lines.join('\n');
 }
 
+async function refreshGraphNote() {
+  const existing = await NoteStorage.getNote(GRAPH_NOTE);
+  if (existing !== null) return;
+  await NoteStorage.setNote(GRAPH_NOTE, '# Note Graph\n');
+}
+
 async function refreshProjectsNote() {
   const newContent = await generateProjectsNoteContent();
   const existing = await NoteStorage.getNote(PROJECTS_NOTE);
@@ -247,7 +253,7 @@ async function loadNote(name, fromLink = false) {
   currentFileName = name;
   localStorage.setItem('current_file', name);
 
-  const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE;
+  const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE || name === GRAPH_NOTE;
 
   if (isReadOnlyNote) {
     textarea.readOnly = true;
