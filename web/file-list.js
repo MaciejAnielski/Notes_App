@@ -96,9 +96,75 @@ async function _doUpdateFileList() {
 
   items.forEach(li => fileList.appendChild(li));
 
+  // Detect @CalendarName tags in notes and update Settings note on web
+  await updateWebCalendarSettings(allNotes);
+
   // Pass the already-fetched notes to updateTodoList to avoid a second
   // round-trip through the native bridge on iOS.
   await updateTodoList(allNotes);
+}
+
+// ── Web calendar detection ────────────────────────────────────────────────
+// On web (not iOS/Desktop), scan notes for @CalendarName syntax and add any
+// new calendar names to the Settings note under "## 📅 Calendars".
+async function updateWebCalendarSettings(allNotes) {
+  if (window.electronAPI?.notes || window.Capacitor?.isNativePlatform()) return;
+
+  const calendarNames = new Set();
+  for (const { content } of allNotes) {
+    if (!content) continue;
+    const tagRe = />\s*\d{6}(?:\s+\d{4}\s+\d{4}|\s+\d{6})?(?:\s+@(\S+))?\s*$/gm;
+    let m;
+    while ((m = tagRe.exec(content)) !== null) {
+      if (m[1]) calendarNames.add(m[1]);
+    }
+  }
+  if (calendarNames.size === 0) return;
+
+  const existing = await NoteStorage.getNote(CALENDARS_NOTE) || '';
+  const existingNames = new Set();
+  const calSection = existing.match(/## 📅 Calendars([\s\S]*?)(?=^##|\s*$)/m);
+  if (calSection) {
+    // Extract names from plain list items: "- CalendarName"
+    const nameRe = /^- (.+?)\s*$/gm;
+    let nm;
+    while ((nm = nameRe.exec(calSection[1])) !== null) {
+      existingNames.add(nm[1]);
+    }
+    // Also extract names from iOS checkbox format: "[x] CalendarName {id}"
+    const cbRe = /^\[[ xX]\]\s+(.+?)\s*\{[^}]+\}\s*$/gm;
+    while ((nm = cbRe.exec(calSection[1])) !== null) {
+      existingNames.add(nm[1]);
+    }
+  }
+
+  const newNames = [...calendarNames].filter(n => !existingNames.has(n));
+  if (newNames.length === 0) return;
+
+  let content = existing;
+  if (!content) content = '# Settings\n';
+
+  if (!content.includes('## 📅 Calendars')) {
+    content += '\n## 📅 Calendars\n\n';
+  }
+  for (const name of newNames.sort()) {
+    // Append before the next ## heading or at end of calendars section
+    const secIdx = content.indexOf('\n## 📅 Calendars');
+    if (secIdx !== -1) {
+      // Find end of this section (next ## or end of file)
+      const afterHeading = secIdx + '\n## 📅 Calendars'.length;
+      const nextSecIdx = content.indexOf('\n## ', afterHeading);
+      const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
+      content = content.slice(0, insertAt) + '\n- ' + name + content.slice(insertAt);
+    } else {
+      content += '\n- ' + name;
+    }
+  }
+  await NoteStorage.setNote(CALENDARS_NOTE, content);
+  if (currentFileName === CALENDARS_NOTE) {
+    textarea.value = content;
+    if (isPreview) renderPreview();
+  }
 }
 
 async function updateTodoList(cachedNotes) {

@@ -705,6 +705,10 @@ if (window.electronAPI?.notes && !window.Capacitor?.isNativePlatform()) {
       // Do not overwrite status here — onExternalChange sets the final message.
     } else if (isIOS && _forceSyncCallback) {
       await _forceSyncCallback(true);
+      // Also trigger calendar sync so it runs alongside the iCloud sync
+      if (typeof runCalendarSync === 'function') {
+        await runCalendarSync();
+      }
     }
   });
 })();

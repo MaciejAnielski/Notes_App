@@ -1196,6 +1196,41 @@ body.panel-pinned {
 .dot-today       { background-color: #d4a24a; }
 .dot-future      { background-color: #4caf72; }
 
+/* ── Calendar colour picker (Settings note preview) ── */
+.calendar-color-picker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.calendar-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 50%;
+}
+
+.calendar-color-picker::-webkit-color-swatch {
+  border: 1px solid #555;
+  border-radius: 50%;
+}
+
+.calendar-color-picker::-moz-color-swatch {
+  border: 1px solid #555;
+  border-radius: 50%;
+}
+
+.calendar-name-label {
+  font-weight: 500;
+}
+
 /* ── Global Search & Replace Panel ── */
 #global-search-panel {
   position: fixed;
