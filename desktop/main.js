@@ -221,6 +221,32 @@ async function writeThrough(filename, dir, iosDir) {
   }
 }
 
+// Propagate iOS note deletions to CloudDocs.
+// When iOS deletes a note it appends the filename to .ios_deletions in the
+// iOS container.  We read that log here, delete each file from CloudDocs, and
+// clear the log so the "missing from iOS" re-sync loop doesn't restore them.
+async function processIosDeletions() {
+  if (!iosNotesDir || !notesDir) return false;
+  const logPath = path.join(iosNotesDir, '.ios_deletions');
+  let content;
+  try { content = await fs.readFile(logPath, 'utf8'); } catch { return false; }
+
+  const filenames = [...new Set(content.split('\n').filter(Boolean))];
+  if (filenames.length === 0) return false;
+
+  let changed = false;
+  for (const filename of filenames) {
+    try {
+      await fs.unlink(path.join(notesDir, filename));
+      _contentHashes.delete(filename);
+      changed = true;
+      console.log(`[iCloud poll] Propagated iOS deletion: "${filename}"`);
+    } catch { /* already gone from CloudDocs — fine */ }
+  }
+  try { await fs.unlink(logPath); } catch {}
+  return changed;
+}
+
 // Delete a file from the iOS container mirror
 async function deleteMirror(filename, iosDir) {
   if (!iosDir) return;
@@ -711,8 +737,12 @@ function startICloudPolling(win) {
 
     // 2. Check iOS container for changes from iOS devices
     if (iosNotesDir) {
+      // Process explicit iOS deletions before the re-sync safety check so that
+      // intentionally deleted notes are removed from CloudDocs rather than
+      // being restored to iOS.
+      let iosChanged = await processIosDeletions();
+
       const currentIos = await buildSnapshot(iosNotesDir, '.md');
-      let iosChanged = false;
       const now = Date.now();
 
       // Detect new or modified files in iOS container
@@ -762,18 +792,6 @@ function startICloudPolling(win) {
           // Check if the file still exists in CloudDocs (source of truth)
           try {
             await fs.access(path.join(notesDir, file));
-            // Special case: Calendars.md was intentionally deleted on iOS as part
-            // of the one-time migration to Settings.md.  Propagate the deletion to
-            // CloudDocs instead of re-syncing the stale note back to iOS.
-            if (file === 'Calendars.md' && currentIos.has('Settings.md')) {
-              console.log(`[iCloud poll] "${file}" deleted on iOS after Calendars→Settings migration — removing from CloudDocs.`);
-              try {
-                await fs.unlink(path.join(notesDir, file));
-                _contentHashes.delete(file);
-                iosChanged = true;
-              } catch {}
-              continue;
-            }
             // File exists in CloudDocs but missing from iOS — re-sync it
             console.log(`[iCloud poll] "${file}" missing from iOS — re-syncing from CloudDocs.`);
             await writeThrough(file, notesDir, iosNotesDir);
