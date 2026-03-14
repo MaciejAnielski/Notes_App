@@ -762,6 +762,18 @@ function startICloudPolling(win) {
           // Check if the file still exists in CloudDocs (source of truth)
           try {
             await fs.access(path.join(notesDir, file));
+            // Special case: Calendars.md was intentionally deleted on iOS as part
+            // of the one-time migration to Settings.md.  Propagate the deletion to
+            // CloudDocs instead of re-syncing the stale note back to iOS.
+            if (file === 'Calendars.md' && currentIos.has('Settings.md')) {
+              console.log(`[iCloud poll] "${file}" deleted on iOS after Calendars→Settings migration — removing from CloudDocs.`);
+              try {
+                await fs.unlink(path.join(notesDir, file));
+                _contentHashes.delete(file);
+                iosChanged = true;
+              } catch {}
+              continue;
+            }
             // File exists in CloudDocs but missing from iOS — re-sync it
             console.log(`[iCloud poll] "${file}" missing from iOS — re-syncing from CloudDocs.`);
             await writeThrough(file, notesDir, iosNotesDir);
