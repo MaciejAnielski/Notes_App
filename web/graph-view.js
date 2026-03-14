@@ -216,11 +216,15 @@ async function renderNoteGraph() {
     contentPreviewMap.set(name, content);
   }
 
-  // Click: open note
+  // Click: open note and add Note Graph to breadcrumb trail
   network.on('click', params => {
     if (params.nodes.length === 0) return;
     const nodeId = params.nodes[0];
     if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) return;
+    if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
+      linkedNoteChain.unshift(currentFileName);
+      saveChain();
+    }
     loadNote(nodeId, true);
   });
 
