@@ -701,7 +701,7 @@ async function runCalendarSync() {
     await migrateInlineMetadata(metaStore);
     await saveMetadataStore(metaStore);
 
-    // Ensure Calendars note exists
+    // Ensure Settings note exists (and migrate old "Calendars" note if present)
     await updateCalendarsNote();
 
     // Get selected calendars
