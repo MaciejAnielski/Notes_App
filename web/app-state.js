@@ -64,7 +64,7 @@ let linkedNoteChain = [];
 let _lastSavedContent = null;
 
 const PROJECTS_NOTE = 'Projects';
-const CALENDARS_NOTE = 'Calendars';
+const CALENDARS_NOTE = 'Settings';
 const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 let projectsViewActive = false;
 // Matches all schedule syntax variants:

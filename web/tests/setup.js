@@ -1,6 +1,6 @@
 // Global mocks for the browser environment expected by calendar-sync.js
 
-global.CALENDARS_NOTE = 'Calendars';
+global.CALENDARS_NOTE = 'Settings';
 global.currentFileName = null;
 global.textarea = { value: '' };
 global.isPreview = false;

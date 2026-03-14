@@ -13,8 +13,8 @@
 // The optional @CalendarName tag (no spaces; case-insensitive) routes new
 // events to a named iOS calendar.  If omitted, events go to "Notes App Events".
 //
-// Calendar selection is stored in a note called "Calendars" using plain
-// checkbox syntax: [x] CalendarName or [ ] CalendarName.
+// Calendar selection is stored in the "Settings" note under the "## 📅 Calendars"
+// subheading using plain checkbox syntax: [x] CalendarName or [ ] CalendarName.
 
 const DAILY_NOTE_SUFFIX = ' Daily Note';
 const CALENDAR_META_RE = /<!-- calendar_events: ({.*?}) -->/;
@@ -125,19 +125,24 @@ async function updateCalendarsNote() {
   const calendars = result.calendars || [];
   if (calendars.length === 0) return;
 
-  // Read existing note to preserve user selections
+  // Read existing note to preserve user selections.
+  // Fall back to the old "Calendars" note for one-time migration.
   const existing = await NoteStorage.getNote(CALENDARS_NOTE);
+  const oldCalendarsNote = existing ? null : await NoteStorage.getNote('Calendars');
   const selectedIds = new Set();
-  if (existing) {
+  const selSource = existing || oldCalendarsNote || '';
+  if (selSource) {
     const re = /^\[([xX])\]\s+(.+?)\s*\{([^}]+)\}\s*$/;
-    for (const line of existing.split('\n')) {
+    for (const line of selSource.split('\n')) {
       const m = line.match(re);
       if (m) selectedIds.add(m[3]);
     }
   }
+  // Delete the old "Calendars" note after migrating its selections
+  if (oldCalendarsNote) await NoteStorage.removeNote('Calendars');
 
   // Build new note content
-  const lines = ['# Calendars', '', 'Select calendars to sync with your daily notes:', ''];
+  const lines = ['# Settings', '', '## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', ''];
   calendars
     .sort((a, b) => a.title.localeCompare(b.title))
     .forEach(cal => {
