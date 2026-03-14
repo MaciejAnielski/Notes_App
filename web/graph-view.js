@@ -80,8 +80,11 @@ async function renderNoteGraph() {
   const searchActive = searchBox.value.trim().length > 0;
   const titleBar = document.createElement('div');
   titleBar.className = 'graph-title-bar';
+  titleBar.title = 'Click to refresh the graph';
+  titleBar.style.cursor = 'pointer';
   titleBar.textContent = `Note Graph — ${graphNotes.length} notes, ${totalEdges} links` +
     (searchActive ? ' (filtered)' : '');
+  titleBar.addEventListener('click', () => renderNoteGraph());
   previewDiv.appendChild(titleBar);
 
   // Graph container takes remaining space
