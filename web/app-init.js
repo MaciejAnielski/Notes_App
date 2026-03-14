@@ -768,13 +768,18 @@ if (savedChain) {
       const vv = window.visualViewport;
       const style = window.getComputedStyle(textarea);
       const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
+      // getLineScrollY returns Y within the text content area (excludes paddingTop),
+      // so we need paddingTop to convert that offset to a position within the element.
+      const paddingTop = parseFloat(style.paddingTop) || 0;
 
       // Measure the true cursor Y offset, accounting for wrapped lines.
       const cursorY = getLineScrollY(textarea, textarea.selectionStart);
 
-      // Cursor's current position on screen (viewport coordinates)
+      // Cursor's current position on screen (viewport coordinates).
+      // Add paddingTop because cursorY is relative to the content area, not the
+      // element's top edge.
       const taRect = textarea.getBoundingClientRect();
-      const cursorScreenY = taRect.top + cursorY - textarea.scrollTop;
+      const cursorScreenY = taRect.top + paddingTop + cursorY - textarea.scrollTop;
 
       // If cursor is outside the visible area above the keyboard, scroll it into view.
       // Use vv.height (the settled visual viewport height) as the reference so the
@@ -782,8 +787,8 @@ if (savedChain) {
       const padding = lineHeight * 2;
       if (cursorScreenY > vv.height - padding || cursorScreenY < Math.max(taRect.top, 0)) {
         // Target: place cursor at 1/4 of the way down the visible area above the keyboard.
-        // textarea.scrollTop = taRect.top + cursorY - targetScreenY
-        textarea.scrollTop = Math.max(0, taRect.top + cursorY - vv.height / 4);
+        // textarea.scrollTop = taRect.top + paddingTop + cursorY - targetScreenY
+        textarea.scrollTop = Math.max(0, taRect.top + paddingTop + cursorY - vv.height / 4);
       }
     };
 
