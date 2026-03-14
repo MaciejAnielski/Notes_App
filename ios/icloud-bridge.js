@@ -79,6 +79,24 @@
       return _availableCache;
     }
 
+    // Write filename to the deletion log so the desktop can propagate the
+    // deletion to CloudDocs instead of re-syncing the file back to iOS.
+    async function _recordDeletion(name) {
+      const filename = noteNameToFileName(name);
+      const logPath = `${NOTES_DIR}/.ios_deletions`;
+      try {
+        let existing = '';
+        try {
+          const result = await ICloudPlugin.readFile({ path: logPath });
+          existing = result.data || '';
+        } catch {}
+        const line = filename + '\n';
+        if (!existing.includes(line)) {
+          await ICloudPlugin.writeFile({ path: logPath, data: existing + line });
+        }
+      } catch {}
+    }
+
     window.CapacitorNoteStorage = {
       // Reflects true iCloud availability (checked on first operation).
       // The main app reads this flag to decide whether to show "Saved to iCloud."
@@ -117,6 +135,7 @@
 
       async removeNote(name) {
         if (!await isAvailable()) return;
+        await _recordDeletion(name);
         try {
           await ICloudPlugin.deleteFile({
             path: `${NOTES_DIR}/${noteNameToFileName(name)}`
@@ -126,6 +145,7 @@
 
       async trashNote(name) {
         if (!await isAvailable()) return;
+        await _recordDeletion(name);
         const filename = noteNameToFileName(name);
         const attDirName = noteNameToAttachmentDir(name);
         try {
