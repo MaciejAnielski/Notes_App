@@ -632,6 +632,86 @@ async function renderPreview() {
       setupClickableMathFormulas();
     });
   }
+
+  // Settings note: inject colour pickers for calendar entries
+  if (currentFileName === CALENDARS_NOTE) {
+    injectCalendarColorPickers(previewDiv);
+  }
+}
+
+// ── Calendar colour pickers in Settings note preview ─────────────────────
+
+function injectCalendarColorPickers(container) {
+  // Headings are wrapped in <details> by setupCollapsibleHeadings.
+  // Find the <details> containing the "📅 Calendars" h2.
+  let calDetails = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Calendars')) { calDetails = details; break; }
+  }
+  // Fall back to plain h2 if not collapsible
+  if (!calDetails) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Calendars')) { calDetails = h.parentElement; break; }
+    }
+  }
+  if (!calDetails) return;
+
+  const colors = getCalendarColors();
+
+  calDetails.querySelectorAll('li').forEach(li => {
+    // Skip if already processed
+    if (li.querySelector('.calendar-color-picker')) return;
+
+    // Remove hidden {id} span but note its text for later restoration
+    const hiddenSpan = li.querySelector('span[style*="display:none"]');
+    const hiddenText = hiddenSpan ? hiddenSpan.textContent : null;
+    if (hiddenSpan) hiddenSpan.remove();
+
+    // Calendar name is the text content (after removing hidden span)
+    const calName = li.textContent.trim();
+    if (!calName) return;
+
+    const savedColor = colors[calName] || '#a272b0';
+
+    // Wrap text nodes in a coloured span (leave the checkbox element in place)
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'calendar-name-label';
+    nameSpan.style.color = savedColor;
+
+    // Move non-input child nodes into the nameSpan
+    const childNodes = Array.from(li.childNodes).filter(
+      n => n.nodeType === Node.TEXT_NODE || (n.nodeType === Node.ELEMENT_NODE && n.tagName !== 'INPUT')
+    );
+    childNodes.forEach(n => nameSpan.appendChild(n));
+    li.appendChild(nameSpan);
+
+    // Restore hidden span after nameSpan (so checkbox toggle logic still works)
+    if (hiddenText !== null) {
+      const restore = document.createElement('span');
+      restore.style.display = 'none';
+      restore.textContent = hiddenText;
+      li.appendChild(restore);
+    }
+
+    // Colour picker
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.value = savedColor;
+    picker.className = 'calendar-color-picker';
+    picker.title = `Colour for ${calName}`;
+    li.appendChild(picker);
+
+    picker.addEventListener('input', () => {
+      nameSpan.style.color = picker.value;
+    });
+    picker.addEventListener('change', () => {
+      setCalendarColor(calName, picker.value);
+      nameSpan.style.color = picker.value;
+      // Rebuild schedule immediately with new colour
+      invalidateScheduleCache();
+    });
+  });
 }
 
 async function toggleView() {

@@ -13,9 +13,9 @@ async function _buildScheduleCache() {
   const cache = {};
   cache._multiday = [];
 
-  const reTimed    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@\S+)?\s*$/;
-  const reMultiDay = />\s*(\d{6})\s+(\d{6})(?:\s+@\S+)?\s*$/;
-  const reAllDay   = />\s*(\d{6})(?:\s+@\S+)?\s*$/;
+  const reTimed    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
+  const reMultiDay = />\s*(\d{6})\s+(\d{6})(?:\s+@(\S+))?\s*$/;
+  const reAllDay   = />\s*(\d{6})(?:\s+@(\S+))?\s*$/;
 
   const allNotes = await NoteStorage.getAllNotes();
   for (const { name: fileName, content } of allNotes) {
@@ -35,7 +35,8 @@ async function _buildScheduleCache() {
         cache[dateStr].push({
           fileName, lineIndex: idx, text: text.trim(),
           startTime: m[2], endTime: m[3],
-          isTask, isCompleted, isAllDay: false
+          isTask, isCompleted, isAllDay: false,
+          calendarTag: m[4] || null
         });
       } else if ((m = line.match(reMultiDay))) {
         // Multi-day: > YYMMDD YYMMDD
@@ -45,7 +46,8 @@ async function _buildScheduleCache() {
         cache._multiday.push({
           fileName, lineIndex: idx, text: text.trim(),
           startDate, endDate,
-          isTask, isCompleted, isAllDay: true
+          isTask, isCompleted, isAllDay: true,
+          calendarTag: m[3] || null
         });
       } else if ((m = line.match(reAllDay))) {
         // Single all-day: > YYMMDD
@@ -55,7 +57,8 @@ async function _buildScheduleCache() {
         if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
         cache[dateStr].push({
           fileName, lineIndex: idx, text: text.trim(),
-          isTask, isCompleted, isAllDay: true
+          isTask, isCompleted, isAllDay: true,
+          calendarTag: m[2] || null
         });
       }
     });
@@ -99,6 +102,39 @@ async function getScheduleItems(dateStr) {
       return 0;
     });
   return [...timedAndAllDay, ...multiday];
+}
+
+// ── Calendar colour helpers ───────────────────────────────────────────────
+
+function getCalendarColors() {
+  try {
+    return JSON.parse(localStorage.getItem('calendar_colors') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function setCalendarColor(name, color) {
+  const colors = getCalendarColors();
+  colors[name] = color;
+  localStorage.setItem('calendar_colors', JSON.stringify(colors));
+}
+
+function getCalendarColor(name) {
+  if (!name) return null;
+  return getCalendarColors()[name] || null;
+}
+
+// ── Scroll schedule to current time ──────────────────────────────────────
+
+function scrollScheduleToNow() {
+  const wrapper = document.getElementById('schedule-timeline-wrapper');
+  if (!wrapper) return;
+  const ROW_H = 40;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const top = (nowMinutes / 30) * ROW_H;
+  wrapper.scrollTop = Math.max(0, top - wrapper.clientHeight / 2);
 }
 
 // ── Now indicator ─────────────────────────────────────────────────────────
@@ -219,6 +255,20 @@ async function renderWeekRow() {
 function _makeScheduleBlock(item, extraClass) {
   const block = document.createElement('div');
   block.className = 'schedule-item' + (extraClass ? ' ' + extraClass : '');
+
+  // Apply calendar colour if set
+  if (item.calendarTag) {
+    const color = getCalendarColor(item.calendarTag);
+    if (color) {
+      block.style.borderLeftColor = color;
+      // Tint background very lightly with the calendar colour
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      block.style.backgroundColor = `rgba(${r},${g},${b},0.15)`;
+    }
+  }
 
   if (item.isTask) {
     const cb = document.createElement('input');
@@ -390,10 +440,12 @@ async function renderSchedule() {
     scheduleGrid.appendChild(block);
   });
 
-  // Current time indicator (today only)
+  // Current time indicator + auto-scroll to now (today only)
   if (dateStr === toYYMMDD(new Date())) {
     updateNowIndicator();
     scheduleNowTimer = setInterval(updateNowIndicator, 60000);
+    // Scroll after a brief layout settle so the wrapper has its final height
+    requestAnimationFrame(() => scrollScheduleToNow());
   }
 }
 

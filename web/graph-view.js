@@ -61,10 +61,13 @@ async function renderNoteGraph() {
   }
 
   const allNotes = await NoteStorage.getAllNotes();
-  // Filter out internal/virtual notes from the graph
+  // Filter by the notes panel search bar (getVisibleNotes respects current search)
+  const visibleNoteNames = new Set(await getVisibleNotes());
+  // Also exclude internal/virtual notes from the graph
   const graphNotes = allNotes.filter(n =>
     n.name !== '.calendar_metadata' &&
-    n.name !== GRAPH_NOTE
+    n.name !== GRAPH_NOTE &&
+    visibleNoteNames.has(n.name)
   );
 
   const { linkMap, incomingCount, noteNameSet } = parseNoteLinks(graphNotes);
@@ -74,9 +77,11 @@ async function renderNoteGraph() {
   let totalEdges = 0;
   for (const targets of linkMap.values()) totalEdges += targets.size;
 
+  const searchActive = searchBox.value.trim().length > 0;
   const titleBar = document.createElement('div');
   titleBar.className = 'graph-title-bar';
-  titleBar.textContent = `Note Graph — ${graphNotes.length} notes, ${totalEdges} links`;
+  titleBar.textContent = `Note Graph — ${graphNotes.length} notes, ${totalEdges} links` +
+    (searchActive ? ' (filtered)' : '');
   previewDiv.appendChild(titleBar);
 
   // Graph container takes remaining space
