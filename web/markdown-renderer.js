@@ -225,8 +225,9 @@ function preprocessMarkdown(text) {
       if (m && !/^(\s*)- \[/.test(line)) {
         const indent = m[1];
         const checked = m[2] !== ' ';
-        const content = m[3];
         const checkedAttr = checked ? ' checked' : '';
+        // Hide {calendarId} codes at end of label (used in Settings note)
+        const content = m[3].replace(/(\s*\{[^}]+\})\s*$/, '<span style="display:none">$1</span>');
         return `${indent}<label class="plain-checkbox"><input type="checkbox"${checkedAttr} data-plain-cb> ${content}</label>`;
       }
       return line;
@@ -540,10 +541,28 @@ async function renderMermaidDiagrams(container) {
 }
 
 async function renderPreview() {
+  // Snapshot open/closed state of collapsible sections before wiping the DOM,
+  // so that a checkbox toggle (which re-renders) doesn't reset user-expanded sections.
+  const collapseState = {};
+  previewDiv.querySelectorAll('details').forEach(d => {
+    const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
+    if (h) collapseState[h.tagName + ':' + h.textContent.trim()] = d.open;
+  });
+
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
   await setupNoteLinks(previewDiv);
   setupCollapsibleHeadings(previewDiv);
+
+  // Restore collapse state after re-render
+  previewDiv.querySelectorAll('details').forEach(d => {
+    const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
+    if (h) {
+      const key = h.tagName + ':' + h.textContent.trim();
+      if (key in collapseState) d.open = collapseState[key];
+    }
+  });
+
   alignTableColumns(previewDiv);
   setupPreviewTaskCheckboxes();
   setupPlainCheckboxes(previewDiv);

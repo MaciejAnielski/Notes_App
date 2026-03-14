@@ -54,6 +54,10 @@ async function generateProjectsNoteContent() {
     const fullYear = 2000 + parseInt(yy, 10);
     if (fullYear < currentFullYear) return true;
     if (fullYear > currentFullYear) return false;
+    // Winter spans months 1, 2, and 12 of the same year.
+    // December of the current year is never past within the same year,
+    // so Winter is not "entirely past" until the year itself is past.
+    if (season === 'Winter') return false;
     return SEASON_END_MONTH[season] < currentMonth;
   }
 
