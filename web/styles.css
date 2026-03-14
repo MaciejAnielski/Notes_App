@@ -1471,3 +1471,45 @@ body.panel-pinned {
     min-width: 44px;
   }
 }
+
+/* ── Note Graph ──────────────────────────────────────────────────────────── */
+
+#note-graph-container {
+  width: 100%;
+  height: calc(100% - 2em);
+  position: relative;
+  background: #1e1e1e;
+  border-radius: 4px;
+  /* Allow both pan and pinch-zoom for the vis.js canvas */
+  touch-action: none;
+}
+
+/* vis.js injects a canvas; ensure it fills the container */
+#note-graph-container canvas {
+  display: block;
+}
+
+.graph-title-bar {
+  font-size: 0.75em;
+  color: #7a5a8a;
+  padding: 4px 0 2px;
+  text-align: center;
+  user-select: none;
+}
+
+.graph-tooltip {
+  display: none;
+  position: absolute;
+  background: #2a2040;
+  border: 1px solid #a272b0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  max-width: 300px;
+  color: #e8dcf4;
+  font-size: 0.78em;
+  line-height: 1.45;
+  pointer-events: none;
+  z-index: 100;
+  word-break: break-word;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}

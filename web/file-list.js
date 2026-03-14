@@ -42,6 +42,7 @@ async function updateFileList() {
 async function _doUpdateFileList() {
   invalidateScheduleCache();
   await refreshProjectsNote();
+  await refreshGraphNote();
   fileList.innerHTML = '';
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
