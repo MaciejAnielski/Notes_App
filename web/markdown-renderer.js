@@ -58,6 +58,23 @@ function styleTaskListItems(container = previewDiv) {
 }
 
 function preprocessMarkdown(text) {
+  // ── Disable underscore italics (_text_) ──
+  // Escape lone underscores so marked doesn't treat them as emphasis.
+  // Keeps __bold__ and ___bold-italic___ intact. Skips code fences and inline code.
+  {
+    const lines = text.split('\n');
+    let inFence = false;
+    text = lines.map(line => {
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (inFence) return line;
+      const codes = [];
+      let safe = line.replace(/`[^`\n]+`/g, m => { codes.push(m); return '\x01' + (codes.length - 1) + '\x01'; });
+      safe = safe.replace(/(?<![_\\])_(?!_)/g, '\\_');
+      safe = safe.replace(/\x01(\d+)\x01/g, (_, i) => codes[+i]);
+      return safe;
+    }).join('\n');
+  }
+
   // ── Wiki links ──
   text = text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
     const display = inner.replace(/_/g, ' ').trim();
