@@ -554,6 +554,8 @@ textarea:focus {
   padding: 0 4px;
   border-radius: 3px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  /* Override UA stylesheet which sets font-size:smaller on <code> */
+  font-size: 0.9em;
 }
 
 /* Code inside a fenced block — reset inline styling */
@@ -562,6 +564,7 @@ textarea:focus {
   background: none;
   padding: 0;
   border-radius: 0;
+  font-size: 1em; /* inherit from pre, not from the inline-code override */
 }
 
 /* Fenced code block container */
@@ -573,6 +576,9 @@ textarea:focus {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin: 0.75em 0;
+  /* Override UA stylesheet which sets font-size:smaller on <pre> */
+  font-size: 0.9em;
+  line-height: 1.5;
 }
 
 /* ── Highlights (==text==) — nested elements inherit the colour ── */
@@ -632,6 +638,7 @@ textarea:focus {
   background-color: var(--blockquote-bg);
   color: var(--blockquote-text);
   border-radius: 0 4px 4px 0;
+  font-size: 1em; /* prevent any inherited or UA font-size from shrinking blockquotes */
 }
 
 #preview blockquote p {
