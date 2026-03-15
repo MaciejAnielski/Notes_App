@@ -251,7 +251,8 @@ button.btn-busy {
 }
 
 /* ── Active note: bright, solid left border ── */
-#fileList li.active-file {
+#fileList li.active-file,
+#nav-list li.active-file {
   font-weight: bold;
   color: #c89fdf;
   border-left: 3px solid #a272b0;
@@ -260,7 +261,8 @@ button.btn-busy {
 }
 
 /* ── Link chain: connected thread with fading trail ── */
-#fileList li.linked-file {
+#fileList li.linked-file,
+#nav-list li.linked-file {
   color: #9a7aaa;
   border-left: 2px dashed #6b4e7a;
   padding-left: 6px;
@@ -268,12 +270,46 @@ button.btn-busy {
 }
 
 /* Step number badge on each linked note */
-#fileList li.linked-file::before {
+#fileList li.linked-file::before,
+#nav-list li.linked-file::before {
   content: attr(data-chain-index);
   font-size: 10px;
   color: #6b4e7a;
   margin-right: 5px;
   flex-shrink: 0;
+}
+
+/* ── Nav section: Projects / Note Graph / Settings ── */
+#nav-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--gap) 0 0;
+  flex-shrink: 0;
+  border-top: 1px solid #a272b0;
+}
+
+#nav-list li {
+  margin-bottom: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+#nav-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#nav-list li:hover {
+  text-decoration: underline;
+}
+
+/* ── Today's Daily Note highlight ── */
+#fileList li.today-note > span {
+  color: #c89fdf;
+  font-style: italic;
 }
 
 /* ── Hide scrollbars while keeping scroll functionality ── */

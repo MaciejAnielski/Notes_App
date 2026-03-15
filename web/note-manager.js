@@ -306,6 +306,7 @@ async function newNote() {
   currentFileName = null;
   localStorage.removeItem('current_file');
   _lastSavedContent = textarea.value;
+  refreshHighlight();
   const activeItem = fileList.querySelector('.active-file');
   if (activeItem) activeItem.classList.remove('active-file');
   updateStatus('', true);
