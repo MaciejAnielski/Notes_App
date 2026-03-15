@@ -179,6 +179,11 @@ async function updateWebCalendarSettings(allNotes) {
   let content = existing;
   if (!content) content = '# Settings\n';
 
+  // Ensure Theme section exists
+  if (!content.includes('## 🎨 Theme')) {
+    content += '\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n';
+  }
+
   if (!content.includes('## 📅 Calendars')) {
     content += '\n## 📅 Calendars\n\n';
   }

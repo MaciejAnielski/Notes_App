@@ -37,83 +37,73 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vis-network@9/dist/dist/vis-network.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/vis-network@9/dist/vis-network.min.js"></script>
     <script>
-      // Mermaid initialized with a custom theme matching the app's dark purple palette.
-      window.addEventListener('load', () => {
-        if (window.mermaid) {
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: 'base',
-            darkMode: true,
-            securityLevel: 'strict',
-            fontFamily: 'Arial, sans-serif',
-            themeVariables: {
-              // ── Core ──────────────────────────────────────────────
-              darkMode: true,
-              background:          '#1e1e1e',
-              primaryColor:        '#2e2e2e',
-              primaryTextColor:    '#e8dcf4',
-              primaryBorderColor:  '#a272b0',
-              lineColor:           '#a272b0',
-              // ── Secondary / tertiary nodes ─────────────────────────
-              secondaryColor:      '#262030',
-              secondaryTextColor:  '#e8dcf4',
-              secondaryBorderColor:'#7a5a8a',
-              tertiaryColor:       '#2a2040',
-              tertiaryTextColor:   '#e8dcf4',
-              tertiaryBorderColor: '#6b4e7a',
-              // ── Text & labels ─────────────────────────────────────
-              titleColor:          '#c89fdf',
-              edgeLabelBackground: '#2a2040',
-              // ── Subgraphs / clusters ──────────────────────────────
-              clusterBkg:          '#2a2040',
-              clusterBorder:       '#6b4e7a',
-              // ── Notes ─────────────────────────────────────────────
-              noteBkgColor:        '#262030',
-              noteTextColor:       '#e8dcf4',
-              noteBorderColor:     '#a272b0',
-              // ── Sequence diagrams ─────────────────────────────────
-              actorBkg:            '#2e2e2e',
-              actorBorder:         '#a272b0',
-              actorTextColor:      '#e8dcf4',
-              actorLineColor:      '#a272b0',
-              signalColor:         '#c89fdf',
-              signalTextColor:     '#e8dcf4',
-              labelBoxBkgColor:    '#2a2040',
-              labelBoxBorderColor: '#a272b0',
-              labelTextColor:      '#e8dcf4',
-              loopTextColor:       '#e8dcf4',
-              activationBorderColor:'#c89fdf',
-              activationBkgColor:  '#3a1060',
-              sequenceNumberColor: '#e8dcf4',
-              // ── Gantt charts ──────────────────────────────────────
-              gridColor:           '#3a2a4a',
-              todayLineColor:      '#e05c5c',
-              taskBkgColor:        '#2e2e2e',
-              taskBorderColor:     '#a272b0',
-              taskTextColor:       '#e8dcf4',
-              taskTextOutsideColor:'#e8dcf4',
-              taskTextLightColor:  '#e8dcf4',
-              activeTaskBkgColor:  '#3a1060',
-              activeTaskBorderColor:'#c89fdf',
-              doneTaskBkgColor:    '#1a3a2a',
-              doneTaskBorderColor: '#4caf72',
-              critBkgColor:        '#3a1a1a',
-              critBorderColor:     '#e05c5c',
-              critTextColor:       '#e8dcf4',
-              // ── Git graphs ────────────────────────────────────────
-              git0: '#a272b0', git1: '#9cdcfe', git2: '#4caf72',
-              git3: '#d4a24a', git4: '#c89fdf', git5: '#e05c5c',
-              git6: '#7a5a8a', git7: '#262030',
-              gitBranchLabel0: '#e8dcf4', gitBranchLabel1: '#1e1e1e',
-              gitBranchLabel2: '#1e1e1e', gitBranchLabel3: '#1e1e1e',
-              gitBranchLabel4: '#1e1e1e', gitBranchLabel5: '#e8dcf4',
-              gitBranchLabel6: '#e8dcf4', gitBranchLabel7: '#e8dcf4',
-              gitInv0: '#e8dcf4', gitInv1: '#1e1e1e', gitInv2: '#1e1e1e',
-              gitInv3: '#1e1e1e', gitInv4: '#1e1e1e', gitInv5: '#e8dcf4',
-              gitInv6: '#e8dcf4', gitInv7: '#e8dcf4'
-            }
-          });
-        }
+      // Build Mermaid theme variables from current CSS custom properties.
+      function _buildMermaidThemeVars() {
+        var s = getComputedStyle(document.documentElement);
+        var v = function(p) { return (s.getPropertyValue(p) || '').trim(); };
+        var bg = v('--bg') || '#1e1e1e';
+        var text = v('--text') || '#e8dcf4';
+        var accent = v('--accent') || '#a272b0';
+        var surface = v('--surface') || '#2e2e2e';
+        var blockquoteBg = v('--blockquote-bg') || '#262030';
+        var tableHeaderBg = v('--table-header-bg') || '#2a2040';
+        var hr = v('--hr') || '#6b4e7a';
+        var activeColor = v('--active-color') || '#c89fdf';
+        var headingMarker = v('--heading-marker') || '#7a5a8a';
+        var schedHighlightBg = v('--sched-highlight-bg') || '#3a1060';
+        var errorColor = v('--error') || '#e05c5c';
+        var successColor = v('--success') || '#4caf72';
+        var warningColor = v('--warning') || '#d4a24a';
+        var linkColor = v('--link') || '#9cdcfe';
+        var border = v('--border') || '#333';
+        return {
+          darkMode: true,
+          background: bg, primaryColor: surface, primaryTextColor: text,
+          primaryBorderColor: accent, lineColor: accent,
+          secondaryColor: blockquoteBg, secondaryTextColor: text,
+          secondaryBorderColor: headingMarker,
+          tertiaryColor: tableHeaderBg, tertiaryTextColor: text,
+          tertiaryBorderColor: hr,
+          titleColor: activeColor, edgeLabelBackground: tableHeaderBg,
+          clusterBkg: tableHeaderBg, clusterBorder: hr,
+          noteBkgColor: blockquoteBg, noteTextColor: text, noteBorderColor: accent,
+          actorBkg: surface, actorBorder: accent, actorTextColor: text,
+          actorLineColor: accent, signalColor: activeColor, signalTextColor: text,
+          labelBoxBkgColor: tableHeaderBg, labelBoxBorderColor: accent,
+          labelTextColor: text, loopTextColor: text,
+          activationBorderColor: activeColor, activationBkgColor: schedHighlightBg,
+          sequenceNumberColor: text,
+          gridColor: hr, todayLineColor: errorColor,
+          taskBkgColor: surface, taskBorderColor: accent,
+          taskTextColor: text, taskTextOutsideColor: text, taskTextLightColor: text,
+          activeTaskBkgColor: schedHighlightBg, activeTaskBorderColor: activeColor,
+          doneTaskBkgColor: successColor, doneTaskBorderColor: successColor,
+          critBkgColor: errorColor, critBorderColor: errorColor, critTextColor: text,
+          git0: accent, git1: linkColor, git2: successColor,
+          git3: warningColor, git4: activeColor, git5: errorColor,
+          git6: headingMarker, git7: blockquoteBg,
+          gitBranchLabel0: text, gitBranchLabel1: bg,
+          gitBranchLabel2: bg, gitBranchLabel3: bg,
+          gitBranchLabel4: bg, gitBranchLabel5: text,
+          gitBranchLabel6: text, gitBranchLabel7: text,
+          gitInv0: text, gitInv1: bg, gitInv2: bg,
+          gitInv3: bg, gitInv4: bg, gitInv5: text,
+          gitInv6: text, gitInv7: text
+        };
+      }
+
+      function reinitMermaidTheme() {
+        if (!window.mermaid) return;
+        mermaid.initialize({
+          startOnLoad: false, theme: 'base', darkMode: true,
+          securityLevel: 'strict', fontFamily: 'Arial, sans-serif',
+          themeVariables: _buildMermaidThemeVars()
+        });
+      }
+
+      // Mermaid initialized with theme derived from current CSS custom properties.
+      window.addEventListener('load', function() {
+        if (window.mermaid) reinitMermaidTheme();
       });
     </script>
 
@@ -227,6 +217,7 @@
     <ul id="gs-results"></ul>
   </div>
 
+  <script src="theme-engine.js"></script>
   <script defer src="icloud-bridge.js"></script>
   <script defer src="storage.js"></script>
   <script defer src="app-state.js"></script>

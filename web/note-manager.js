@@ -243,10 +243,22 @@ async function loadNote(name, fromLink = false) {
     linkedNoteChain = [];
     saveChain();
   }
-  const content = await NoteStorage.getNote(name);
+  let content = await NoteStorage.getNote(name);
   if (content === null) {
     alert('File not found.');
     return;
+  }
+  // Ensure Settings note has the Theme section
+  if (name === CALENDARS_NOTE && !content.includes('## 🎨 Theme')) {
+    const insertPos = content.indexOf('\n## ');
+    if (insertPos !== -1) {
+      content = content.slice(0, insertPos) +
+        '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
+        content.slice(insertPos);
+    } else {
+      content += '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
+    }
+    await NoteStorage.setNote(name, content);
   }
   textarea.value = content;
   _lastSavedContent = content;

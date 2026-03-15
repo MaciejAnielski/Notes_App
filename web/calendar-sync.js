@@ -142,7 +142,9 @@ async function updateCalendarsNote() {
   if (oldCalendarsNote) await NoteStorage.removeNote('Calendars');
 
   // Build new note content
-  const lines = ['# Settings', '', '## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', ''];
+  const lines = ['# Settings', '',
+    '## 🎨 Theme', '', 'Customise the app\'s background and accent colours.', '',
+    '## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', ''];
   calendars
     .sort((a, b) => a.title.localeCompare(b.title))
     .forEach(cal => {
