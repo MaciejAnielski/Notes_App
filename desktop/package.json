@@ -8,6 +8,7 @@
     "start": "electron .",
     "build": "electron-builder",
     "build-mac": "electron-builder --mac",
+    "build-mac-dev": "electron-builder --mac -c.mac.identity=null -c.mac.hardenedRuntime=false -c.mac.entitlements=null -c.mac.entitlementsInherit=null",
     "build-win": "electron-builder --win",
     "build-linux": "electron-builder --linux",
     "dist": "electron-builder --publish=never"
