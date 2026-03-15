@@ -284,6 +284,8 @@ function insertAtCursor(text) {
   const pos = start + nl.length + text.length + 1;
   textarea.selectionStart = textarea.selectionEnd = pos;
   textarea.focus();
+  // Dispatch input event so syntax highlighting and other listeners update
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function parseAttachmentRefs(content) {
