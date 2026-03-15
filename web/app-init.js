@@ -163,6 +163,7 @@ function cyclePanel() {
     todosContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
     localStorage.setItem('active_panel', 'schedule');
+    renderSchedule();
   } else {
     scheduleContainer.classList.remove('active');
     filesContainer.classList.add('active');
@@ -181,6 +182,7 @@ todosContainer.querySelector('h2').addEventListener('click', () => {
     todosContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
     localStorage.setItem('active_panel', 'schedule');
+    renderSchedule();
     return;
   }
   cyclePanel();
@@ -244,6 +246,7 @@ setInterval(updateBackupStatus, 3600000);
   } else if (savedPanel === 'schedule') {
     filesContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
+    renderSchedule();
   }
 }
 
@@ -365,6 +368,7 @@ document.addEventListener('keydown', e => {
     if (saved === 'schedule') {
       todosContainer.classList.remove('active');
       scheduleContainer.classList.add('active');
+      renderSchedule();
     } else {
       todosContainer.classList.add('active');
       scheduleContainer.classList.remove('active');
