@@ -30,10 +30,10 @@
         }
       };
     </script>
-    <script defer src="vendor/tex-chtml-full.js"></script>
-    <script defer src="vendor/mermaid.min.js"></script>
+    <script async src="vendor/tex-chtml-full.js"></script>
+    <script async src="vendor/mermaid.min.js" onload="reinitMermaidTheme()"></script>
     <link rel="stylesheet" href="vendor/vis-network.min.css">
-    <script defer src="vendor/vis-network.min.js"></script>
+    <script async src="vendor/vis-network.min.js"></script>
     <script>
       // Build Mermaid theme variables from current CSS custom properties.
       function _buildMermaidThemeVars() {
@@ -99,7 +99,9 @@
         });
       }
 
-      // Mermaid initialized with theme derived from current CSS custom properties.
+      // Mermaid initialization is triggered by the onload attribute on the
+      // mermaid script tag.  The load event listener is kept as a fallback in
+      // case onload fires before reinitMermaidTheme is defined (unlikely but safe).
       window.addEventListener('load', function() {
         if (window.mermaid) reinitMermaidTheme();
       });
