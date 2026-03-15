@@ -82,17 +82,17 @@ function deriveThemeVars(bg, accent) {
   const textS = Math.min(acS, 30);
   const text = _hslToHex(acH, textS, textL);
 
-  // Muted text (toolbar buttons, secondary) — use much more accent saturation
-  const mutedL = dark ? 55 : 40;
-  const muted = _hslToHex(acH, Math.min(acS * 0.85, 55), mutedL);
+  // Muted text (toolbar buttons, secondary) — pure accent colour
+  const mutedL = dark ? 55 : 30;
+  const muted = _hslToHex(acH, acS, mutedL);
 
   // Surface: slightly lighter/darker than bg
   const surfaceDelta = dark ? 6 : -6;
   const surface = _hslToHex(bgH, bgS, bgL + surfaceDelta);
 
-  // Border colour — use accent saturation for visibility against light & dark backgrounds
-  const borderL = dark ? bgL + 12 : bgL - 12;
-  const border = _hslToHex(acH, Math.min(acS * 0.75, 48), borderL);
+  // Border colour — pure accent colour
+  const borderL = dark ? 55 : 30;
+  const border = _hslToHex(acH, acS, borderL);
 
   // Accent at various lightnesses for heading hierarchy
   const h1Color = _hslToHex(acH, acS * 0.8, dark ? 80 : 30);
@@ -146,8 +146,8 @@ function deriveThemeVars(bg, accent) {
   // Schedule syntax
   const scheduleColor = hrColor;
 
-  // Placeholder text — use accent saturation, darker on light backgrounds
-  const placeholderColor = _hslToHex(acH, Math.min(acS * 0.75, 48), dark ? 50 : 40);
+  // Placeholder text — pure accent colour
+  const placeholderColor = _hslToHex(acH, acS, dark ? 55 : 30);
 
   // Active note in sidebar
   const activeColor = _hslToHex(acH, acS * 0.7, dark ? 75 : 30);
