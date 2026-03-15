@@ -57,7 +57,7 @@ async function gsGetAllMatches(query, caseSensitive) {
 
 function gsSetStatus(text, ok) {
   gsStatus.textContent = toTitleCase(text);
-  gsStatus.style.color = ok === false ? '#c07070' : ok === true ? '#70c070' : '#9a8aaa';
+  gsStatus.style.color = ok === false ? 'var(--error)' : ok === true ? 'var(--success)' : 'var(--muted)';
 }
 
 function gsRenderResults(results, query) {

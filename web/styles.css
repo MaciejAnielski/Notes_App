@@ -63,7 +63,7 @@ body {
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--hover-overlay);
 }
 
 /* ── Status message — overlays backup label temporarily ── */
@@ -76,6 +76,7 @@ body {
   font-family: Arial, sans-serif;
   text-align: center;
   white-space: nowrap;
+  color: var(--muted);
   opacity: 0;
   transition: opacity 0.4s ease;
 }
@@ -999,6 +1000,7 @@ body.panel-pinned {
   flex: 1;
   text-align: center;
   font-size: 13px;
+  color: var(--muted);
   cursor: pointer;
   user-select: none;
 }
@@ -1055,12 +1057,12 @@ body.panel-pinned {
 
 .schedule-week-cell.today .schedule-week-day-num {
   background: var(--error);
-  color: #fff;
+  color: var(--text-on-error);
 }
 
 .schedule-week-cell.selected:not(.today) .schedule-week-day-num {
   background: var(--week-selected-bg);
-  color: #fff;
+  color: var(--text-on-accent);
 }
 
 .schedule-week-dot {
