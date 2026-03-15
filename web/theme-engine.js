@@ -197,8 +197,8 @@ function deriveThemeVars(bg, accent) {
   const schedItemBg = blockquoteBg;
   const schedItemBorder = accent;
 
-  // Schedule gridline
-  const gridlineColor = surface;
+  // Schedule gridlines — both accent-based; half-hour dimmer than hour
+  const gridlineColor = _hslToHex(acH, acS, dark ? 32 : 68);
   const gridlineHour = border;
 
   // Time label

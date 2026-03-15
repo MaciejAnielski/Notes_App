@@ -400,8 +400,9 @@ textarea {
   line-height: 1.5;
 }
 
-/* Placeholder text remains visible even with transparent textarea color */
-#editor-wrapper > textarea::placeholder {
+/* Placeholder text — all inputs and the editor textarea */
+#editor-wrapper > textarea::placeholder,
+input::placeholder {
   color: var(--placeholder);
   opacity: 1;
 }
