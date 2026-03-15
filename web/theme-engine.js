@@ -115,12 +115,14 @@ function deriveThemeVars(bg, accent) {
   const italicColor    = _hslToHex(acH, acS, refL + dimDir * 10);
   const boldItalicColor = _hslToHex(acH, acS, dark ? 96 :  5);
 
-  // Code: complementary-ish hue (green-tinted)
-  const codeHue = (acH + 150) % 360;
-  const codeColor     = _hslToHex(codeHue, 50, dark ? 70 : 35);
-  const codeBg        = _hslToHex(codeHue, 30, dark ? 10 : 92);
-  const codeBlockBg   = _hslToHex(codeHue, 20, dark ?  9 : 94);
-  const codeBlockBorder = _hslToHex(codeHue, 20, dark ? 18 : 82);
+  // Code: stay on the accent hue to avoid jarring complementary-hue clashes.
+  // Reduce saturation so code surfaces are neutral-ish but tonally consistent.
+  // Text contrast is set explicitly rather than derived so it reads on any bg.
+  const codeSat        = Math.min(acS * 0.6, 35);
+  const codeColor      = _hslToHex(acH, codeSat + 20, dark ? 76 : 28);
+  const codeBg         = _hslToHex(acH, codeSat * 0.5, dark ? bgL + 8  : bgL - 8);
+  const codeBlockBg    = _hslToHex(acH, codeSat * 0.4, dark ? bgL + 7  : bgL - 7);
+  const codeBlockBorder = _hslToHex(acH, codeSat * 0.6, dark ? bgL + 18 : bgL - 18);
 
   // Fence markers
   const fenceColor = accent;
@@ -140,10 +142,12 @@ function deriveThemeVars(bg, accent) {
   // List markers
   const listMarker = accent;
 
-  // Blockquote
+  // Blockquote — background needs enough contrast against the page bg to be
+  // legible on both dark and light themes.  4% lightness shift was too subtle
+  // on light backgrounds; 10% provides clear visual separation.
   const blockquoteBorder = accent;
   const blockquoteText   = _hslToHex(acH, acS, refL + dimDir * 12);
-  const blockquoteBg     = _hslToHex(acH, acS * 0.3, dark ? bgL + 4 : bgL - 4);
+  const blockquoteBg     = _hslToHex(acH, acS * 0.15, dark ? bgL + 10 : bgL - 10);
 
   // HR / schedule syntax
   const hrColor      = _hslToHex(acH, acS, refL + dimDir * 40);
