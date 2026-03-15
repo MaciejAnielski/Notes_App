@@ -118,11 +118,19 @@ function setCalendarColor(name, color) {
   const colors = getCalendarColors();
   colors[name] = color;
   localStorage.setItem('calendar_colors', JSON.stringify(colors));
+  // Sync calendar colours to iCloud for cross-device consistency
+  if (typeof syncCalendarColorsToNote === 'function') syncCalendarColorsToNote();
 }
 
 function getCalendarColor(name) {
   if (!name) return null;
-  return getCalendarColors()[name] || null;
+  const custom = getCalendarColors()[name] || null;
+  if (custom) return custom;
+  // Fall back to theme-generated colour for calendars without a custom colour
+  if (typeof getThemeCalendarColorByHash === 'function') {
+    return getThemeCalendarColorByHash(name);
+  }
+  return null;
 }
 
 // ── Scroll schedule to current time ──────────────────────────────────────

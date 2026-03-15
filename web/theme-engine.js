@@ -445,6 +445,84 @@ function resetTheme() {
   applyTheme(d.background, d.accent);
 }
 
+// ── Calendar colour palette — theme-integrated defaults ──────────────────
+// Generates a deterministic colour for a calendar name derived from the
+// current accent, so calendars without a custom colour still look cohesive.
+
+function getThemeCalendarColorByHash(name) {
+  const theme = getCurrentTheme();
+  const [acH, acS] = _hexToHSL(theme.accent);
+  const dark = _isDark(theme.background);
+
+  // Simple string hash → hue offset
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  const hueOffset = (((hash % 12) + 12) % 12) * 30;
+  const hue = (acH + hueOffset + 60) % 360;
+  const sat = Math.max(Math.min(acS, 70), 45);
+  const lit = dark ? 65 : 42;
+  return _hslToHex(hue, sat, lit);
+}
+
+// ── Cross-device preferences sync via iCloud ────────────────────────────
+// Stores theme + calendar colours in a hidden note (.app_preferences) that
+// syncs alongside regular notes through iCloud.
+
+const PREFS_NOTE = '.app_preferences';
+
+async function loadSyncedPreferences() {
+  if (typeof NoteStorage === 'undefined') return null;
+  try {
+    const content = await NoteStorage.getNote(PREFS_NOTE);
+    if (!content) return null;
+    return JSON.parse(content);
+  } catch { return null; }
+}
+
+async function saveSyncedPreferences(prefs) {
+  if (typeof NoteStorage === 'undefined') return;
+  try {
+    const existing = await loadSyncedPreferences() || {};
+    const merged = { ...existing, ...prefs };
+    await NoteStorage.setNote(PREFS_NOTE, JSON.stringify(merged));
+  } catch {}
+}
+
+async function syncThemeToNote() {
+  const theme = getCurrentTheme();
+  await saveSyncedPreferences({ theme });
+}
+
+async function syncCalendarColorsToNote() {
+  try {
+    const colors = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
+    await saveSyncedPreferences({ calendarColors: colors });
+  } catch {}
+}
+
+async function applySyncedPreferences() {
+  const prefs = await loadSyncedPreferences();
+  if (!prefs) return;
+
+  // Apply synced theme if different from local
+  if (prefs.theme) {
+    const local = getCurrentTheme();
+    if (prefs.theme.background !== local.background || prefs.theme.accent !== local.accent) {
+      applyTheme(prefs.theme.background, prefs.theme.accent);
+      saveTheme(prefs.theme.background, prefs.theme.accent);
+    }
+  }
+
+  // Apply synced calendar colours
+  if (prefs.calendarColors) {
+    const local = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
+    const merged = { ...local, ...prefs.calendarColors };
+    localStorage.setItem('calendar_colors', JSON.stringify(merged));
+  }
+}
+
 // ── Init: apply theme on page load ───────────────────────────────────────
 
 (function initTheme() {

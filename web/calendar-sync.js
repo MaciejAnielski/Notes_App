@@ -277,7 +277,7 @@ async function saveMetadataStore(store) {
 async function migrateInlineMetadata(store) {
   const allNotes = await NoteStorage.getAllNotes();
   for (const { name, content } of allNotes) {
-    if (name === CALENDAR_METADATA_NOTE) continue;
+    if (name.startsWith('.')) continue;
     if (!CALENDAR_META_RE.test(content)) continue;
 
     const lines = content.split('\n');
