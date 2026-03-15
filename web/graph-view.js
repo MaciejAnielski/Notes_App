@@ -54,7 +54,7 @@ async function renderNoteGraph() {
 
   if (!window.vis) {
     const msg = document.createElement('div');
-    msg.style.cssText = 'padding:2em;color:#e05c5c;font-family:monospace;';
+    msg.style.cssText = 'padding:2em;color:var(--error);font-family:monospace;';
     msg.textContent = 'vis.js library not loaded. Check your network connection and reload.';
     previewDiv.appendChild(msg);
     return;
@@ -255,7 +255,7 @@ async function renderNoteGraph() {
     if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) {
       const missingName = nodeId.replace(/^__missing__/, '');
       tooltip.innerHTML =
-        `<strong style="color:#e05c5c">Missing: "${_escHtml(missingName)}"</strong>` +
+        `<strong style="color:var(--error)">Missing: "${_escHtml(missingName)}"</strong>` +
         `<br><small>This note does not exist yet.</small>`;
       _positionTooltip(tooltip, params.pointer.DOM, container);
       tooltip.style.display = 'block';

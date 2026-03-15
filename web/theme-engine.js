@@ -215,8 +215,18 @@ function deriveThemeVars(bg, accent) {
   const graphTitleColor = headingMarker;
 
   // Error / red colour (for missing nodes, overdue, conflicts)
-  const errorColor = _hslToHex(0, 65, dark ? 60 : 45);
+  const errorL = dark ? 60 : 45;
+  const errorColor = _hslToHex(0, 65, errorL);
   const errorBg = _hslToHex(0, 30, dark ? 15 : 88);
+
+  // Contrasting text colours for use on coloured backgrounds
+  // (e.g. selected / today cells in the schedule week row)
+  const textOnAccent = acL >= 50
+    ? _hslToHex(acH, Math.min(acS * 0.2, 12), 8)
+    : _hslToHex(acH, Math.min(acS * 0.2, 12), 95);
+  const textOnError = errorL >= 50
+    ? _hslToHex(0, 8, 8)
+    : _hslToHex(0, 8, 95);
 
   // Warning / amber
   const warningColor = _hslToHex(35, 65, dark ? 60 : 45);
@@ -321,6 +331,10 @@ function deriveThemeVars(bg, accent) {
     // Status colours
     '--error': errorColor, '--error-bg': errorBg,
     '--warning': warningColor, '--success': successColor,
+
+    // Contrasting text for coloured backgrounds
+    '--text-on-accent': textOnAccent,
+    '--text-on-error': textOnError,
 
     // Math
     '--math-result': mathResultColor, '--math-underline': mathUnderline,

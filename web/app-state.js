@@ -202,7 +202,7 @@ function saveChain() {
 // persistent=true: message stays visible until next updateStatus call
 function updateStatus(message, success, persistent = false) {
   statusDiv.textContent = toTitleCase(message);
-  statusDiv.style.color = success ? 'green' : 'red';
+  statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
   statusDiv.style.opacity = '1';
   backupStatusEl.style.opacity = '0';
   if (statusTimeout) clearTimeout(statusTimeout);

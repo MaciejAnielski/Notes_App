@@ -556,7 +556,7 @@ async function renderMermaidDiagrams(container) {
       wrapper.innerHTML = svg;
     } catch {
       wrapper.textContent = 'Mermaid diagram error';
-      wrapper.style.color = '#e05c5c';
+      wrapper.style.color = 'var(--error)';
     }
     pre.replaceWith(wrapper);
   }
