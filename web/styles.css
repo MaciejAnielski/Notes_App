@@ -1895,8 +1895,8 @@ input[type="checkbox"] {
 .graph-tooltip {
   display: none;
   position: absolute;
-  background: var(--graph-tooltip-bg);
-  border: 1px solid var(--graph-tooltip-border);
+  background: var(--graph-node-bg);
+  border: 1.5px solid var(--graph-node-border);
   border-radius: 6px;
   padding: 8px 12px;
   max-width: 300px;
@@ -1911,12 +1911,11 @@ input[type="checkbox"] {
 
 /* Override vis.js built-in tooltip to match theme instead of browser default */
 .vis-tooltip {
-  background-color: var(--graph-tooltip-bg) !important;
-  border: 1px solid var(--graph-tooltip-border) !important;
+  background-color: var(--graph-node-bg) !important;
+  border: 1.5px solid var(--graph-node-border) !important;
   color: var(--text) !important;
   border-radius: 6px !important;
   padding: 6px 10px !important;
-  font-family: Arial, sans-serif !important;
   font-size: 0.78em !important;
   box-shadow: 0 2px 8px var(--shadow-light) !important;
 }
