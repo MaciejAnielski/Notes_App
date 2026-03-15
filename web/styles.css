@@ -380,6 +380,7 @@ textarea {
   flex: 1;
   min-height: 0;
   min-width: 0;
+  overflow: hidden; /* clip the pre layer which grows to its natural content height */
   background-color: #1e1e1e;
 }
 
@@ -410,10 +411,10 @@ textarea {
    the textarea above — any difference drifts the cursor out of sync.   */
 #editor-highlight {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; right: 0; /* no bottom: 0 — grows to natural content height */
   pointer-events: none;
   z-index: 0;
-  overflow: hidden;
+  overflow: visible; /* wrapper clips; transform-based scroll avoids scrollTop clamping */
   /* Metrics — must identically match textarea */
   font-family: Arial, sans-serif;
   font-size: 16px;

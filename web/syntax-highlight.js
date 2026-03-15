@@ -58,8 +58,13 @@ function _updateHighlight() {
 
 function _syncScroll() {
   if (!_highlightPre) return;
-  _highlightPre.scrollTop  = textarea.scrollTop;
-  _highlightPre.scrollLeft = textarea.scrollLeft;
+  // Use CSS transform rather than scrollTop so there is no browser-side
+  // clamping when the textarea is scrolled to its maximum position.
+  // scrollTop-based sync can be clamped if the pre's scrollHeight is even
+  // 1 px shorter than the textarea's, causing cursor/text misalignment at
+  // the very bottom of a long note.
+  _highlightPre.style.transform =
+    'translateY(-' + textarea.scrollTop + 'px) translateX(-' + textarea.scrollLeft + 'px)';
 }
 
 // ── HTML escape (raw text → safe HTML) ───────────────────────────────────
@@ -203,6 +208,7 @@ function highlightMarkdown(rawText) {
 // layer in sync (e.g. when loading a different note in edit mode).
 function refreshHighlight() {
   _updateHighlight();
+  _syncScroll();
 }
 
 // ── Auto-init ─────────────────────────────────────────────────────────────
