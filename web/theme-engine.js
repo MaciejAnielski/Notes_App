@@ -82,17 +82,17 @@ function deriveThemeVars(bg, accent) {
   const textS = Math.min(acS, 30);
   const text = _hslToHex(acH, textS, textL);
 
-  // Muted text (toolbar buttons, secondary)
-  const mutedL = dark ? 55 : 45;
-  const muted = _hslToHex(acH, textS * 0.6, mutedL);
+  // Muted text (toolbar buttons, secondary) — use much more accent saturation
+  const mutedL = dark ? 55 : 40;
+  const muted = _hslToHex(acH, Math.min(acS * 0.85, 55), mutedL);
 
   // Surface: slightly lighter/darker than bg
   const surfaceDelta = dark ? 6 : -6;
   const surface = _hslToHex(bgH, bgS, bgL + surfaceDelta);
 
-  // Border colour
+  // Border colour — use accent saturation for visibility against light & dark backgrounds
   const borderL = dark ? bgL + 12 : bgL - 12;
-  const border = _hslToHex(acH, Math.min(acS * 0.3, 15), borderL);
+  const border = _hslToHex(acH, Math.min(acS * 0.75, 48), borderL);
 
   // Accent at various lightnesses for heading hierarchy
   const h1Color = _hslToHex(acH, acS * 0.8, dark ? 80 : 30);
@@ -146,8 +146,8 @@ function deriveThemeVars(bg, accent) {
   // Schedule syntax
   const scheduleColor = hrColor;
 
-  // Placeholder text
-  const placeholderColor = _hslToHex(acH, textS * 0.3, dark ? 35 : 65);
+  // Placeholder text — use accent saturation, darker on light backgrounds
+  const placeholderColor = _hslToHex(acH, Math.min(acS * 0.75, 48), dark ? 50 : 40);
 
   // Active note in sidebar
   const activeColor = _hslToHex(acH, acS * 0.7, dark ? 75 : 30);
