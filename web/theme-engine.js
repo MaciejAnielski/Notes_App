@@ -119,22 +119,14 @@ function deriveThemeVars(bg, accent) {
   const italicColor    = _hslToHex(acH, acS, refL + dimDir * 10);
   const boldItalicColor = _hslToHex(acH, acS, dark ? 96 :  5);
 
-  // Code: stay on the accent hue to avoid jarring complementary-hue clashes.
-  // Text contrast is set explicitly so it reads on any bg.
-  // Surfaces: on dark themes use high saturation fraction so they feel tinted (not gray);
-  // on light themes use enough saturation to avoid grayish look, with a larger
-  // lightness delta so the surface is clearly distinct from the page background.
+  // Code: text colour stays accent-derived for readability.
+  // Backgrounds and borders use the same colour system as checkboxes so all
+  // tinted-surface elements share a coherent visual language across themes.
   const codeSat        = Math.min(acS * 0.6, 35);
   const codeColor      = _hslToHex(acH, codeSat + 20, dark ? 76 : 28);
-  const codeBg         = _hslToHex(acH,
-    dark ? codeSat * 0.9 : Math.max(codeSat * 0.5, 12),
-    dark ? bgL + 9  : bgL - 14);
-  const codeBlockBg    = _hslToHex(acH,
-    dark ? codeSat * 0.8 : Math.max(codeSat * 0.45, 10),
-    dark ? bgL + 8  : bgL - 13);
-  const codeBlockBorder = _hslToHex(acH,
-    dark ? codeSat       : codeSat * 0.7,
-    dark ? bgL + 18 : bgL - 18);
+  const codeBg         = surface;          // same fill as checkbox background
+  const codeBlockBg    = surface;          // same fill as checkbox background
+  const codeBlockBorder = border;          // same accent stroke as checkbox border
 
   // Fence markers
   const fenceColor = accent;
@@ -154,15 +146,11 @@ function deriveThemeVars(bg, accent) {
   // List markers
   const listMarker = accent;
 
-  // Blockquote — surface needs both enough saturation to feel tinted (not gray)
-  // and enough lightness delta to be distinct from the page background.
-  // Dark: doubled saturation fraction so the bg reads as a coloured panel.
-  // Light: minimum 10% saturation + larger delta (-14) for clear separation.
-  const blockquoteBorder = accent;
+  // Blockquote — uses the same checkbox colour language as code surfaces:
+  // fill = surface, accent stroke = border, body text = accent-derived.
+  const blockquoteBorder = border;         // same accent stroke as checkbox border
   const blockquoteText   = _hslToHex(acH, acS, refL + dimDir * 12);
-  const blockquoteBg     = _hslToHex(acH,
-    dark ? acS * 0.3 : Math.max(acS * 0.25, 10),
-    dark ? bgL + 10 : bgL - 14);
+  const blockquoteBg     = surface;        // same fill as checkbox background
 
   // HR / schedule syntax
   const hrColor      = _hslToHex(acH, acS, refL + dimDir * 40);
@@ -215,17 +203,17 @@ function deriveThemeVars(bg, accent) {
   // Schedule dots
   const dotEvent = accent;
 
-  // Schedule item — border is accent; fill is a surface lift of the background
-  // so there is clear contrast between the coloured border and the neutral fill.
-  const schedItemBg     = _hslToHex(bgH, bgS, dark ? bgL + 10 : bgL - 10);
-  const schedItemBorder = accent;
+  // Schedule item — uses the same checkbox colour language:
+  // fill = surface, accent stroke = border (calendar-tag overrides still apply in JS).
+  const schedItemBg     = surface;
+  const schedItemBorder = border;
 
   // Schedule gridlines — both accent-based; half-hour dimmer than hour
   const gridlineColor = _hslToHex(acH, acS, dark ? 32 : 68);
   const gridlineHour = border;
 
-  // Time label
-  const timeLabelColor = hrColor;
+  // Time label — same accent stroke as checkbox border for visual coherence
+  const timeLabelColor = border;
 
   // Graph
   const graphNodeBg = surface;

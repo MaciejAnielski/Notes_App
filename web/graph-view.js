@@ -125,7 +125,8 @@ async function renderNoteGraph() {
         highlight: { background: gNodeHlBg, border: gNodeHlBorder },
         hover: { background: gNodeHoverBg, border: gNodeHlBorder },
       },
-      title: name,
+      // No `title` — the custom .graph-tooltip handles hover previews;
+      // omitting title prevents vis.js from rendering a second browser tooltip.
     });
   }
 
@@ -150,7 +151,7 @@ async function renderNoteGraph() {
             highlight: { background: gErrorBg, border: gError },
             hover: { background: gErrorBg, border: gError },
           },
-          title: `Missing note: "${target}"`,
+          // No `title` — handled by custom .graph-tooltip on hover
           shape: 'dot',
         });
         addedMissingNodes.add(toId);
@@ -208,7 +209,6 @@ async function renderNoteGraph() {
     },
     interaction: {
       hover: true,
-      tooltipDelay: 50,
       dragNodes: true,
       dragView: true,
       zoomView: true,
