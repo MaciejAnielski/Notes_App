@@ -252,6 +252,35 @@ function deriveThemeVars(bg, accent) {
   const markBg = highlightBg;
   const markColor = highlightColor;
 
+  // Selection highlight
+  const selectionBg = _hslToHex(acH, acS * 0.5, dark ? 30 : 72);
+  const selectionText = text;
+
+  // Shadows — derived so light themes get softer shadows
+  const shadowColor = dark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.18)';
+  const shadowColorLight = dark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)';
+
+  // Missing / broken internal links — use error tint
+  const linkMissing = errorColor;
+
+  // Checkbox accent — checkboxes styled to match theme
+  const checkboxAccent = accent;
+  const checkboxBg = surface;
+  const checkboxBorder = border;
+  const checkboxCheckedBg = accent;
+
+  // Image border in preview
+  const imageBorder = _hslToHex(acH, acS * 0.2, dark ? bgL + 10 : bgL - 10);
+
+  // Task checkbox marker in editor — uses accent for the full "- [ ]"
+  const taskMarker = accent;
+
+  // Footnote marker in editor
+  const footnoteMarker = footnoteColor;
+
+  // Image syntax in editor — slightly distinct from link
+  const imageColor = _hslToHex(linkHue, 45, dark ? 65 : 42);
+
   return {
     '--bg': bg,
     '--text': text,
@@ -342,6 +371,27 @@ function deriveThemeVars(bg, accent) {
 
     // Math
     '--math-result': mathResultColor, '--math-underline': mathUnderline,
+
+    // Selection
+    '--selection-bg': selectionBg, '--selection-text': selectionText,
+
+    // Shadows
+    '--shadow': shadowColor, '--shadow-light': shadowColorLight,
+
+    // Missing links
+    '--link-missing': linkMissing,
+
+    // Checkboxes
+    '--checkbox-accent': checkboxAccent, '--checkbox-bg': checkboxBg,
+    '--checkbox-border': checkboxBorder, '--checkbox-checked-bg': checkboxCheckedBg,
+
+    // Images
+    '--image-border': imageBorder,
+
+    // Editor token colours
+    '--task-marker': taskMarker,
+    '--footnote-marker': footnoteMarker,
+    '--image-syntax': imageColor,
   };
 }
 
