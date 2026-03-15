@@ -183,12 +183,12 @@ function deriveThemeVars(bg, accent) {
   const footnoteBack = hrColor;
 
   // Table header bg, alternating row
-  const tableHeaderBg = _hslToHex(acH, acS * 0.3, dark ? bgL + 6 : bgL - 6);
-  const tableAltRowBg = _hslToHex(acH, acS * 0.2, dark ? bgL + 3 : bgL - 3);
+  const tableHeaderBg = surface;
+  const tableAltRowBg = surface;
 
   // Global search
-  const gsActiveBg = _hslToHex(acH, acS * 0.4, dark ? 14 : 88);
-  const gsSnippetMark = _hslToHex(acH, acS * 0.5, dark ? 18 : 85);
+  const gsActiveBg = surface;
+  const gsSnippetMark = surface;
   const gsSnippetMarkText = _hslToHex(acH, textS, dark ? 95 : 8);
   const gsSnippetColor = muted;
   const gsNoteName = activeColor;
