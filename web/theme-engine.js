@@ -194,8 +194,8 @@ function deriveThemeVars(bg, accent) {
   const gsNoteName = activeColor;
 
   // Schedule highlight
-  const schedHighlightBg      = _hslToHex(acH, acS * 0.5, dark ? 12 : 88);
-  const schedHighlightOutline = _hslToHex(acH, acS, refL + dimDir * 22);
+  const schedHighlightBg      = surface;
+  const schedHighlightOutline = border;
 
   // Schedule week
   const weekSelectedBg = accent;
