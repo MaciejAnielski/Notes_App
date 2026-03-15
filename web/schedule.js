@@ -373,11 +373,7 @@ async function renderSchedule() {
       const isPastEvent = !item.isTask && dateStr < toYYMMDD(new Date());
       const cls = (item.isCompleted || isPastEvent) ? 'completed' : '';
       const block = _makeScheduleBlock(item, cls);
-      block.style.position = 'relative';
-      block.style.height   = ALLDAY_ITEM_H + 'px';
-      block.style.left     = '0';
-      block.style.right    = '0';
-      block.style.marginBottom = '2px';
+      block.style.height = ALLDAY_ITEM_H + 'px';
       section.appendChild(block);
     });
 
