@@ -77,58 +77,63 @@ function deriveThemeVars(bg, accent) {
   const [acH, acS, acL] = _hexToHSL(accent);
   const dark = _isDark(bg);
 
-  // Text colour: light on dark bg, dark on light bg
+  // ── Contrast anchor ────────────────────────────────────────────────────
+  // When the accent already contrasts well (light accent on dark bg, or dark
+  // accent on light bg) we use the accent's own lightness as the anchor so
+  // derived colours preserve its character instead of being forced to fixed
+  // extremes.  Only correct when contrast is genuinely lacking.
+  const sufficientContrast = (dark && acL >= 65) || (!dark && acL <= 35);
+  const dimDir = dark ? -1 : 1;          // direction "toward background"
+  const refL   = sufficientContrast ? acL : (dark ? 82 : 18);
+
+  // Body text: keep lightly accent-tinted but not fully saturated
   const textL = dark ? 90 : 10;
   const textS = Math.min(acS, 30);
-  const text = _hslToHex(acH, textS, textL);
+  const text  = _hslToHex(acH, textS, textL);
 
-  // Muted text (toolbar buttons, secondary) — pure accent colour
-  const mutedL = dark ? 55 : 30;
-  const muted = _hslToHex(acH, acS, mutedL);
+  // Muted text (toolbar buttons, secondary)
+  const muted  = _hslToHex(acH, acS, refL + dimDir * 22);
 
   // Surface: slightly lighter/darker than bg
   const surfaceDelta = dark ? 6 : -6;
   const surface = _hslToHex(bgH, bgS, bgL + surfaceDelta);
 
-  // Border colour — pure accent colour
-  const borderL = dark ? 55 : 30;
-  const border = _hslToHex(acH, acS, borderL);
+  // Border
+  const border = _hslToHex(acH, acS, refL + dimDir * 22);
 
-  // Heading hierarchy — full accent saturation, lightness-only steps
-  const h1Color = _hslToHex(acH, acS, dark ? 85 : 20);
-  const h2Color = _hslToHex(acH, acS, dark ? 77 : 26);
-  const h3Color = _hslToHex(acH, acS, dark ? 69 : 32);
-  const h4Color = _hslToHex(acH, acS, dark ? 61 : 37);
-  const h5Color = _hslToHex(acH, acS, dark ? 54 : 42);
-  const h6Color = _hslToHex(acH, acS, dark ? 48 : 47);
+  // Heading hierarchy — lightness-only steps from refL
+  const h1Color      = _hslToHex(acH, acS, refL);
+  const h2Color      = _hslToHex(acH, acS, refL + dimDir *  8);
+  const h3Color      = _hslToHex(acH, acS, refL + dimDir * 15);
+  const h4Color      = _hslToHex(acH, acS, refL + dimDir * 21);
+  const h5Color      = _hslToHex(acH, acS, refL + dimDir * 27);
+  const h6Color      = _hslToHex(acH, acS, refL + dimDir * 33);
+  const headingMarker = _hslToHex(acH, acS, refL + dimDir * 40);
 
-  // Heading marker (hash symbols) — dimmer than heading text
-  const headingMarker = _hslToHex(acH, acS, dark ? 38 : 55);
-
-  // Bold / italic / bold-italic — full accent saturation, lightness near body text
-  const boldColor = _hslToHex(acH, acS, dark ? 93 : 7);
-  const italicColor = _hslToHex(acH, acS, dark ? 80 : 22);
-  const boldItalicColor = _hslToHex(acH, acS, dark ? 96 : 5);
+  // Bold / italic — near body-text lightness but fully accent-saturated
+  const boldColor      = _hslToHex(acH, acS, dark ? 93 :  7);
+  const italicColor    = _hslToHex(acH, acS, refL + dimDir * 10);
+  const boldItalicColor = _hslToHex(acH, acS, dark ? 96 :  5);
 
   // Code: complementary-ish hue (green-tinted)
   const codeHue = (acH + 150) % 360;
-  const codeColor = _hslToHex(codeHue, 50, dark ? 70 : 35);
-  const codeBg = _hslToHex(codeHue, 30, dark ? 10 : 92);
-  const codeBlockBg = _hslToHex(codeHue, 20, dark ? 9 : 94);
+  const codeColor     = _hslToHex(codeHue, 50, dark ? 70 : 35);
+  const codeBg        = _hslToHex(codeHue, 30, dark ? 10 : 92);
+  const codeBlockBg   = _hslToHex(codeHue, 20, dark ?  9 : 94);
   const codeBlockBorder = _hslToHex(codeHue, 20, dark ? 18 : 82);
 
   // Fence markers
   const fenceColor = accent;
 
-  // Strikethrough — accent colour, mid-lightness to suggest dimming
-  const strikeColor = _hslToHex(acH, acS, dark ? 45 : 50);
+  // Strikethrough — mid-way toward background, still accent-coloured
+  const strikeColor = _hslToHex(acH, acS, refL + dimDir * 33);
 
-  // Highlight (==text==) — warm gold
+  // Highlight (==text==) — warm gold, intentionally distinct from accent
   const highlightColor = _hslToHex(45, 80, dark ? 70 : 40);
-  const highlightBg = _hslToHex(45, 60, dark ? 20 : 85);
+  const highlightBg    = _hslToHex(45, 60, dark ? 20 : 85);
 
-  // Links
-  const linkHue = (acH + 200) % 360;
+  // Links — rotated hue for semantic distinctness
+  const linkHue  = (acH + 200) % 360;
   const linkColor = _hslToHex(linkHue, 60, dark ? 75 : 35);
   const wikiColor = _hslToHex(linkHue, 50, dark ? 70 : 40);
 
@@ -137,24 +142,22 @@ function deriveThemeVars(bg, accent) {
 
   // Blockquote
   const blockquoteBorder = accent;
-  const blockquoteText = _hslToHex(acH, acS, dark ? 72 : 30);
-  const blockquoteBg = _hslToHex(acH, acS * 0.3, dark ? bgL + 4 : bgL - 4);
+  const blockquoteText   = _hslToHex(acH, acS, refL + dimDir * 12);
+  const blockquoteBg     = _hslToHex(acH, acS * 0.3, dark ? bgL + 4 : bgL - 4);
 
-  // HR — full accent saturation, dimmed lightness
-  const hrColor = _hslToHex(acH, acS, dark ? 40 : 45);
-
-  // Schedule syntax
+  // HR / schedule syntax
+  const hrColor      = _hslToHex(acH, acS, refL + dimDir * 40);
   const scheduleColor = hrColor;
 
-  // Placeholder text — pure accent colour
-  const placeholderColor = _hslToHex(acH, acS, dark ? 55 : 30);
+  // Placeholder text
+  const placeholderColor = _hslToHex(acH, acS, refL + dimDir * 22);
 
-  // Active note in sidebar — full accent saturation
-  const activeColor = _hslToHex(acH, acS, dark ? 75 : 25);
+  // Active note in sidebar
+  const activeColor  = _hslToHex(acH, acS, refL + dimDir *  4);
   const activeBorder = accent;
 
-  // Linked file chain — full accent saturation, slightly dimmer
-  const linkedColor = _hslToHex(acH, acS, dark ? 58 : 40);
+  // Linked file chain
+  const linkedColor  = _hslToHex(acH, acS, refL + dimDir * 26);
   const linkedBorder = hrColor;
 
   // Today note
@@ -184,8 +187,8 @@ function deriveThemeVars(bg, accent) {
   const gsNoteName = activeColor;
 
   // Schedule highlight
-  const schedHighlightBg = _hslToHex(acH, acS * 0.5, dark ? 12 : 88);
-  const schedHighlightOutline = _hslToHex(acH, acS, dark ? 55 : 40);
+  const schedHighlightBg      = _hslToHex(acH, acS * 0.5, dark ? 12 : 88);
+  const schedHighlightOutline = _hslToHex(acH, acS, refL + dimDir * 22);
 
   // Schedule week
   const weekSelectedBg = accent;
@@ -193,8 +196,9 @@ function deriveThemeVars(bg, accent) {
   // Schedule dots
   const dotEvent = accent;
 
-  // Schedule item
-  const schedItemBg = blockquoteBg;
+  // Schedule item — border is accent; fill is a surface lift of the background
+  // so there is clear contrast between the coloured border and the neutral fill.
+  const schedItemBg     = _hslToHex(bgH, bgS, dark ? bgL + 10 : bgL - 10);
   const schedItemBorder = accent;
 
   // Schedule gridlines — both accent-based; half-hour dimmer than hour
