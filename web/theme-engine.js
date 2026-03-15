@@ -92,14 +92,18 @@ function deriveThemeVars(bg, accent) {
   const text  = _hslToHex(acH, textS, textL);
 
   // Muted text (toolbar buttons, secondary)
-  const muted  = _hslToHex(acH, acS, refL + dimDir * 22);
+  // On dark themes cap saturation so chrome doesn't outcompete tinted content surfaces.
+  // On light themes keep full saturation (user asked to keep light-bg handling as-is).
+  const mutedSat = dark ? Math.min(acS, 55) : acS;
+  const muted  = _hslToHex(acH, mutedSat, refL + dimDir * 22);
 
   // Surface: slightly lighter/darker than bg
   const surfaceDelta = dark ? 6 : -6;
   const surface = _hslToHex(bgH, bgS, bgL + surfaceDelta);
 
-  // Border
-  const border = _hslToHex(acH, acS, refL + dimDir * 22);
+  // Border — same saturation cap on dark themes as muted
+  const borderSat = dark ? Math.min(acS, 45) : acS;
+  const border = _hslToHex(acH, borderSat, refL + dimDir * 22);
 
   // Heading hierarchy — lightness-only steps from refL
   const h1Color      = _hslToHex(acH, acS, refL);
@@ -116,13 +120,21 @@ function deriveThemeVars(bg, accent) {
   const boldItalicColor = _hslToHex(acH, acS, dark ? 96 :  5);
 
   // Code: stay on the accent hue to avoid jarring complementary-hue clashes.
-  // Reduce saturation so code surfaces are neutral-ish but tonally consistent.
-  // Text contrast is set explicitly rather than derived so it reads on any bg.
+  // Text contrast is set explicitly so it reads on any bg.
+  // Surfaces: on dark themes use high saturation fraction so they feel tinted (not gray);
+  // on light themes use enough saturation to avoid grayish look, with a larger
+  // lightness delta so the surface is clearly distinct from the page background.
   const codeSat        = Math.min(acS * 0.6, 35);
   const codeColor      = _hslToHex(acH, codeSat + 20, dark ? 76 : 28);
-  const codeBg         = _hslToHex(acH, codeSat * 0.5, dark ? bgL + 8  : bgL - 8);
-  const codeBlockBg    = _hslToHex(acH, codeSat * 0.4, dark ? bgL + 7  : bgL - 7);
-  const codeBlockBorder = _hslToHex(acH, codeSat * 0.6, dark ? bgL + 18 : bgL - 18);
+  const codeBg         = _hslToHex(acH,
+    dark ? codeSat * 0.9 : Math.max(codeSat * 0.5, 12),
+    dark ? bgL + 9  : bgL - 14);
+  const codeBlockBg    = _hslToHex(acH,
+    dark ? codeSat * 0.8 : Math.max(codeSat * 0.45, 10),
+    dark ? bgL + 8  : bgL - 13);
+  const codeBlockBorder = _hslToHex(acH,
+    dark ? codeSat       : codeSat * 0.7,
+    dark ? bgL + 18 : bgL - 18);
 
   // Fence markers
   const fenceColor = accent;
@@ -142,12 +154,15 @@ function deriveThemeVars(bg, accent) {
   // List markers
   const listMarker = accent;
 
-  // Blockquote — background needs enough contrast against the page bg to be
-  // legible on both dark and light themes.  4% lightness shift was too subtle
-  // on light backgrounds; 10% provides clear visual separation.
+  // Blockquote — surface needs both enough saturation to feel tinted (not gray)
+  // and enough lightness delta to be distinct from the page background.
+  // Dark: doubled saturation fraction so the bg reads as a coloured panel.
+  // Light: minimum 10% saturation + larger delta (-14) for clear separation.
   const blockquoteBorder = accent;
   const blockquoteText   = _hslToHex(acH, acS, refL + dimDir * 12);
-  const blockquoteBg     = _hslToHex(acH, acS * 0.15, dark ? bgL + 10 : bgL - 10);
+  const blockquoteBg     = _hslToHex(acH,
+    dark ? acS * 0.3 : Math.max(acS * 0.25, 10),
+    dark ? bgL + 10 : bgL - 14);
 
   // HR / schedule syntax
   const hrColor      = _hslToHex(acH, acS, refL + dimDir * 40);
@@ -218,14 +233,18 @@ function deriveThemeVars(bg, accent) {
   const graphNodeHighlightBg = _hslToHex(acH, acS * 0.4, dark ? bgL + 15 : bgL - 15);
   const graphNodeHighlightBorder = activeColor;
   const graphNodeHoverBg = _hslToHex(acH, acS * 0.3, dark ? bgL + 10 : bgL - 10);
-  const graphTooltipBg = tableHeaderBg;
+  // Tooltip needs clear separation from the canvas background on both themes.
+  // tableHeaderBg (bgL±6) was too close to the page bg on light themes.
+  const graphTooltipBg = _hslToHex(acH, acS * 0.25, dark ? bgL + 14 : bgL - 20);
   const graphTooltipBorder = accent;
   const graphTitleColor = headingMarker;
 
   // Error / red colour (for missing nodes, overdue, conflicts)
+  // On light themes errorBg was 88% lightness / 30% sat — almost white, blending
+  // into the page.  Use 80% lightness / 50% sat for a clearly pinkish surface.
   const errorL = dark ? 60 : 45;
   const errorColor = _hslToHex(0, 65, errorL);
-  const errorBg = _hslToHex(0, 30, dark ? 15 : 88);
+  const errorBg = _hslToHex(0, dark ? 30 : 50, dark ? 15 : 80);
 
   // Contrasting text colours for use on coloured backgrounds
   // (e.g. selected / today cells in the schedule week row)
