@@ -765,53 +765,55 @@ if (savedChain) {
 }
 
 (async () => {
-  // Migrate localStorage notes to iCloud on first launch (desktop/iOS only).
-  // Only runs once — uses a flag to prevent re-running if iCloud is transiently
-  // empty (e.g. slow sync on cold start), which would destroy localStorage data.
-  if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
-    const migrationDone = localStorage.getItem('icloud_migration_done');
-    if (!migrationDone) {
-      const lsNotes = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.startsWith('md_')) {
-          lsNotes.push({ name: key.slice(3), content: localStorage.getItem(key) });
-        }
-      }
-      if (lsNotes.length > 0) {
-        const iCloudNames = await NoteStorage.getAllNoteNames();
-        if (iCloudNames.length === 0) {
-          for (const { name, content } of lsNotes) {
-            await NoteStorage.setNote(name, content);
+  try {
+    // Migrate localStorage notes to iCloud on first launch (desktop/iOS only).
+    // Only runs once — uses a flag to prevent re-running if iCloud is transiently
+    // empty (e.g. slow sync on cold start), which would destroy localStorage data.
+    if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
+      const migrationDone = localStorage.getItem('icloud_migration_done');
+      if (!migrationDone) {
+        const lsNotes = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key.startsWith('md_')) {
+            lsNotes.push({ name: key.slice(3), content: localStorage.getItem(key) });
           }
-          lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
-          updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
         }
+        if (lsNotes.length > 0) {
+          const iCloudNames = await NoteStorage.getAllNoteNames();
+          if (iCloudNames.length === 0) {
+            for (const { name, content } of lsNotes) {
+              await NoteStorage.setNote(name, content);
+            }
+            lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
+            updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
+          }
+        }
+        localStorage.setItem('icloud_migration_done', '1');
       }
-      localStorage.setItem('icloud_migration_done', '1');
     }
-  }
 
-  // Load synced preferences from iCloud (theme + calendar colours)
-  if (typeof applySyncedPreferences === 'function') {
-    await applySyncedPreferences();
-  }
+    // Load synced preferences from iCloud (theme + calendar colours)
+    if (typeof applySyncedPreferences === 'function') {
+      await applySyncedPreferences();
+    }
 
-  if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
-    await loadNote(lastFile, true);
-  } else {
-    await newNote();
-  }
+    if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
+      await loadNote(lastFile, true);
+    } else {
+      await newNote();
+    }
 
-  if (savedPreview && !isPreview) {
-    toggleView();
-  }
-
-  // Dismiss loading screen
-  const loadingScreen = document.getElementById('loading-screen');
-  if (loadingScreen) {
-    loadingScreen.classList.add('fade-out');
-    setTimeout(() => loadingScreen.remove(), 450);
+    if (savedPreview && !isPreview) {
+      toggleView();
+    }
+  } finally {
+    // Always dismiss loading screen, even if initialisation threw an error
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+      loadingScreen.classList.add('fade-out');
+      setTimeout(() => loadingScreen.remove(), 450);
+    }
   }
 
   // ── iOS keyboard / visual viewport handling ──────────────────────────────
