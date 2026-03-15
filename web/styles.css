@@ -1237,8 +1237,9 @@ body.panel-pinned {
 .schedule-allday-section .schedule-item {
   position: relative;
   top: auto;
-  left: 54px;
-  right: 4px;
+  left: auto;
+  right: auto;
+  margin-left: 54px;
   margin-bottom: 2px;
   box-sizing: border-box;
 }
