@@ -173,7 +173,7 @@ button.btn-busy {
   background-color: var(--bg);
   border: 1px solid var(--border);
   border-radius: 3px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 12px var(--shadow);
   padding: 2px 0;
 }
 
@@ -490,6 +490,15 @@ input::placeholder {
 
 /* Schedule syntax at end of line */
 .hl-schedule { color: var(--schedule); }
+
+/* Task checkbox marker — full "- [ ]" / "- [x]" */
+.hl-task-marker { color: var(--task-marker); }
+
+/* Footnote references [^id] */
+.hl-footnote { color: var(--footnote-marker); }
+
+/* Image syntax ![alt](url) */
+.hl-image { color: var(--image-syntax); }
 
 textarea:focus {
   outline: none;
@@ -1339,7 +1348,7 @@ body.panel-pinned {
   z-index: 200;
   display: flex;
   flex-direction: column;
-  box-shadow: -2px 2px 8px rgba(0,0,0,0.4);
+  box-shadow: -2px 2px 8px var(--shadow-light);
   overflow: hidden;
 }
 
@@ -1711,7 +1720,7 @@ body.panel-pinned {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--shadow);
     z-index: 140;
   }
 
@@ -1736,7 +1745,7 @@ body.panel-pinned {
     border-radius: 12px 12px 0 0;
     border: 1px solid var(--border);
     border-bottom: none;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 -4px 16px var(--shadow);
     padding-bottom: max(env(safe-area-inset-bottom), 24px);
     transition: bottom 0.25s ease;
   }
@@ -1782,6 +1791,72 @@ body.panel-pinned {
   }
 }
 
+/* ── Text selection — themed to match accent ── */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+::-moz-selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+/* ── Missing / broken internal links in preview ── */
+#preview a.internal-link-new {
+  color: var(--link-missing);
+  text-decoration-style: dashed;
+  text-decoration-color: var(--link-missing);
+}
+
+/* ── Checkbox theming — override browser defaults ── */
+input[type="checkbox"] {
+  accent-color: var(--checkbox-accent);
+}
+
+/* Custom checkbox styling for preview and panels */
+#preview input[type="checkbox"],
+#todoList input[type="checkbox"],
+#schedule-container input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--checkbox-border);
+  border-radius: 3px;
+  background: var(--checkbox-bg);
+  cursor: pointer;
+  vertical-align: middle;
+  position: relative;
+  flex-shrink: 0;
+}
+
+#preview input[type="checkbox"]:checked,
+#todoList input[type="checkbox"]:checked,
+#schedule-container input[type="checkbox"]:checked {
+  background: var(--checkbox-checked-bg);
+  border-color: var(--checkbox-checked-bg);
+}
+
+#preview input[type="checkbox"]:checked::after,
+#todoList input[type="checkbox"]:checked::after,
+#schedule-container input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ── Image border in preview ── */
+#preview img {
+  border: 1px solid var(--image-border);
+}
+
 /* ── Note Graph ──────────────────────────────────────────────────────────── */
 
 #note-graph-container {
@@ -1821,5 +1896,5 @@ body.panel-pinned {
   pointer-events: none;
   z-index: 100;
   word-break: break-word;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 16px var(--shadow);
 }

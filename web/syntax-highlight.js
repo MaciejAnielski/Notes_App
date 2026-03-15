@@ -116,23 +116,37 @@ function _applyInline(line) {
   line = line.replace(/==([^=\n]+?)==/g,
     '<span class="hl-highlight">==<span class="hl-highlight-text">$1</span>==</span>');
 
-  // 7. Links [text](url)
+  // 7. Image syntax ![alt](url) — must come before links to avoid partial match
+  line = line.replace(/!\[([^\]\n]*)\]\(([^)\n]*)\)/g,
+    '<span class="hl-image">![$1]($2)</span>');
+
+  // 8. Links [text](url)
   line = line.replace(/\[([^\]\n]*)\]\(([^)\n]*)\)/g,
     '<span class="hl-link">[$1]($2)</span>');
 
-  // 8. Wiki links [[text]]
+  // 9. Wiki links [[text]]
   line = line.replace(/\[\[([^\]\n]+)\]\]/g,
     '<span class="hl-wiki">[[$1]]</span>');
 
-  // 9. Unordered list markers at line start (-, *, +)
-  line = line.replace(/^(\s*)([-*+])(\s)/,
-    '$1<span class="hl-list-marker">$2</span>$3');
+  // 10. Task list checkboxes: - [ ] or - [x] — highlight full marker including checkbox
+  line = line.replace(/^(\s*)([-*+]\s\[[ xX]\])(\s)/,
+    '$1<span class="hl-task-marker">$2</span>$3');
 
-  // 10. Ordered list markers at line start (1. / 1))
+  // 11. Unordered list markers at line start (-, *, +) — skip if already handled as task
+  if (!/hl-task-marker/.test(line)) {
+    line = line.replace(/^(\s*)([-*+])(\s)/,
+      '$1<span class="hl-list-marker">$2</span>$3');
+  }
+
+  // 12. Ordered list markers at line start (1. / 1))
   line = line.replace(/^(\s*)(\d+[.)])(\s)/,
     '$1<span class="hl-list-marker">$2</span>$3');
 
-  // 11. Schedule syntax at end of line — > YYMMDD [HHMM HHMM | YYMMDD] [@cal]
+  // 13. Footnote references [^id]
+  line = line.replace(/\[\^([^\]\n]+)\]/g,
+    '<span class="hl-footnote">[^$1]</span>');
+
+  // 14. Schedule syntax at end of line — > YYMMDD [HHMM HHMM | YYMMDD] [@cal]
   //     (the > is HTML-escaped as &gt; at this point)
   line = line.replace(
     /(\s*&gt;\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?(?:\s+@\S+)?\s*)$/,
@@ -185,6 +199,14 @@ function highlightMarkdown(rawText) {
       const markerHtml = `<span class="hl-heading-marker">${hMatch[1]}</span>`;
       const rest = _applyInline(line.slice(hMatch[1].length));
       return `<span class="hl-h${level}">${markerHtml}${rest}</span>`;
+    }
+
+    // ── Footnote definition [^id]: text ──
+    const fnDefMatch = line.match(/^(\[\^[^\]\n]+\]:)(\s.*)?$/);
+    if (fnDefMatch) {
+      const marker = `<span class="hl-footnote">${fnDefMatch[1]}</span>`;
+      const rest = fnDefMatch[2] ? _applyInline(fnDefMatch[2]) : '';
+      return `${marker}${rest}`;
     }
 
     // ── Blockquote (> at line start, HTML-escaped as &gt;) ──
