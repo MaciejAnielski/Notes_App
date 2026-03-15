@@ -1905,3 +1905,15 @@ input[type="checkbox"] {
   word-break: break-word;
   box-shadow: 0 4px 16px var(--shadow);
 }
+
+/* Override vis.js built-in tooltip to match theme instead of browser default */
+.vis-tooltip {
+  background-color: var(--graph-tooltip-bg) !important;
+  border: 1px solid var(--graph-tooltip-border) !important;
+  color: var(--text) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 0.78em !important;
+  box-shadow: 0 2px 8px var(--shadow-light) !important;
+}

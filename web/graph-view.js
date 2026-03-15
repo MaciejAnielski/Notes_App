@@ -162,7 +162,7 @@ async function renderNoteGraph() {
         to: toId,
         color: {
           color: exists ? gAccent : gError,
-          opacity: exists ? 0.7 : 0.5,
+          opacity: exists ? 0.7 : 0.75,
           highlight: exists ? gNodeHlBorder : gError,
           hover: exists ? gNodeHlBorder : gError,
         },
