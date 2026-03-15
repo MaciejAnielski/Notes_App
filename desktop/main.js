@@ -896,14 +896,19 @@ function createWindow() {
     }
   });
 
-  // Fallback: show the window if ready-to-show hasn't fired within 10 s.
+  // Fallback: show the window if ready-to-show hasn't fired within 3 s.
   // This covers cases where loadFile fails (e.g. missing web build) so the
   // window isn't permanently hidden with no feedback to the user.
-  const showFallback = setTimeout(() => win.show(), 10000);
+  const showFallback = setTimeout(() => win.show(), 3000);
 
   win.once('ready-to-show', () => {
     clearTimeout(showFallback);
     win.show();
+    // Open DevTools AFTER the window is shown so the attached debugger
+    // doesn't slow down initial page parsing/execution of vendor scripts.
+    if (!app.isPackaged) {
+      win.webContents.openDevTools();
+    }
   });
 
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
@@ -913,11 +918,6 @@ function createWindow() {
   });
 
   win.loadFile(getWebPath());
-
-  // Open DevTools automatically in development so console errors are visible
-  if (!app.isPackaged) {
-    win.webContents.openDevTools();
-  }
 
   startFileWatcher(win);
   startBackupsExportsWatchers();
