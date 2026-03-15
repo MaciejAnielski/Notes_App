@@ -61,6 +61,14 @@ async function generateProjectsNoteContent() {
     return SEASON_END_MONTH[season] < currentMonth;
   }
 
+  function isValidYYMMDD(yy, mm, dd) {
+    const monthNum = parseInt(mm, 10);
+    const dayNum = parseInt(dd, 10);
+    if (monthNum < 1 || monthNum > 12) return false;
+    if (dayNum < 1 || dayNum > 31) return false;
+    return true;
+  }
+
   const active = {}, completed = {};
   const allNames = await NoteStorage.getAllNoteNames();
   for (const name of allNames) {
@@ -68,6 +76,7 @@ async function generateProjectsNoteContent() {
     const match = name.match(/^(\d{2})(\d{2})(\d{2}) Project .+$/);
     if (!match) continue;
     const yy = match[1], mm = match[2], dd = match[3];
+    if (!isValidYYMMDD(yy, mm, dd)) continue;
     const season = getSeason(mm);
     const projectDate = new Date(2000 + parseInt(yy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
     const isCompleted = projectDate < today;
