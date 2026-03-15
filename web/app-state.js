@@ -7,16 +7,18 @@
 // ── Marked configuration ──────────────────────────────────────────────────
 // Disable indented code blocks so indented text renders as normal paragraphs.
 // Fenced code blocks (``` ... ```) still work correctly.
-marked.use({
-  breaks: true,
-  tokenizer: {
-    code(src) {
-      // Suppress the indented code block rule entirely
-      const indentedCode = /^(?:(?:    |\t)[^\n]+(?:\n|$))+/;
-      if (indentedCode.test(src)) return undefined;
+if (typeof marked !== 'undefined') {
+  marked.use({
+    breaks: true,
+    tokenizer: {
+      code(src) {
+        // Suppress the indented code block rule entirely
+        const indentedCode = /^(?:(?:    |\t)[^\n]+(?:\n|$))+/;
+        if (indentedCode.test(src)) return undefined;
+      }
     }
-  }
-});
+  });
+}
 
 // ── DOM element references ────────────────────────────────────────────────
 const textarea = document.getElementById('editor');

@@ -914,6 +914,11 @@ function createWindow() {
 
   win.loadFile(getWebPath());
 
+  // Open DevTools automatically in development so console errors are visible
+  if (!app.isPackaged) {
+    win.webContents.openDevTools();
+  }
+
   startFileWatcher(win);
   startBackupsExportsWatchers();
   startICloudPolling(win);
