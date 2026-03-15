@@ -479,17 +479,25 @@ window.addEventListener('storage', e => {
         updateStatus('Note Updated From Another Window.', true);
       }
     }
-    updateFileList();
+    // Only rebuild the file list for structural changes (note added or deleted).
+    // Content-only changes just invalidate the schedule cache so the next render is fresh.
+    const isStructural = e.oldValue === null || e.newValue === null;
+    if (isStructural) {
+      updateFileList();
+    } else {
+      invalidateScheduleCache();
+    }
     return;
   }
 });
 
 // ── External file change sync (Desktop/iOS) ──────────────────────────────
 if (window.electronAPI?.notes?.onExternalChange) {
+  let _desktopKnownNames = null;
   window.electronAPI.notes.onExternalChange(async (data) => {
     // Skip processing sync events while desktop is inactive (paused)
     if (window._desktopSyncPaused?.()) return;
-    invalidateScheduleCache();
+    let contentChanged = false;
     const changedNote = data?.filename?.endsWith('.md')
       ? data.filename.slice(0, -3)
       : null;
@@ -525,6 +533,7 @@ if (window.electronAPI?.notes?.onExternalChange) {
           _lastSavedContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
+          contentChanged = true;
         }
       } else if (changedNote && changedNote !== currentFileName) {
         updateStatus(`iCloud: "${changedNote}" synced.`, true);
@@ -538,7 +547,19 @@ if (window.electronAPI?.notes?.onExternalChange) {
       // Wildcard force sync with no note open and nothing changed.
       updateStatus('iCloud: Up to date.', true);
     }
-    await updateFileList();
+    const names = await NoteStorage.getAllNoteNames();
+    const nameStr = names.slice().sort().join('\n');
+    let structuralChanged = false;
+    if (_desktopKnownNames !== null && _desktopKnownNames !== nameStr) {
+      structuralChanged = true;
+    }
+    _desktopKnownNames = nameStr;
+    if (structuralChanged) {
+      invalidateScheduleCache();
+      await updateFileList();
+    } else if (contentChanged) {
+      invalidateScheduleCache();
+    }
   });
 }
 
@@ -546,9 +567,9 @@ if (window.electronAPI?.notes?.onExternalChange) {
 if (window.Capacitor?.isNativePlatform()) {
   let _iCloudPollKnownNames = null;
   async function checkICloudChanges(showStatus) {
-    invalidateScheduleCache();
     if (showStatus) updateStatus('Syncing\u2026', true, true);
-    let changed = false;
+    let structuralChanged = false;
+    let contentChanged = false;
     if (currentFileName) {
       const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       const content = await NoteStorage.getNote(currentFileName);
@@ -572,7 +593,6 @@ if (window.Capacitor?.isNativePlatform()) {
           if (isPreview) previewDiv.innerHTML = '';
           updateStatus('iCloud: Current note deleted from another device.', false);
         }
-        changed = true;
       } else if (content !== textarea.value) {
         if (hasUnsavedEdits) {
           if (showStatus) updateStatus('iCloud: Remote change detected — keeping your edits.', true);
@@ -587,7 +607,7 @@ if (window.Capacitor?.isNativePlatform()) {
           _lastSavedContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
-          changed = true;
+          contentChanged = true;
         }
       } else if (showStatus) {
         updateStatus('iCloud: Up to date.', true);
@@ -598,10 +618,15 @@ if (window.Capacitor?.isNativePlatform()) {
     const names = await NoteStorage.getAllNoteNames();
     const nameStr = names.slice().sort().join('\n');
     if (_iCloudPollKnownNames !== null && _iCloudPollKnownNames !== nameStr) {
-      changed = true;
+      structuralChanged = true;
     }
     _iCloudPollKnownNames = nameStr;
-    if (changed) await updateFileList();
+    if (structuralChanged) {
+      invalidateScheduleCache();
+      await updateFileList();
+    } else if (contentChanged) {
+      invalidateScheduleCache();
+    }
   }
 
   document.addEventListener('resume', () => checkICloudChanges(true));
