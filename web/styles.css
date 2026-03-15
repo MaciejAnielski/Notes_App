@@ -22,8 +22,8 @@ body {
 }
 
 body {
-  background-color: #1e1e1e;
-  color: #e8dcf4;
+  background-color: var(--bg);
+  color: var(--text);
   font-family: Arial, sans-serif;
   display: flex;
   flex-direction: column;
@@ -42,7 +42,7 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: #1e1e1e;
+  background-color: var(--bg);
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -82,9 +82,9 @@ body {
 
 /* ── Buttons (global baseline) ── */
 button {
-  background-color: #2e2e2e;
-  color: #e8dcf4;
-  border: 1px solid #555;
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 8px 12px;
   margin-right: 5px;
@@ -98,7 +98,7 @@ button {
 #tools-overflow-row .button-group > button:not(.sub-button) {
   background: none;
   border: none;
-  color: #9a8aaa;
+  color: var(--muted);
   padding: 3px 10px;
   margin: 0;
   font-size: 13px;
@@ -108,8 +108,8 @@ button {
 @media (hover: hover) {
   #button-container .button-group > button:not(.sub-button):hover,
   #tools-overflow-row .button-group > button:not(.sub-button):hover {
-    background-color: rgba(255, 255, 255, 0.07);
-    color: #e8dcf4;
+    background-color: var(--hover-overlay);
+    color: var(--text);
   }
 }
 
@@ -121,8 +121,8 @@ button.btn-busy {
 
 /* Active state for Tools toggle button when overflow row is open */
 #tools-toggle-group.active > button {
-  background-color: rgba(255, 255, 255, 0.07);
-  color: #e8dcf4;
+  background-color: var(--hover-overlay);
+  color: var(--text);
 }
 
 /* ── Tools toggle button: hidden by default, shown when toolbar overflows ── */
@@ -140,7 +140,7 @@ button.btn-busy {
   padding: 2px 6px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: #1e1e1e;
+  background-color: var(--bg);
 }
 
 #tools-overflow-row.open {
@@ -169,8 +169,8 @@ button.btn-busy {
   top: 100%;
   left: 0;
   z-index: 10;
-  background-color: #1e1e1e;
-  border: 1px solid #333;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 3px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
   padding: 2px 0;
@@ -181,7 +181,7 @@ button.btn-busy {
   width: 100%;
   background: none;
   border: none;
-  color: #9a8aaa;
+  color: var(--muted);
   padding: 3px 14px;
   margin: 0;
   font-size: 13px;
@@ -192,8 +192,8 @@ button.btn-busy {
 
 @media (hover: hover) {
   .sub-button:hover {
-    background-color: rgba(255, 255, 255, 0.07);
-    color: #e8dcf4;
+    background-color: var(--hover-overlay);
+    color: var(--text);
   }
 }
 
@@ -202,7 +202,7 @@ button.btn-busy {
 #searchTasksBox {
   display: block;
   background: none;
-  color: #e8dcf4;
+  color: var(--text);
   border: none;
   border-radius: 0;
   width: 100%;
@@ -228,7 +228,7 @@ button.btn-busy {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  border-top: 1px solid #a272b0;
+  border-top: 1px solid var(--accent);
   padding-top: var(--gap);
 }
 
@@ -254,8 +254,8 @@ button.btn-busy {
 #fileList li.active-file,
 #nav-list li.active-file {
   font-weight: bold;
-  color: #c89fdf;
-  border-left: 3px solid #a272b0;
+  color: var(--active-color);
+  border-left: 3px solid var(--active-border);
   padding-left: 6px;
   margin-left: -9px;
 }
@@ -263,8 +263,8 @@ button.btn-busy {
 /* ── Link chain: connected thread with fading trail ── */
 #fileList li.linked-file,
 #nav-list li.linked-file {
-  color: #9a7aaa;
-  border-left: 2px dashed #6b4e7a;
+  color: var(--linked-color);
+  border-left: 2px dashed var(--linked-border);
   padding-left: 6px;
   margin-left: -8px;
 }
@@ -274,7 +274,7 @@ button.btn-busy {
 #nav-list li.linked-file::before {
   content: attr(data-chain-index);
   font-size: 10px;
-  color: #6b4e7a;
+  color: var(--linked-border);
   margin-right: 5px;
   flex-shrink: 0;
 }
@@ -285,7 +285,7 @@ button.btn-busy {
   margin: 0;
   padding: var(--gap) 0 0;
   flex-shrink: 0;
-  border-top: 1px solid #a272b0;
+  border-top: 1px solid var(--accent);
 }
 
 #nav-list li {
@@ -308,7 +308,7 @@ button.btn-busy {
 
 /* ── Today's Daily Note highlight ── */
 #fileList li.today-note > span {
-  color: #c89fdf;
+  color: var(--today-color);
   font-style: italic;
 }
 
@@ -355,8 +355,8 @@ textarea,
 
 /* ── Textarea & preview ── */
 textarea {
-  background-color: #1e1e1e;
-  color: #e8dcf4;
+  background-color: var(--bg);
+  color: var(--text);
   border: none;
   border-radius: 0;
   width: 100%;
@@ -381,7 +381,7 @@ textarea {
   min-height: 0;
   min-width: 0;
   overflow: hidden; /* clip the pre layer which grows to its natural content height */
-  background-color: #1e1e1e;
+  background-color: var(--bg);
 }
 
 /* Textarea inside wrapper: transparent text, visible caret */
@@ -393,7 +393,7 @@ textarea {
   flex: none;
   background: transparent;
   color: transparent;
-  caret-color: #e8dcf4;
+  caret-color: var(--caret);
   z-index: 1;
   /* Keep same base metrics as highlight pre */
   line-height: 1.5;
@@ -401,7 +401,7 @@ textarea {
 
 /* Placeholder text remains visible even with transparent textarea color */
 #editor-wrapper > textarea::placeholder {
-  color: #5a5070;
+  color: var(--placeholder);
   opacity: 1;
 }
 
@@ -429,8 +429,8 @@ textarea {
   tab-size: 4;
   -moz-tab-size: 4;
   box-sizing: border-box;
-  background-color: #1e1e1e;
-  color: #e8dcf4;
+  background-color: var(--bg);
+  color: var(--text);
   border: none;
   border-radius: 0;
 }
@@ -439,55 +439,55 @@ textarea {
 /* Rule: colour only — never font-size, font-weight, font-style,
    letter-spacing, or word-spacing (those break cursor alignment). */
 
-/* Headings — descending purple shades */
-.hl-h1 { color: #d4b8ff; }
-.hl-h2 { color: #c0a0f0; }
-.hl-h3 { color: #aa8ae0; }
-.hl-h4 { color: #9474cc; }
-.hl-h5 { color: #7e60b8; }
-.hl-h6 { color: #6a4ea4; }
+/* Headings — descending shades */
+.hl-h1 { color: var(--h1); }
+.hl-h2 { color: var(--h2); }
+.hl-h3 { color: var(--h3); }
+.hl-h4 { color: var(--h4); }
+.hl-h5 { color: var(--h5); }
+.hl-h6 { color: var(--h6); }
 
 /* The # markers are slightly darker than heading text */
-.hl-heading-marker { color: #7a5a8a; }
+.hl-heading-marker { color: var(--heading-marker); }
 
 /* Bold (colour only — do NOT add font-weight) */
-.hl-bold        { color: #f0e0ff; }
+.hl-bold        { color: var(--bold); }
 /* Italic (colour only — do NOT add font-style) */
-.hl-italic      { color: #c8a8f0; }
+.hl-italic      { color: var(--italic); }
 /* Bold-italic combination */
-.hl-bold-italic { color: #f8e8ff; }
+.hl-bold-italic { color: var(--bold-italic); }
 
 /* Inline code */
-.hl-code { color: #79d9a0; background-color: #112318; }
+.hl-code { color: var(--code); background-color: var(--code-bg); }
 
 /* Fenced code block fence lines and content */
-.hl-fence      { color: #a272b0; }
-.hl-code-block { color: #79d9a0; }
+.hl-fence      { color: var(--fence); }
+.hl-code-block { color: var(--code); }
 
 /* Strikethrough */
-.hl-strike { color: #7a6a8a; }
+.hl-strike { color: var(--strike); }
 
 /* Highlight ==text== — golden, inner text inherits so nesting stays gold */
-.hl-highlight      { color: #f5d76e; }
-.hl-highlight-text { color: #f5d76e; }
+.hl-highlight      { color: var(--highlight); }
+.hl-highlight-text { color: var(--highlight); }
 .hl-highlight-text * { color: inherit; }
 
 /* Links and wiki-links */
-.hl-link { color: #9cdcfe; }
-.hl-wiki { color: #7ec8f0; }
+.hl-link { color: var(--link); }
+.hl-wiki { color: var(--wiki); }
 
 /* List markers */
-.hl-list-marker { color: #a272b0; }
+.hl-list-marker { color: var(--list-marker); }
 
 /* Blockquote > marker and text */
-.hl-blockquote        { color: #b8a8cc; }
-.hl-blockquote-marker { color: #a272b0; }
+.hl-blockquote        { color: var(--blockquote-text); }
+.hl-blockquote-marker { color: var(--blockquote-border); }
 
 /* Horizontal rule lines */
-.hl-hr { color: #6b4e7a; }
+.hl-hr { color: var(--hr); }
 
 /* Schedule syntax at end of line */
-.hl-schedule { color: #6b4e7a; }
+.hl-schedule { color: var(--schedule); }
 
 textarea:focus {
   outline: none;
@@ -502,8 +502,8 @@ textarea:focus {
   border: none;
   border-radius: 0;
   box-sizing: border-box;
-  background-color: #1e1e1e;
-  color: #e8dcf4;
+  background-color: var(--bg);
+  color: var(--text);
   overflow-x: hidden;
   overflow-y: auto;
   flex: 1;
@@ -513,33 +513,33 @@ textarea:focus {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Preview heading colours — descending purple shades ── */
+/* ── Preview heading colours — descending shades ── */
 #preview h1 {
-  color: #d4b8ff;
-  border-bottom: 1px solid #a272b0;
+  color: var(--h1);
+  border-bottom: 1px solid var(--accent);
   padding-bottom: 8px;
   margin-bottom: 16px;
   margin-top: 8px;
 }
 
-#preview h2 { color: #c0a0f0; }
-#preview h3 { color: #aa8ae0; }
-#preview h4 { color: #9474cc; }
-#preview h5 { color: #7e60b8; }
-#preview h6 { color: #6a4ea4; }
+#preview h2 { color: var(--h2); }
+#preview h3 { color: var(--h3); }
+#preview h4 { color: var(--h4); }
+#preview h5 { color: var(--h5); }
+#preview h6 { color: var(--h6); }
 
 /* ── Inline emphasis in preview ── */
-/* Bold uses slightly brighter purple-white */
-#preview strong { color: #f0e0ff; }
-/* Italic uses soft lavender */
-#preview em { color: #c8a8f0; }
+/* Bold uses slightly brighter shade */
+#preview strong { color: var(--bold); }
+/* Italic uses soft shade */
+#preview em { color: var(--italic); }
 /* Strikethrough muted */
-#preview del { color: #7a6a8a; }
+#preview del { color: var(--strike); }
 
 /* ── Inline code ── */
 #preview code {
-  color: #79d9a0;
-  background-color: #112318;
+  color: var(--code);
+  background-color: var(--code-bg);
   padding: 0 4px;
   border-radius: 3px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -547,7 +547,7 @@ textarea:focus {
 
 /* Code inside a fenced block — reset inline styling */
 #preview pre code {
-  color: #79d9a0;
+  color: var(--code);
   background: none;
   padding: 0;
   border-radius: 0;
@@ -555,8 +555,8 @@ textarea:focus {
 
 /* Fenced code block container */
 #preview pre {
-  background-color: #141c1a;
-  border: 1px solid #2a3a30;
+  background-color: var(--code-block-bg);
+  border: 1px solid var(--code-block-border);
   border-radius: 4px;
   padding: 10px;
   overflow-x: auto;
@@ -564,9 +564,9 @@ textarea:focus {
   margin: 0.75em 0;
 }
 
-/* ── Highlights (==text==) — golden; nested elements inherit the colour ── */
+/* ── Highlights (==text==) — nested elements inherit the colour ── */
 #preview mark,
-#preview mark * { color: #f5d76e; }
+#preview mark * { color: var(--mark-color); }
 
 /* ── H1 note title: navigates back when a breadcrumb chain exists ── */
 #preview h1.note-title-back {
@@ -589,7 +589,7 @@ textarea:focus {
 }
 
 #preview a {
-  color: #9cdcfe;
+  color: var(--link);
 }
 
 /* ── Lists ── */
@@ -617,9 +617,9 @@ textarea:focus {
 #preview blockquote {
   margin: 12px 0;
   padding: 6px 14px;
-  border-left: 3px solid #a272b0;
-  background-color: #262030;
-  color: #b8a8cc;
+  border-left: 3px solid var(--blockquote-border);
+  background-color: var(--blockquote-bg);
+  color: var(--blockquote-text);
   border-radius: 0 4px 4px 0;
 }
 
@@ -653,7 +653,7 @@ textarea:focus {
 #preview details > summary::after {
   content: ' ›';
   font-size: 0.8em;
-  color: #6b4e7a;
+  color: var(--hr);
   transition: none;
 }
 
@@ -670,21 +670,21 @@ textarea:focus {
 
 #preview th,
 #preview td {
-  border: 1px solid #444;
+  border: 1px solid var(--border);
   padding: 6px 12px;
 }
 
 #preview thead tr {
-  background-color: #2a2040;
+  background-color: var(--table-header-bg);
 }
 
 #preview tbody tr:nth-child(even) {
-  background-color: #242030;
+  background-color: var(--table-alt-row);
 }
 
 /* ── Footnotes ── */
 .footnote-ref {
-  color: #a272b0;
+  color: var(--footnote);
   text-decoration: none;
   font-size: 0.75em;
   vertical-align: super;
@@ -698,13 +698,13 @@ textarea:focus {
 /* Markdown horizontal rules (---) — match the notes panel separator style */
 #preview hr {
   border: none;
-  border-top: 1px solid #a272b0;
+  border-top: 1px solid var(--accent);
   margin: 16px 0;
 }
 
 .footnote-hr {
   border: none;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--border);
   margin: 24px 0 12px;
 }
 
@@ -713,7 +713,7 @@ textarea:focus {
   padding: 0;
   margin: 0;
   font-size: 0.85em;
-  color: #9a8aaa;
+  color: var(--footnote-muted);
 }
 
 .footnotes li {
@@ -721,7 +721,7 @@ textarea:focus {
 }
 
 .footnote-back {
-  color: #6b4e7a;
+  color: var(--footnote-back);
   text-decoration: none;
   margin-left: 4px;
 }
@@ -732,7 +732,7 @@ textarea:focus {
 
 /* ── Todo / lists ── */
 #todo-container a {
-  color: #9cdcfe;
+  color: var(--link);
 }
 
 #todo-container ul {
@@ -771,7 +771,7 @@ textarea:focus {
 #todoList > li {
   margin-bottom: 20px;
   padding-top: var(--gap);
-  border-top: 1px solid #a272b0;
+  border-top: 1px solid var(--accent);
 }
 
 #preview li.task-item + li.bullet-item,
@@ -848,8 +848,8 @@ body.panel-pinned #panel-arrow {
   width: 300px;
   height: 100%;
   z-index: 50;
-  background-color: #1e1e1e;
-  border-left: 1px solid #333;
+  background-color: var(--bg);
+  border-left: 1px solid var(--border);
   overflow: hidden;
   padding: var(--gap) calc(var(--gap) * 2);
   box-sizing: border-box;
@@ -871,7 +871,7 @@ body.panel-pinned #panel-arrow {
 /* ── Last Backed Up status — bottom-center of editor section ── */
 #last-backup-status {
   font-size: 11px;
-  color: #6b4e7a;
+  color: var(--hr);
   text-align: center;
   padding: 1px 0;
   transition: opacity 0.4s ease;
@@ -907,7 +907,7 @@ body.panel-pinned #panel-arrow {
 #files-container h2:hover,
 #todo-container h2:hover,
 #schedule-container h2:hover {
-  color: #c89fdf;
+  color: var(--panel-heading-hover);
 }
 
 /* ── Pin button ── */
@@ -917,7 +917,7 @@ body.panel-pinned #panel-arrow {
   right: 8px;
   background: none;
   border: none;
-  color: #6b4e7a;
+  color: var(--pin-color);
   cursor: pointer;
   padding: 4px;
   margin: 0;
@@ -927,12 +927,12 @@ body.panel-pinned #panel-arrow {
 }
 
 #panel-pin:hover {
-  color: #e8dcf4;
-  background-color: #2e2e2e;
+  color: var(--text);
+  background-color: var(--surface);
 }
 
 #panel-pin.active {
-  color: #a272b0;
+  color: var(--pin-active);
 }
 
 #panel-pin.active svg circle {
@@ -1008,7 +1008,7 @@ body.panel-pinned {
   display: flex;
   justify-content: space-around;
   padding: 4px 2px 8px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border);
   margin-bottom: 6px;
 }
 
@@ -1025,12 +1025,12 @@ body.panel-pinned {
 }
 
 .schedule-week-cell:hover .schedule-week-day-num {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-overlay);
 }
 
 .schedule-week-day-letter {
   font-size: 10px;
-  color: #888;
+  color: var(--muted);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -1038,7 +1038,7 @@ body.panel-pinned {
 .schedule-week-day-num {
   font-size: 15px;
   font-weight: 600;
-  color: #e8e8e8;
+  color: var(--text);
   width: 28px;
   height: 28px;
   display: flex;
@@ -1050,16 +1050,16 @@ body.panel-pinned {
 
 .schedule-week-cell.weekend .schedule-week-day-letter,
 .schedule-week-cell.weekend .schedule-week-day-num {
-  color: #777;
+  opacity: 0.6;
 }
 
 .schedule-week-cell.today .schedule-week-day-num {
-  background: #e05c5c;
+  background: var(--error);
   color: #fff;
 }
 
 .schedule-week-cell.selected:not(.today) .schedule-week-day-num {
-  background: #a272b0;
+  background: var(--week-selected-bg);
   color: #fff;
 }
 
@@ -1072,10 +1072,10 @@ body.panel-pinned {
 }
 
 .schedule-week-dot.dot-empty    { background: transparent; }
-.schedule-week-dot.dot-event    { background: #a272b0; }
-.schedule-week-dot.dot-pending  { background: #d4a24a; }
-.schedule-week-dot.dot-done     { background: #4caf79; }
-.schedule-week-dot.dot-overdue  { background: #e05c5c; }
+.schedule-week-dot.dot-event    { background: var(--dot-event); }
+.schedule-week-dot.dot-pending  { background: var(--warning); }
+.schedule-week-dot.dot-done     { background: var(--success); }
+.schedule-week-dot.dot-overdue  { background: var(--error); }
 
 
 #schedule-timeline-wrapper {
@@ -1099,7 +1099,7 @@ body.panel-pinned {
   left: 0;
   width: 50px;
   font-size: 10px;
-  color: #6b4e7a;
+  color: var(--time-label);
   text-align: right;
   padding-right: 6px;
   transform: translateY(-50%);
@@ -1111,19 +1111,19 @@ body.panel-pinned {
   position: absolute;
   left: 54px;
   right: 0;
-  border-top: 1px solid #2e2e2e;
+  border-top: 1px solid var(--gridline);
 }
 
 .schedule-gridline-hour {
-  border-top-color: #444;
+  border-top-color: var(--gridline-hour);
 }
 
 .schedule-item {
   position: absolute;
   left: 54px;
   right: 4px;
-  background-color: #2a2040;
-  border-left: 3px solid #a272b0;
+  background-color: var(--sched-item-bg);
+  border-left: 3px solid var(--sched-item-border);
   border-radius: 0 4px 4px 0;
   padding: 2px 6px;
   font-size: 12px;
@@ -1185,7 +1185,7 @@ body.panel-pinned {
 
 /* ── Conflict indicator: red text for items within 15 min of each other ── */
 .schedule-item.conflict .schedule-item-name {
-  color: #e05c5c;
+  color: var(--error);
 }
 
 /* ── Schedule now indicator ── */
@@ -1194,7 +1194,7 @@ body.panel-pinned {
   left: 54px;
   right: 0;
   height: 2px;
-  background-color: #e05c5c;
+  background-color: var(--error);
   z-index: 10;
   pointer-events: none;
 }
@@ -1208,7 +1208,7 @@ body.panel-pinned {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #e05c5c;
+  background-color: var(--error);
 }
 
 /* ── Task status dots ── */
@@ -1228,10 +1228,10 @@ body.panel-pinned {
   vertical-align: middle;
 }
 
-.dot-unscheduled { background-color: #e8dcf4; }
-.dot-overdue     { background-color: #e05c5c; }
-.dot-today       { background-color: #d4a24a; }
-.dot-future      { background-color: #4caf72; }
+.dot-unscheduled { background-color: var(--text); }
+.dot-overdue     { background-color: var(--error); }
+.dot-today       { background-color: var(--warning); }
+.dot-future      { background-color: var(--success); }
 
 /* ── Calendar colour picker (Settings note preview) ── */
 .calendar-color-picker {
@@ -1255,17 +1255,70 @@ body.panel-pinned {
 }
 
 .calendar-color-picker::-webkit-color-swatch {
-  border: 1px solid #555;
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
 .calendar-color-picker::-moz-color-swatch {
-  border: 1px solid #555;
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
 .calendar-name-label {
   font-weight: 500;
+}
+
+/* ── Theme colour pickers (Settings note preview) ── */
+.theme-color-picker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.theme-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 50%;
+}
+
+.theme-color-picker::-webkit-color-swatch {
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.theme-color-picker::-moz-color-swatch {
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.theme-label {
+  font-weight: 500;
+  min-width: 100px;
+  display: inline-block;
+}
+
+.theme-reset-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.theme-reset-btn:hover {
+  color: var(--text);
+  background-color: var(--hover-overlay);
 }
 
 /* ── Global Search & Replace Panel ── */
@@ -1275,8 +1328,8 @@ body.panel-pinned {
   right: 0;
   width: 400px;
   max-height: 50vh;
-  background-color: #1e1e1e;
-  border: 1px solid #555;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
   border-top: none;
   border-right: none;
   border-radius: 0 0 0 4px;
@@ -1300,7 +1353,7 @@ body.panel-pinned {
 }
 
 .gs-row + .gs-row {
-  border-top: 1px solid #2e2e2e;
+  border-top: 1px solid var(--surface);
 }
 
 #gs-search-input,
@@ -1308,7 +1361,7 @@ body.panel-pinned {
   flex: 1;
   min-width: 0;
   background: none;
-  color: #e8dcf4;
+  color: var(--text);
   border: none;
   border-radius: 0;
   padding: 5px 8px;
@@ -1325,7 +1378,7 @@ body.panel-pinned {
 
 #gs-status {
   font-size: 11px;
-  color: #9a8aaa;
+  color: var(--muted);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1336,7 +1389,7 @@ body.panel-pinned {
 #gs-replace-all-btn {
   background: none;
   border: none;
-  color: #9a8aaa;
+  color: var(--muted);
   padding: 3px 8px;
   font-size: 13px;
   margin-right: 0;
@@ -1346,14 +1399,14 @@ body.panel-pinned {
 #gs-find-btn:hover,
 #gs-replace-btn:hover,
 #gs-replace-all-btn:hover {
-  background-color: rgba(255, 255, 255, 0.07);
-  color: #e8dcf4;
+  background-color: var(--hover-overlay);
+  color: var(--text);
 }
 
 #gs-close {
   background: none;
   border: none;
-  color: #9a8aaa;
+  color: var(--muted);
   font-size: 15px;
   cursor: pointer;
   padding: 3px 5px;
@@ -1364,13 +1417,13 @@ body.panel-pinned {
 }
 
 #gs-close:hover {
-  color: #e8dcf4;
-  background-color: #2e2e2e;
+  color: var(--text);
+  background-color: var(--surface);
 }
 
 #gs-case-label {
   font-size: 12px;
-  color: #9a8aaa;
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1387,7 +1440,7 @@ body.panel-pinned {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--border);
   scrollbar-width: none;
 }
 
@@ -1397,23 +1450,23 @@ body.panel-pinned {
 
 #gs-results li {
   padding: 5px 10px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--surface);
   cursor: pointer;
   font-size: 12px;
 }
 
 #gs-results li:hover {
-  background-color: #2e2e2e;
+  background-color: var(--surface);
 }
 
 #gs-results li.gs-active {
-  background-color: #2a1a3a;
-  border-left: 2px solid #a272b0;
+  background-color: var(--gs-active-bg);
+  border-left: 2px solid var(--accent);
   padding-left: 8px;
 }
 
 .gs-note-name {
-  color: #c89fdf;
+  color: var(--gs-note-name);
   font-weight: bold;
   display: block;
   margin-bottom: 1px;
@@ -1421,31 +1474,31 @@ body.panel-pinned {
 }
 
 .gs-snippet {
-  color: #7a6a8a;
+  color: var(--gs-snippet);
   white-space: nowrap;
   overflow: hidden;
   display: block;
 }
 
 .gs-snippet mark {
-  background-color: #5a2080;
-  color: #f0e8ff;
+  background-color: var(--gs-snippet-mark);
+  color: var(--gs-snippet-mark-text);
   border-radius: 2px;
   padding: 0 1px;
 }
 
 /* ── Schedule / search navigation highlight (flashes then fades) ── */
 #preview .schedule-highlight {
-  background-color: #3a1060;
+  background-color: var(--sched-highlight-bg);
   border-radius: 3px;
-  outline: 2px solid #9b6fcf;
+  outline: 2px solid var(--sched-highlight-outline);
   transition: background-color 1.5s ease, outline-color 1.5s ease;
 }
 
 /* ── Highlight syntax (==text==) ── */
 #preview mark {
-  background-color: #4a3000;
-  color: #f5d76e;
+  background-color: var(--mark-bg);
+  color: var(--mark-color);
   border-radius: 2px;
   padding: 0 2px;
   font-style: normal;
@@ -1506,7 +1559,7 @@ body.panel-pinned {
 /* ── Clickable Math Formulas ── */
 .math-evaluable {
   cursor: pointer;
-  border-bottom: 1px dashed #a272b0;
+  border-bottom: 1px dashed var(--math-underline);
   transition: opacity 0.15s;
 }
 
@@ -1526,7 +1579,7 @@ body.panel-pinned {
 
 /* Inline result (e.g. $x + y =$) */
 .math-result {
-  color: #a272b0;
+  color: var(--math-result);
   margin-left: 0.25em;
 }
 
@@ -1567,7 +1620,7 @@ body.panel-pinned {
     left: 0;
     right: 0;
     z-index: 10;
-    background-color: #1e1e1e;
+    background-color: var(--bg);
     text-align: center;
     padding: 4px;
   }
@@ -1596,7 +1649,7 @@ body.panel-pinned {
     display: flex !important;
     flex-direction: column;
     border-left: none;
-    border-right: 1px solid #333;
+    border-right: 1px solid var(--border);
     z-index: 150;
     will-change: transform;
     -webkit-backface-visibility: hidden;
@@ -1629,8 +1682,8 @@ body.panel-pinned {
     transition: transform 0.25s ease;
     display: flex;
     flex-direction: column;
-    background-color: #1e1e1e;
-    border-left: 1px solid #333;
+    background-color: var(--bg);
+    border-left: 1px solid var(--border);
     z-index: 150;
     padding: var(--gap) calc(var(--gap) * 2);
     box-sizing: border-box;
@@ -1678,7 +1731,7 @@ body.panel-pinned {
     width: 100%;
     max-height: 55vh;
     border-radius: 12px 12px 0 0;
-    border: 1px solid #555;
+    border: 1px solid var(--border);
     border-bottom: none;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
     padding-bottom: max(env(safe-area-inset-bottom), 24px);
@@ -1732,7 +1785,7 @@ body.panel-pinned {
   width: 100%;
   height: calc(100% - 2em);
   position: relative;
-  background: #1e1e1e;
+  background: var(--bg);
   border-radius: 4px;
   /* Allow both pan and pinch-zoom for the vis.js canvas */
   touch-action: none;
@@ -1745,7 +1798,7 @@ body.panel-pinned {
 
 .graph-title-bar {
   font-size: 0.75em;
-  color: #7a5a8a;
+  color: var(--graph-title);
   padding: 4px 0 2px;
   text-align: center;
   user-select: none;
@@ -1754,12 +1807,12 @@ body.panel-pinned {
 .graph-tooltip {
   display: none;
   position: absolute;
-  background: #2a2040;
-  border: 1px solid #a272b0;
+  background: var(--graph-tooltip-bg);
+  border: 1px solid var(--graph-tooltip-border);
   border-radius: 6px;
   padding: 8px 12px;
   max-width: 300px;
-  color: #e8dcf4;
+  color: var(--text);
   font-size: 0.78em;
   line-height: 1.45;
   pointer-events: none;

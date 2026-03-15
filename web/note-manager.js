@@ -243,10 +243,26 @@ async function loadNote(name, fromLink = false) {
     linkedNoteChain = [];
     saveChain();
   }
-  const content = await NoteStorage.getNote(name);
-  if (content === null) {
+  let content = await NoteStorage.getNote(name);
+  // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
+  if (content === null && name === CALENDARS_NOTE) {
+    content = '# Settings\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
+    await NoteStorage.setNote(name, content);
+  } else if (content === null) {
     alert('File not found.');
     return;
+  }
+  // Ensure Settings note has the Theme section (migration / cross-device sync)
+  if (name === CALENDARS_NOTE && !content.includes('## 🎨 Theme')) {
+    const insertPos = content.indexOf('\n## ');
+    if (insertPos !== -1) {
+      content = content.slice(0, insertPos) +
+        '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
+        content.slice(insertPos);
+    } else {
+      content += '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
+    }
+    await NoteStorage.setNote(name, content);
   }
   textarea.value = content;
   _lastSavedContent = content;

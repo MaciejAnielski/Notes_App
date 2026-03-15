@@ -96,6 +96,19 @@ async function renderNoteGraph() {
   const nodes = new vis.DataSet();
   const edges = new vis.DataSet();
 
+  // Read theme colours from CSS custom properties
+  const cs = getComputedStyle(document.documentElement);
+  const _v = p => (cs.getPropertyValue(p) || '').trim();
+  const gText = _v('--text') || '#e8dcf4';
+  const gNodeBg = _v('--graph-node-bg') || '#2e2e2e';
+  const gNodeBorder = _v('--graph-node-border') || '#a272b0';
+  const gNodeHlBg = _v('--graph-node-hl-bg') || '#4a3a5a';
+  const gNodeHlBorder = _v('--graph-node-hl-border') || '#c89fdf';
+  const gNodeHoverBg = _v('--graph-node-hover-bg') || '#3a2e4a';
+  const gAccent = _v('--accent') || '#a272b0';
+  const gError = _v('--error') || '#e05c5c';
+  const gErrorBg = _v('--error-bg') || '#3a1a1a';
+
   // Add real note nodes
   for (const { name } of graphNotes) {
     const degree = incomingCount.get(name) || 0;
@@ -105,12 +118,12 @@ async function renderNoteGraph() {
       id: name,
       label: name,
       size,
-      font: { size: fontSize, color: '#e8dcf4' },
+      font: { size: fontSize, color: gText },
       color: {
-        background: '#2e2e2e',
-        border: '#a272b0',
-        highlight: { background: '#4a3a5a', border: '#c89fdf' },
-        hover: { background: '#3a2e4a', border: '#c89fdf' },
+        background: gNodeBg,
+        border: gNodeBorder,
+        highlight: { background: gNodeHlBg, border: gNodeHlBorder },
+        hover: { background: gNodeHoverBg, border: gNodeHlBorder },
       },
       title: name,
     });
@@ -130,12 +143,12 @@ async function renderNoteGraph() {
           id: toId,
           label: target,
           size: 8,
-          font: { size: 9, color: '#e05c5c' },
+          font: { size: 9, color: gError },
           color: {
-            background: '#3a1a1a',
-            border: '#e05c5c',
-            highlight: { background: '#4a2a2a', border: '#ff7070' },
-            hover: { background: '#4a2a2a', border: '#ff7070' },
+            background: gErrorBg,
+            border: gError,
+            highlight: { background: gErrorBg, border: gError },
+            hover: { background: gErrorBg, border: gError },
           },
           title: `Missing note: "${target}"`,
           shape: 'dot',
@@ -148,10 +161,10 @@ async function renderNoteGraph() {
         from: source,
         to: toId,
         color: {
-          color: exists ? '#a272b0' : '#e05c5c',
+          color: exists ? gAccent : gError,
           opacity: exists ? 0.7 : 0.5,
-          highlight: exists ? '#c89fdf' : '#ff7070',
-          hover: exists ? '#c89fdf' : '#ff7070',
+          highlight: exists ? gNodeHlBorder : gError,
+          hover: exists ? gNodeHlBorder : gError,
         },
         dashes: !exists,
         width: exists ? 1.5 : 1,

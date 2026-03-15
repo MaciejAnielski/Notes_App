@@ -633,9 +633,10 @@ async function renderPreview() {
     });
   }
 
-  // Settings note: inject colour pickers for calendar entries
+  // Settings note: inject colour pickers for calendar entries and theme pickers
   if (currentFileName === CALENDARS_NOTE) {
     injectCalendarColorPickers(previewDiv);
+    injectThemeColorPickers(previewDiv);
   }
 }
 
@@ -711,6 +712,105 @@ function injectCalendarColorPickers(container) {
       // Rebuild schedule immediately with new colour
       invalidateScheduleCache();
     });
+  });
+}
+
+// ── Theme colour pickers in Settings note preview ────────────────────────
+
+function injectThemeColorPickers(container) {
+  // Find the <details> containing the "Theme" h2
+  let themeSection = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Theme')) { themeSection = details; break; }
+  }
+  // Fall back to plain h2 if not collapsible
+  if (!themeSection) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Theme')) { themeSection = h.parentElement; break; }
+    }
+  }
+  if (!themeSection) return;
+
+  // Find or create the controls container
+  if (themeSection.querySelector('.theme-controls')) return;
+
+  const theme = getCurrentTheme();
+  const defaults = getDefaultTheme();
+
+  const controls = document.createElement('div');
+  controls.className = 'theme-controls';
+  controls.style.cssText = 'padding: 8px 0;';
+
+  // Background picker
+  const bgRow = document.createElement('div');
+  bgRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
+  const bgLabel = document.createElement('span');
+  bgLabel.className = 'theme-label';
+  bgLabel.textContent = 'Background';
+  const bgPicker = document.createElement('input');
+  bgPicker.type = 'color';
+  bgPicker.value = theme.background;
+  bgPicker.className = 'theme-color-picker';
+  bgPicker.title = 'Background colour';
+  bgRow.appendChild(bgLabel);
+  bgRow.appendChild(bgPicker);
+  controls.appendChild(bgRow);
+
+  // Accent picker
+  const acRow = document.createElement('div');
+  acRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;';
+  const acLabel = document.createElement('span');
+  acLabel.className = 'theme-label';
+  acLabel.textContent = 'Accent';
+  const acPicker = document.createElement('input');
+  acPicker.type = 'color';
+  acPicker.value = theme.accent;
+  acPicker.className = 'theme-color-picker';
+  acPicker.title = 'Accent colour';
+  acRow.appendChild(acLabel);
+  acRow.appendChild(acPicker);
+  controls.appendChild(acRow);
+
+  // Reset button
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'theme-reset-btn';
+  resetBtn.textContent = 'Reset to Default';
+  controls.appendChild(resetBtn);
+
+  // Insert controls after the list items or at end of section
+  const lists = themeSection.querySelectorAll('ul, ol, p');
+  const lastList = lists.length > 0 ? lists[lists.length - 1] : null;
+  if (lastList && lastList.nextSibling) {
+    themeSection.insertBefore(controls, lastList.nextSibling);
+  } else {
+    themeSection.appendChild(controls);
+  }
+
+  // Live preview on input, save on change
+  function applyFromPickers() {
+    applyTheme(bgPicker.value, acPicker.value);
+  }
+
+  bgPicker.addEventListener('input', applyFromPickers);
+  acPicker.addEventListener('input', applyFromPickers);
+
+  bgPicker.addEventListener('change', () => {
+    applyTheme(bgPicker.value, acPicker.value);
+    saveTheme(bgPicker.value, acPicker.value);
+    reinitMermaidTheme();
+  });
+  acPicker.addEventListener('change', () => {
+    applyTheme(bgPicker.value, acPicker.value);
+    saveTheme(bgPicker.value, acPicker.value);
+    reinitMermaidTheme();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    resetTheme();
+    bgPicker.value = defaults.background;
+    acPicker.value = defaults.accent;
+    reinitMermaidTheme();
   });
 }
 
