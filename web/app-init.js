@@ -475,7 +475,7 @@ window.addEventListener('storage', e => {
       } else {
         textarea.value = e.newValue;
         _lastSavedContent = e.newValue;
-        if (isPreview) renderPreview();
+        if (isPreview) renderPreview(); else refreshHighlight();
         updateStatus('Note Updated From Another Window.', true);
       }
     }
@@ -523,7 +523,7 @@ if (window.electronAPI?.notes?.onExternalChange) {
         } else {
           textarea.value = content;
           _lastSavedContent = content;
-          if (isPreview) renderPreview();
+          if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
         }
       } else if (changedNote && changedNote !== currentFileName) {
@@ -585,7 +585,7 @@ if (window.Capacitor?.isNativePlatform()) {
         } else {
           textarea.value = content;
           _lastSavedContent = content;
-          if (isPreview) renderPreview();
+          if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
           changed = true;
         }

@@ -50,8 +50,10 @@ async function _doUpdateFileList() {
   const noteMap = {};
   const allNotes = await NoteStorage.getAllNotes();
 
+  const todayNote = getFormattedDate() + ' Daily Note';
   for (const { name: fileName, content } of allNotes) {
     if (fileName === '.calendar_metadata') continue;
+    if (fileName === PROJECTS_NOTE || fileName === GRAPH_NOTE || fileName === CALENDARS_NOTE) continue;
     if (matches(fileName.toLowerCase(), content.toLowerCase())) {
       const li = document.createElement('li');
       const span = document.createElement('span');
@@ -62,6 +64,7 @@ async function _doUpdateFileList() {
         closeMobilePanel('left');
       };
       li.appendChild(span);
+      if (fileName === todayNote) li.classList.add('today-note');
       noteMap[fileName] = li;
     }
   }
@@ -95,6 +98,38 @@ async function _doUpdateFileList() {
     });
 
   items.forEach(li => fileList.appendChild(li));
+
+  // ── Nav section: Projects / Note Graph / Settings ──────────────────────
+  const navList = document.getElementById('nav-list');
+  navList.innerHTML = '';
+  const NAV_ITEMS = [
+    { name: PROJECTS_NOTE, label: 'Projects' },
+    { name: GRAPH_NOTE,    label: 'Note Graph' },
+    { name: CALENDARS_NOTE, label: 'Settings' },
+  ];
+  for (const { name, label } of NAV_ITEMS) {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = label;
+    span.style.cursor = 'pointer';
+    const chainIdx = linkedNoteChain.indexOf(name);
+    if (currentFileName === name) {
+      li.classList.add('active-file');
+      span.onclick = () => { loadNote(name); closeMobilePanel('left'); };
+    } else if (chainIdx !== -1) {
+      li.classList.add('linked-file');
+      li.dataset.chainIndex = chainIdx + 1;
+      span.onclick = () => {
+        linkedNoteChain = linkedNoteChain.slice(chainIdx + 1);
+        saveChain();
+        loadNote(name, true);
+      };
+    } else {
+      span.onclick = () => { loadNote(name); closeMobilePanel('left'); };
+    }
+    li.appendChild(span);
+    navList.appendChild(li);
+  }
 
   // Detect @CalendarName tags in notes and update Settings note on web
   await updateWebCalendarSettings(allNotes);
@@ -163,7 +198,7 @@ async function updateWebCalendarSettings(allNotes) {
   await NoteStorage.setNote(CALENDARS_NOTE, content);
   if (currentFileName === CALENDARS_NOTE) {
     textarea.value = content;
-    if (isPreview) renderPreview();
+    if (isPreview) renderPreview(); else refreshHighlight();
   }
 }
 
@@ -328,9 +363,7 @@ async function toggleTaskStatus(fileName, lineIndex) {
     await NoteStorage.setNote(fileName, lines.join('\n'));
     if (currentFileName === fileName) {
       textarea.value = lines.join('\n');
-      if (isPreview) {
-        renderPreview();
-      }
+      if (isPreview) renderPreview(); else refreshHighlight();
     }
   }
   await updateTodoList();
