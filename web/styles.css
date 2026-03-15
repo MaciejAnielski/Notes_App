@@ -285,7 +285,6 @@ button.btn-busy {
   margin: 0;
   padding: var(--gap) 0 0;
   flex-shrink: 0;
-  border-top: 1px solid var(--accent);
 }
 
 #nav-list li {
