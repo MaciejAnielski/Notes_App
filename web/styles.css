@@ -1565,12 +1565,18 @@ body.panel-pinned {
 }
 
 /* ── MathJax overflow: long equations scroll horizontally on all platforms ── */
+/* MathJax CHTML injects line-height:0 on mjx-container; override it so the
+   full equation height is visible and not clipped to the top half. */
+#preview mjx-container[jax="CHTML"] {
+  line-height: normal;
+}
+
 /* Block / display math: cap at parent width, scroll when too wide. */
 #preview mjx-container[display="true"] {
   display: block !important;
   max-width: 100% !important;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
   /* iOS momentum scrolling */
   -webkit-overflow-scrolling: touch;
   /* Android/iOS: allow horizontal pan inside this element without
@@ -1584,7 +1590,7 @@ body.panel-pinned {
   display: inline-block;
   max-width: 100% !important;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
   vertical-align: middle;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
