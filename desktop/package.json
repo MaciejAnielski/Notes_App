@@ -13,7 +13,7 @@
     "dist": "electron-builder --publish=never"
   },
   "devDependencies": {
-    "electron": "^40.8.0",
+    "electron": "^41.0.2",
     "electron-builder": "^26.8.1"
   },
   "build": {
@@ -27,7 +27,9 @@
       {
         "from": "../web",
         "to": "web",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "directories": {
@@ -39,7 +41,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "build/icon.icns"
