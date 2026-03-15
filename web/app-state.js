@@ -7,6 +7,7 @@
 // ── Marked configuration ──────────────────────────────────────────────────
 // Disable indented code blocks so indented text renders as normal paragraphs.
 // Fenced code blocks (``` ... ```) still work correctly.
+// Disable underscore italics — only asterisks trigger italic emphasis.
 marked.use({
   breaks: true,
   tokenizer: {
@@ -14,6 +15,20 @@ marked.use({
       // Suppress the indented code block rule entirely
       const indentedCode = /^(?:(?:    |\t)[^\n]+(?:\n|$))+/;
       if (indentedCode.test(src)) return undefined;
+    },
+    em(src) {
+      // Only match asterisks, not underscores. Pattern matches *text* or ***text***
+      // but not _text_. Return false if pattern doesn't match so marked moves to next rule.
+      const match = src.match(/^\*{1,3}([\s\S]+?)\*{1,3}(?!\*)/);
+      if (match) {
+        return {
+          type: 'em',
+          raw: match[0],
+          text: match[1],
+          tokens: []
+        };
+      }
+      return false;
     }
   }
 });

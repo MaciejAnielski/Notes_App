@@ -102,11 +102,10 @@ function _applyInline(line) {
   line = line.replace(/__([^_\n]+?)__/g,
     '<span class="hl-bold">__$1__</span>');
 
-  // 4. Italic (* or _ — single, not double)
+  // 4. Italic — asterisks only (* text *), not underscores
+  // Underscores no longer trigger italic emphasis
   line = line.replace(/(?<![*\\])\*([^*\n]+?)\*(?![*])/g,
     '<span class="hl-italic">*$1*</span>');
-  line = line.replace(/(?<![_\\])_([^_\n]+?)_(?![_])/g,
-    '<span class="hl-italic">_$1_</span>');
 
   // 5. Strikethrough ~~text~~
   line = line.replace(/~~([^~\n]+?)~~/g,
