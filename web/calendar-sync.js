@@ -123,9 +123,8 @@ async function updateCalendarsNote() {
   } catch { return; }
 
   const calendars = result.calendars || [];
-  if (calendars.length === 0) return;
 
-  // Read existing note to preserve user selections.
+  // Read existing note to preserve user selections and Theme section content.
   // Fall back to the old "Calendars" note for one-time migration.
   const existing = await NoteStorage.getNote(CALENDARS_NOTE);
   const oldCalendarsNote = existing ? null : await NoteStorage.getNote('Calendars');
@@ -141,18 +140,30 @@ async function updateCalendarsNote() {
   // Delete the old "Calendars" note after migrating its selections
   if (oldCalendarsNote) await NoteStorage.removeNote('Calendars');
 
-  // Build new note content
-  const lines = ['# Settings', '',
-    '## 🎨 Theme', '', 'Customise the app\'s background and accent colours.', '',
-    '## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', ''];
-  calendars
-    .sort((a, b) => a.title.localeCompare(b.title))
-    .forEach(cal => {
-      const checked = selectedIds.has(cal.id) ? 'x' : ' ';
-      lines.push(`[${checked}] ${cal.title} {${cal.id}}`);
-    });
+  // Extract existing Theme section content to preserve it across rebuilds.
+  // Matches everything between the Theme heading and the next ## heading (or EOF).
+  let themeBody = '\nCustomise the app\'s background and accent colours.\n';
+  if (selSource) {
+    const themeMatch = selSource.match(/## 🎨 Theme([\s\S]*?)(?=\n##|$)/);
+    if (themeMatch) themeBody = themeMatch[1];
+  }
+
+  // Build new note content — Theme section always present; Calendars section
+  // only when the iOS calendar plugin returned at least one calendar.
+  const lines = ['# Settings', '', '## 🎨 Theme' + themeBody.trimEnd(), ''];
+  if (calendars.length > 0) {
+    lines.push('## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', '');
+    calendars
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .forEach(cal => {
+        const checked = selectedIds.has(cal.id) ? 'x' : ' ';
+        lines.push(`[${checked}] ${cal.title} {${cal.id}}`);
+      });
+  }
 
   const newContent = lines.join('\n') + '\n';
+  // Only write if content has actually changed to avoid triggering iCloud sync
+  if (newContent === (existing || '')) return;
   await NoteStorage.setNote(CALENDARS_NOTE, newContent);
 
   // Update editor if this note is currently open

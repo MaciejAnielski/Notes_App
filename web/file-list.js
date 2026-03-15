@@ -139,12 +139,15 @@ async function _doUpdateFileList() {
   await updateTodoList(allNotes);
 }
 
-// ── Web calendar detection ────────────────────────────────────────────────
-// On web (not iOS/Desktop), scan notes for @CalendarName syntax and add any
-// new calendar names to the Settings note under "## 📅 Calendars".
+// ── Settings note maintenance (web + desktop) ─────────────────────────────
+// Ensures the Settings note always exists with at least the Theme section.
+// On web, also scans notes for @CalendarName tags and adds a Calendars section
+// only when such tags are present. iOS manages its own Settings note via
+// calendar-sync.js. This function is a no-op on iOS.
 async function updateWebCalendarSettings(allNotes) {
-  if (window.electronAPI?.notes || window.Capacitor?.isNativePlatform()) return;
+  if (window.Capacitor?.isNativePlatform()) return;
 
+  // Scan for @CalendarName tags used in schedule syntax across all notes
   const calendarNames = new Set();
   for (const { content } of allNotes) {
     if (!content) continue;
@@ -154,44 +157,62 @@ async function updateWebCalendarSettings(allNotes) {
       if (m[1]) calendarNames.add(m[1]);
     }
   }
-  if (calendarNames.size === 0) return;
 
   const existing = await NoteStorage.getNote(CALENDARS_NOTE) || '';
+
+  // --- Web path ---
+  // Always ensure the Settings note exists with a Theme section.
+  // Only add a Calendars section if @CalendarName tags are in use.
+
+  let content = existing || '# Settings\n';
+
+  // Ensure Theme section
+  if (!content.includes('## 🎨 Theme')) {
+    // Insert before any existing ## heading, or append
+    const firstSecIdx = content.indexOf('\n## ');
+    if (firstSecIdx !== -1) {
+      content = content.slice(0, firstSecIdx) +
+        '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
+        content.slice(firstSecIdx);
+    } else {
+      content += '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
+    }
+  }
+
+  // If no calendar tags, save (Theme section only) and stop
+  if (calendarNames.size === 0) {
+    if (content !== existing) {
+      await NoteStorage.setNote(CALENDARS_NOTE, content);
+      if (currentFileName === CALENDARS_NOTE) {
+        textarea.value = content;
+        if (isPreview) renderPreview(); else refreshHighlight();
+      }
+    }
+    return;
+  }
+
+  // Extract existing calendar names to avoid duplicates
   const existingNames = new Set();
-  const calSection = existing.match(/## 📅 Calendars([\s\S]*?)(?=^##|\s*$)/m);
+  const calSection = content.match(/## 📅 Calendars([\s\S]*?)(?=\n##|$)/);
   if (calSection) {
-    // Extract names from plain list items: "- CalendarName"
     const nameRe = /^- (.+?)\s*$/gm;
     let nm;
-    while ((nm = nameRe.exec(calSection[1])) !== null) {
-      existingNames.add(nm[1]);
-    }
-    // Also extract names from iOS checkbox format: "[x] CalendarName {id}"
+    while ((nm = nameRe.exec(calSection[1])) !== null) existingNames.add(nm[1]);
     const cbRe = /^\[[ xX]\]\s+(.+?)\s*\{[^}]+\}\s*$/gm;
-    while ((nm = cbRe.exec(calSection[1])) !== null) {
-      existingNames.add(nm[1]);
-    }
+    while ((nm = cbRe.exec(calSection[1])) !== null) existingNames.add(nm[1]);
   }
 
   const newNames = [...calendarNames].filter(n => !existingNames.has(n));
-  if (newNames.length === 0) return;
 
-  let content = existing;
-  if (!content) content = '# Settings\n';
-
-  // Ensure Theme section exists
-  if (!content.includes('## 🎨 Theme')) {
-    content += '\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n';
-  }
-
+  // Ensure Calendars section exists
   if (!content.includes('## 📅 Calendars')) {
-    content += '\n## 📅 Calendars\n\n';
+    content += '\n\n## 📅 Calendars\n';
   }
+
+  // Append new calendar names
   for (const name of newNames.sort()) {
-    // Append before the next ## heading or at end of calendars section
     const secIdx = content.indexOf('\n## 📅 Calendars');
     if (secIdx !== -1) {
-      // Find end of this section (next ## or end of file)
       const afterHeading = secIdx + '\n## 📅 Calendars'.length;
       const nextSecIdx = content.indexOf('\n## ', afterHeading);
       const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
@@ -200,6 +221,8 @@ async function updateWebCalendarSettings(allNotes) {
       content += '\n- ' + name;
     }
   }
+
+  if (content === existing) return;
   await NoteStorage.setNote(CALENDARS_NOTE, content);
   if (currentFileName === CALENDARS_NOTE) {
     textarea.value = content;

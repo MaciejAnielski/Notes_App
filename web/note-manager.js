@@ -244,11 +244,15 @@ async function loadNote(name, fromLink = false) {
     saveChain();
   }
   let content = await NoteStorage.getNote(name);
-  if (content === null) {
+  // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
+  if (content === null && name === CALENDARS_NOTE) {
+    content = '# Settings\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
+    await NoteStorage.setNote(name, content);
+  } else if (content === null) {
     alert('File not found.');
     return;
   }
-  // Ensure Settings note has the Theme section
+  // Ensure Settings note has the Theme section (migration / cross-device sync)
   if (name === CALENDARS_NOTE && !content.includes('## 🎨 Theme')) {
     const insertPos = content.indexOf('\n## ');
     if (insertPos !== -1) {
