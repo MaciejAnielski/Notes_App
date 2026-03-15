@@ -9,12 +9,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#1e1e1e">
     <title>Notes App</title>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="001_Assets/favicon.ico" type="image/x-icon">
-    <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script defer src="vendor/jszip.min.js"></script>
+    <script defer src="vendor/marked.min.js"></script>
     <script>
       window.MathJax = {
         tex: {
@@ -32,10 +30,10 @@
         }
       };
     </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vis-network@9/dist/dist/vis-network.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/vis-network@9/dist/vis-network.min.js"></script>
+    <script defer src="vendor/tex-chtml-full.js"></script>
+    <script defer src="vendor/mermaid.min.js"></script>
+    <link rel="stylesheet" href="vendor/vis-network.min.css">
+    <script defer src="vendor/vis-network.min.js"></script>
     <script>
       // Build Mermaid theme variables from current CSS custom properties.
       function _buildMermaidThemeVars() {
@@ -218,7 +216,6 @@
   </div>
 
   <script src="theme-engine.js"></script>
-  <script defer src="icloud-bridge.js"></script>
   <script defer src="storage.js"></script>
   <script defer src="app-state.js"></script>
   <script defer src="markdown-renderer.js"></script>
