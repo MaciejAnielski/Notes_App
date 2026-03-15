@@ -896,7 +896,19 @@ function createWindow() {
     }
   });
 
+  // Fallback: show the window if ready-to-show hasn't fired within 10 s.
+  // This covers cases where loadFile fails (e.g. missing web build) so the
+  // window isn't permanently hidden with no feedback to the user.
+  const showFallback = setTimeout(() => win.show(), 10000);
+
   win.once('ready-to-show', () => {
+    clearTimeout(showFallback);
+    win.show();
+  });
+
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[main] Failed to load ${validatedURL || getWebPath()}: ${errorDescription} (${errorCode})`);
+    clearTimeout(showFallback);
     win.show();
   });
 
