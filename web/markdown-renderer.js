@@ -815,11 +815,13 @@ function injectThemeColorPickers(container) {
   bgPicker.addEventListener('change', () => {
     applyTheme(bgPicker.value, acPicker.value);
     saveTheme(bgPicker.value, acPicker.value);
+    if (typeof syncThemeToNote === 'function') syncThemeToNote();
     reinitMermaidTheme();
   });
   acPicker.addEventListener('change', () => {
     applyTheme(bgPicker.value, acPicker.value);
     saveTheme(bgPicker.value, acPicker.value);
+    if (typeof syncThemeToNote === 'function') syncThemeToNote();
     reinitMermaidTheme();
   });
 
@@ -827,6 +829,7 @@ function injectThemeColorPickers(container) {
     resetTheme();
     bgPicker.value = defaults.background;
     acPicker.value = defaults.accent;
+    if (typeof syncThemeToNote === 'function') syncThemeToNote();
     reinitMermaidTheme();
   });
 }

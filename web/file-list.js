@@ -9,7 +9,7 @@ async function getVisibleNotes() {
   const notes = [];
   const allNotes = await NoteStorage.getAllNotes();
   for (const { name, content } of allNotes) {
-    if (name === '.calendar_metadata') continue;
+    if (name.startsWith('.')) continue;
     if (matches(name.toLowerCase(), content.toLowerCase())) {
       notes.push(name);
     }
@@ -52,7 +52,7 @@ async function _doUpdateFileList() {
 
   const todayNote = getFormattedDate() + ' Daily Note';
   for (const { name: fileName, content } of allNotes) {
-    if (fileName === '.calendar_metadata') continue;
+    if (fileName.startsWith('.')) continue;
     if (fileName === PROJECTS_NOTE || fileName === GRAPH_NOTE || fileName === CALENDARS_NOTE) continue;
     if (matches(fileName.toLowerCase(), content.toLowerCase())) {
       const li = document.createElement('li');
@@ -147,10 +147,13 @@ async function _doUpdateFileList() {
 async function updateWebCalendarSettings(allNotes) {
   if (window.Capacitor?.isNativePlatform()) return;
 
-  // Scan for @CalendarName tags used in schedule syntax across all notes
+  // Scan for @CalendarName tags used in schedule syntax across all notes.
+  // Skip system notes (.calendar_metadata, .app_preferences) to prevent
+  // JSON content from being misinterpreted as calendar names.
   const calendarNames = new Set();
-  for (const { content } of allNotes) {
+  for (const { name: noteName, content } of allNotes) {
     if (!content) continue;
+    if (noteName.startsWith('.')) continue;
     const tagRe = />\s*\d{6}(?:\s+\d{4}\s+\d{4}|\s+\d{6})?(?:\s+@(\S+))?\s*$/gm;
     let m;
     while ((m = tagRe.exec(content)) !== null) {
@@ -179,6 +182,13 @@ async function updateWebCalendarSettings(allNotes) {
     }
   }
 
+  // Clean up any corrupted lines in the Calendars section (e.g. JSON fragments
+  // from .calendar_metadata that were erroneously appended in older versions).
+  const corruptRe = /^- .+[{}"\[\]].{10,}$/gm;
+  content = content.replace(corruptRe, '');
+  // Remove resulting blank line runs
+  content = content.replace(/\n{3,}/g, '\n\n');
+
   // If no calendar tags, save (Theme section only) and stop
   if (calendarNames.size === 0) {
     if (content !== existing) {
@@ -191,18 +201,29 @@ async function updateWebCalendarSettings(allNotes) {
     return;
   }
 
-  // Extract existing calendar names to avoid duplicates
+  // Extract existing calendar names to avoid duplicates.
+  // Normalise names (lowercase, no spaces) for comparison so that
+  // "UK Holidays" (from iOS) matches "UKHolidays" (from @CalendarName tags).
   const existingNames = new Set();
+  const existingNamesNorm = new Set();
   const calSection = content.match(/## 📅 Calendars([\s\S]*?)(?=\n##|$)/);
   if (calSection) {
     const nameRe = /^- (.+?)\s*$/gm;
     let nm;
-    while ((nm = nameRe.exec(calSection[1])) !== null) existingNames.add(nm[1]);
+    while ((nm = nameRe.exec(calSection[1])) !== null) {
+      existingNames.add(nm[1]);
+      existingNamesNorm.add(nm[1].toLowerCase().replace(/\s+/g, ''));
+    }
     const cbRe = /^\[[ xX]\]\s+(.+?)\s*\{[^}]+\}\s*$/gm;
-    while ((nm = cbRe.exec(calSection[1])) !== null) existingNames.add(nm[1]);
+    while ((nm = cbRe.exec(calSection[1])) !== null) {
+      existingNames.add(nm[1]);
+      existingNamesNorm.add(nm[1].toLowerCase().replace(/\s+/g, ''));
+    }
   }
 
-  const newNames = [...calendarNames].filter(n => !existingNames.has(n));
+  const newNames = [...calendarNames].filter(
+    n => !existingNamesNorm.has(n.toLowerCase().replace(/\s+/g, ''))
+  );
 
   // Ensure Calendars section exists
   if (!content.includes('## 📅 Calendars')) {
@@ -239,7 +260,7 @@ async function updateTodoList(cachedNotes) {
 
   const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name: fileName, content: noteContent } of allNotes) {
-    if (fileName === '.calendar_metadata') continue;
+    if (fileName.startsWith('.')) continue;
     {
       const lines = noteContent.split(/\n/);
       const todos = lines

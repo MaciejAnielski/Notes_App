@@ -456,6 +456,15 @@ window.addEventListener('storage', e => {
     updateBackupStatus();
     return;
   }
+  // Re-apply theme/calendar colours when changed in another tab
+  if (e.key === 'app_theme' || e.key === 'calendar_colors') {
+    if (e.key === 'app_theme') {
+      const theme = getCurrentTheme();
+      applyTheme(theme.background, theme.accent);
+    }
+    if (e.key === 'calendar_colors') invalidateScheduleCache();
+    return;
+  }
   if (e.key && e.key.startsWith('md_')) {
     const changedNote = e.key.slice(3);
     if (changedNote === currentFileName) {
@@ -497,9 +506,16 @@ if (window.electronAPI?.notes?.onExternalChange) {
   window.electronAPI.notes.onExternalChange(async (data) => {
     // Skip processing sync events while desktop is inactive (paused)
     if (window._desktopSyncPaused?.()) return;
+
+    // Re-apply synced preferences when the preferences note changes via iCloud
+    const changedFile = data?.filename;
+    if (changedFile === '.app_preferences.md' && typeof applySyncedPreferences === 'function') {
+      applySyncedPreferences();
+    }
+
     let contentChanged = false;
-    const changedNote = data?.filename?.endsWith('.md')
-      ? data.filename.slice(0, -3)
+    const changedNote = changedFile?.endsWith('.md')
+      ? changedFile.slice(0, -3)
       : null;
     if (currentFileName) {
       const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
@@ -629,7 +645,10 @@ if (window.Capacitor?.isNativePlatform()) {
     }
   }
 
-  document.addEventListener('resume', () => checkICloudChanges(true));
+  document.addEventListener('resume', () => {
+    checkICloudChanges(true);
+    if (typeof applySyncedPreferences === 'function') applySyncedPreferences();
+  });
 
   const IOS_POLL_MS = 15000;
   let _iosPollTimer = null;
@@ -773,6 +792,11 @@ if (savedChain) {
     }
   }
 
+  // Load synced preferences from iCloud (theme + calendar colours)
+  if (typeof applySyncedPreferences === 'function') {
+    await applySyncedPreferences();
+  }
+
   if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
     await loadNote(lastFile, true);
   } else {
@@ -781,6 +805,13 @@ if (savedChain) {
 
   if (savedPreview && !isPreview) {
     toggleView();
+  }
+
+  // Dismiss loading screen
+  const loadingScreen = document.getElementById('loading-screen');
+  if (loadingScreen) {
+    loadingScreen.classList.add('fade-out');
+    setTimeout(() => loadingScreen.remove(), 450);
   }
 
   // ── iOS keyboard / visual viewport handling ──────────────────────────────

@@ -2,6 +2,49 @@
   --gap: 10px;
 }
 
+/* ── Loading screen ── */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: var(--bg, #1e1e1e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.4s ease;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--accent, #a272b0);
+  margin-bottom: 20px;
+  letter-spacing: 0.05em;
+}
+
+.loading-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--surface, #2e2e2e);
+  border-top-color: var(--accent, #a272b0);
+  border-radius: 50%;
+  animation: loading-spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Base ── */
 html {
   height: 100%;
