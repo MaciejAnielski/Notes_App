@@ -97,7 +97,7 @@ function preprocessMarkdown(text) {
         let stripped = line.replace(schedRe, '');
         const trimmed = stripped.trimStart();
         const isTask    = /^- \[[ xX]\]\s/.test(trimmed);
-        const isList    = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isList    = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed) || /^[a-zA-Z][.)]\s/.test(trimmed);
         const isHeading = /^#+\s/.test(trimmed);
         if (!isTask) {
           if (isHeading) {
@@ -190,7 +190,7 @@ function preprocessMarkdown(text) {
         const depth = tabMatch[1].length;
         const content = tabMatch[2];
         const trimmed = content.trimStart();
-        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed) || /^[a-zA-Z][.)]\s/.test(trimmed);
         const isBlockquote = trimmed.startsWith('>');
         const isHeading = trimmed.startsWith('#');
 
@@ -221,11 +221,51 @@ function preprocessMarkdown(text) {
       } else {
         flushPendingList();
         const trimmed = line.trimStart();
-        prevWasListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+        prevWasListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed) || /^[a-zA-Z][.)]\s/.test(trimmed);
         out.push(line);
       }
     }
     flushPendingList();
+    text = out.join('\n');
+  }
+
+  // ── Lettered lists: a. Item / A. Item → <ol type="a/A">...</ol> ──
+  // Converts runs of lines starting with a single letter followed by "." or ")"
+  // into HTML ordered lists, matching the behaviour of numeric ordered lists.
+  // Works at any indentation level, including inside tab-indented <div> wrappers.
+  {
+    const lines = text.split('\n');
+    const out = [];
+    let inFence = false;
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; out.push(line); i++; continue; }
+      if (inFence) { out.push(line); i++; continue; }
+      const m = line.match(/^(\s*)([a-zA-Z])[.)]\s+(.*)$/);
+      if (m) {
+        const indent = m[1];
+        const listType = /[A-Z]/.test(m[2]) ? 'A' : 'a';
+        const items = [];
+        let j = i;
+        while (j < lines.length) {
+          const ln = lines[j];
+          if (/^[ \t]*(`{3,}|~{3,})/.test(ln)) break;
+          const lm = ln.match(/^(\s*)([a-zA-Z])[.)]\s+(.*)$/);
+          if (!lm || lm[1] !== indent) break;
+          items.push(marked.parseInline(lm[3]));
+          j++;
+        }
+        out.push(`${indent}<ol type="${listType}">`);
+        items.forEach(item => out.push(`${indent}<li>${item}</li>`));
+        out.push(`${indent}</ol>`);
+        out.push('');
+        i = j;
+      } else {
+        out.push(line);
+        i++;
+      }
+    }
     text = out.join('\n');
   }
 
