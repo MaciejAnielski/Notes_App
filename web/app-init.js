@@ -123,8 +123,16 @@ checkToolbarOverflow();
 
 // ── Search and textarea listeners ─────────────────────────────────────────
 
-searchBox.addEventListener('input', updateFileList);
-searchTasksBox.addEventListener('input', () => updateTodoList());
+let _searchDebounce = null;
+searchBox.addEventListener('input', () => {
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(updateFileList, 200);
+});
+let _taskSearchDebounce = null;
+searchTasksBox.addEventListener('input', () => {
+  clearTimeout(_taskSearchDebounce);
+  _taskSearchDebounce = setTimeout(() => updateTodoList(), 200);
+});
 textarea.addEventListener('input', () => {
   clearTimeout(autoSaveTimer);
   if (currentFileName === null) {

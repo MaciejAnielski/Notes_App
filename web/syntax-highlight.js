@@ -41,8 +41,13 @@ function initSyntaxHighlight() {
   });
   visObserver.observe(textarea, { attributes: true, attributeFilter: ['style'] });
 
-  // Re-render highlight on every keystroke and sync scroll on every scroll
-  textarea.addEventListener('input', _updateHighlight);
+  // Re-render highlight on input (debounced to avoid excessive work while
+  // typing) and sync scroll position on every scroll event.
+  let _highlightTimer = null;
+  textarea.addEventListener('input', () => {
+    clearTimeout(_highlightTimer);
+    _highlightTimer = setTimeout(_updateHighlight, 80);
+  });
   textarea.addEventListener('scroll', _syncScroll);
 
   // Initial render

@@ -293,7 +293,12 @@ async function applyPendingRename() {
   }
   _lastSavedContent = content;
   await NoteStorage.removeNote(oldName);
-  await NoteStorage.renameAttachmentDir(oldName, newName);
+  try {
+    await NoteStorage.renameAttachmentDir(oldName, newName);
+  } catch (e) {
+    console.error('Attachment dir rename failed:', e);
+    updateStatus('Note renamed but attachments may need manual recovery.', false);
+  }
   currentFileName = newName;
   localStorage.setItem('current_file', newName);
   const chainIdx = linkedNoteChain.indexOf(oldName);

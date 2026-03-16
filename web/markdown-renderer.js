@@ -511,11 +511,22 @@ function alignTableColumns(container) {
   });
 }
 
+// Cache for iOS attachment data URIs — keyed by "noteName/filename".
+// Cleared when a different note is rendered.
+let _attachmentCache = {};
+let _attachmentCacheNote = null;
+
 async function resolveAttachments(container) {
   if (!currentFileName) return;
   const hasDesktop = !!window.electronAPI?.notes?.readAttachment;
   const hasIOS     = !!window.CapacitorNoteStorage?.readAttachment;
   if (!hasDesktop && !hasIOS) return;
+
+  // Invalidate cache when switching notes
+  if (_attachmentCacheNote !== currentFileName) {
+    _attachmentCache = {};
+    _attachmentCacheNote = currentFileName;
+  }
 
   if (hasDesktop && _notesDirCache === null) {
     const info = await window.electronAPI.notes.getDir();
@@ -528,10 +539,17 @@ async function resolveAttachments(container) {
       const attDir = noteNameToAttachmentDir(currentFileName);
       img.src = encodeURI(`file://${_notesDirCache}/${attDir}/${filename}`);
     } else if (hasIOS) {
-      const b64 = await window.CapacitorNoteStorage.readAttachment(currentFileName, filename);
-      if (b64) {
-        const ext = filename.split('.').pop();
-        img.src = `data:${mimeForExtension(ext)};base64,${b64}`;
+      const cacheKey = currentFileName + '/' + filename;
+      if (_attachmentCache[cacheKey]) {
+        img.src = _attachmentCache[cacheKey];
+      } else {
+        const b64 = await window.CapacitorNoteStorage.readAttachment(currentFileName, filename);
+        if (b64) {
+          const ext = filename.split('.').pop();
+          const dataUri = `data:${mimeForExtension(ext)};base64,${b64}`;
+          _attachmentCache[cacheKey] = dataUri;
+          img.src = dataUri;
+        }
       }
     }
   }
@@ -619,23 +637,23 @@ async function renderMermaidDiagrams(container) {
       if (typeof reinitMermaidTheme === 'function') reinitMermaidTheme();
     } catch { return; }
   }
-  let mermaidId = 0;
-  for (const codeEl of codeBlocks) {
+  // Render all mermaid diagrams in parallel for faster preview
+  const renderJobs = Array.from(codeBlocks).map(async (codeEl, idx) => {
     const pre = codeEl.parentElement;
     const source = codeEl.textContent;
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mermaid-diagram';
-    const id = 'mermaid-' + Date.now() + '-' + (mermaidId++);
+    const id = 'mermaid-' + Date.now() + '-' + idx;
     try {
       const { svg } = await mermaid.render(id, source);
-      // Remove !important from mermaid's generated CSS to allow custom styling
       const cleanSvg = svg.replace(/!important/g, '');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mermaid-diagram';
       wrapper.innerHTML = cleanSvg;
       pre.replaceWith(wrapper);
     } catch {
       // Silently fail - don't replace the code block or show error messages
     }
-  }
+  });
+  await Promise.all(renderJobs);
 }
 
 // Per-note collapse state: tracks the open/closed state of collapsible headings
@@ -705,6 +723,12 @@ async function renderPreview() {
   setupPlainCheckboxes(previewDiv);
   await resolveAttachments(previewDiv);
   await renderMermaidDiagrams(previewDiv);
+  // Lazy-load MathJax only when the note contains math syntax
+  if (!window.MathJax && /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(textarea.value)) {
+    try {
+      await loadScript('vendor/tex-chtml-full.js');
+    } catch { /* MathJax failed to load */ }
+  }
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]).then(() => {
       if (isPreview) setupClickableMathFormulas();
