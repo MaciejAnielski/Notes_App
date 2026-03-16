@@ -271,16 +271,6 @@ function deriveThemeVars(bg, accent) {
   const shadowColor = dark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.18)';
   const shadowColorLight = dark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)';
 
-  // Mermaid-specific node backgrounds.
-  // These need to be visually distinct from `surface` so that diagram node
-  // types (primary / secondary / tertiary) are distinguishable from each other.
-  // They follow the accent hue with increasing accent saturation and lightness
-  // shift so each level reads clearly as a separate tier.
-  const mermaidSecondary = _hslToHex(acH, Math.min(acS * 0.35, 22), dark ? bgL + 11 : bgL - 11);
-  const mermaidTertiary  = _hslToHex(acH, Math.min(acS * 0.55, 32), dark ? bgL + 17 : bgL - 17);
-  // Active / activation background: clearly distinct from regular task fill.
-  const mermaidActiveBg  = _hslToHex(acH, Math.min(acS * 0.65, 42), dark ? bgL + 22 : bgL - 22);
-
   // Missing / broken internal links — use error tint
   const linkMissing = errorColor;
 
@@ -405,11 +395,6 @@ function deriveThemeVars(bg, accent) {
     // Checkboxes
     '--checkbox-accent': checkboxAccent, '--checkbox-bg': checkboxBg,
     '--checkbox-border': checkboxBorder, '--checkbox-checked-bg': checkboxCheckedBg,
-
-    // Mermaid diagram node tiers
-    '--mermaid-secondary': mermaidSecondary,
-    '--mermaid-tertiary': mermaidTertiary,
-    '--mermaid-active-bg': mermaidActiveBg,
 
     // Images
     '--image-border': imageBorder,
