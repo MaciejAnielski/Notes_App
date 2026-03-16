@@ -920,7 +920,6 @@ body.panel-pinned #panel-arrow {
   height: 100%;
   z-index: 50;
   background-color: var(--bg);
-  border-left: 1px solid var(--border);
   overflow: hidden;
   padding: var(--gap) calc(var(--gap) * 2);
   box-sizing: border-box;
