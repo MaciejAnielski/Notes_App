@@ -528,6 +528,12 @@ input::placeholder {
 .hl-blockquote        { color: var(--blockquote-text); }
 .hl-blockquote-marker { color: var(--blockquote-border); }
 
+/* Emphasis inside a blockquote line inherits the blockquote text colour */
+.hl-blockquote .hl-bold,
+.hl-blockquote .hl-bold-italic,
+.hl-blockquote .hl-italic,
+.hl-blockquote .hl-strike { color: inherit; }
+
 /* Horizontal rule lines */
 .hl-hr { color: var(--hr); }
 
