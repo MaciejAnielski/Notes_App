@@ -590,6 +590,12 @@ textarea:focus {
 /* Strikethrough muted */
 #preview del { color: var(--strike); }
 
+/* ── Emphasis inside blockquotes: inherit the quote text colour ── */
+/* Prevents bold/italic/strike from overriding the blockquote's themed colour */
+#preview blockquote strong,
+#preview blockquote em,
+#preview blockquote del { color: inherit; }
+
 /* ── Inline code ── */
 #preview code {
   color: var(--code);

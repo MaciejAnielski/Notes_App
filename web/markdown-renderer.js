@@ -151,6 +151,7 @@ function preprocessMarkdown(text) {
     let inFence = false;
     let pendingList = null;
     let prevWasListItem = false;
+    let prevWasBlankLine = false;
 
     const flushPendingList = () => {
       if (!pendingList) return;
@@ -171,6 +172,7 @@ function preprocessMarkdown(text) {
         inFence = !inFence;
         out.push(line);
         prevWasListItem = false;
+        prevWasBlankLine = false;
         continue;
       }
       if (inFence) {
@@ -182,8 +184,12 @@ function preprocessMarkdown(text) {
         flushPendingList();
         out.push(line);
         prevWasListItem = false;
+        prevWasBlankLine = true;
         continue;
       }
+
+      const wasBlankBefore = prevWasBlankLine;
+      prevWasBlankLine = false;
 
       const tabMatch = line.match(/^(\t+)(.*)/);
       if (tabMatch) {
@@ -214,14 +220,17 @@ function preprocessMarkdown(text) {
         } else {
           flushPendingList();
           const rendered = marked.parseInline(content);
-          out.push(`<p style="padding-left:${depth * 2}em;margin:0.2em 0">${rendered}</p>`);
+          const topMargin = wasBlankBefore ? '1em' : '0.2em';
+          out.push(`<p style="padding-left:${depth * 2}em;margin:${topMargin} 0">${rendered}</p>`);
           out.push('');
           prevWasListItem = false;
         }
       } else {
         flushPendingList();
-        const trimmed = line.trimStart();
-        prevWasListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed) || /^[a-zA-Z][.)]\s/.test(trimmed);
+        // Do not propagate prevWasListItem from non-tab lines — tab-indented list
+        // items should always start their own grouped block (div wrapper) rather
+        // than being folded into a preceding non-tab list as space-indented items.
+        prevWasListItem = false;
         out.push(line);
       }
     }
