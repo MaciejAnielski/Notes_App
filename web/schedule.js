@@ -447,6 +447,7 @@ async function renderSchedule() {
   // Current time indicator + auto-scroll to now (today only)
   if (dateStr === toYYMMDD(new Date())) {
     updateNowIndicator();
+    clearInterval(scheduleNowTimer);
     scheduleNowTimer = setInterval(updateNowIndicator, 60000);
     // Scroll after a brief layout settle so the wrapper has its final height
     requestAnimationFrame(() => scrollScheduleToNow());

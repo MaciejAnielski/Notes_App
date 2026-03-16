@@ -24,7 +24,7 @@ text[class*="error"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
 }
 
 #loading-screen.fade-out {

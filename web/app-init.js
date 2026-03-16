@@ -303,7 +303,7 @@ async function handleAttachmentPaste(file) {
     insertAtCursor(md);
     updateStatus(`Attached ${safeFilename}.`, true);
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(autoSaveNote, 1000);
+    await autoSaveNote();
   } catch (err) {
     console.error('Attachment error:', err);
     updateStatus('Failed to attach file.', false);
@@ -543,12 +543,17 @@ if (window.electronAPI?.notes?.onExternalChange) {
       } else if (content !== textarea.value) {
         if (hasUnsavedEdits) {
           updateStatus('iCloud: Remote change detected — keeping your edits.', true);
+        // Design choice: reject blank remote content to prevent accidental data
+        // loss. If a user intentionally clears a note on another device, this
+        // device will preserve its local content (safer default).
         } else if (content.trim() === '' && textarea.value.trim() !== '') {
           try {
             await NoteStorage.setNote(currentFileName, textarea.value);
             _lastSavedContent = textarea.value;
             updateStatus('iCloud: Rejected blank sync — keeping your content.', true);
-          } catch {}
+          } catch {
+            updateStatus('iCloud: Failed to save after blank sync rejection.', false);
+          }
         } else {
           textarea.value = content;
           _lastSavedContent = content;
@@ -771,37 +776,43 @@ if (savedChain) {
 
 (async () => {
   try {
-    // Migrate localStorage notes to iCloud on first launch (desktop/iOS only).
-    // Only runs once — uses a flag to prevent re-running if iCloud is transiently
-    // empty (e.g. slow sync on cold start), which would destroy localStorage data.
-    if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
-      const migrationDone = localStorage.getItem('icloud_migration_done');
-      if (!migrationDone) {
-        const lsNotes = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key.startsWith('md_')) {
-            lsNotes.push({ name: key.slice(3), content: localStorage.getItem(key) });
-          }
-        }
-        if (lsNotes.length > 0) {
-          const iCloudNames = await NoteStorage.getAllNoteNames();
-          if (iCloudNames.length === 0) {
-            for (const { name, content } of lsNotes) {
-              await NoteStorage.setNote(name, content);
+    // Run migration and synced-preferences loading in parallel to speed up
+    // startup. Migration must complete before loading the last note (it may
+    // have been migrated), but preferences are independent.
+    const migrationPromise = (async () => {
+      // Migrate localStorage notes to iCloud on first launch (desktop/iOS only).
+      // Only runs once — uses a flag to prevent re-running if iCloud is transiently
+      // empty (e.g. slow sync on cold start), which would destroy localStorage data.
+      if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
+        const migrationDone = localStorage.getItem('icloud_migration_done');
+        if (!migrationDone) {
+          const lsNotes = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('md_')) {
+              lsNotes.push({ name: key.slice(3), content: localStorage.getItem(key) });
             }
-            lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
-            updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
           }
+          if (lsNotes.length > 0) {
+            const iCloudNames = await NoteStorage.getAllNoteNames();
+            if (iCloudNames.length === 0) {
+              for (const { name, content } of lsNotes) {
+                await NoteStorage.setNote(name, content);
+              }
+              lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
+              updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
+            }
+          }
+          localStorage.setItem('icloud_migration_done', '1');
         }
-        localStorage.setItem('icloud_migration_done', '1');
       }
-    }
+    })();
 
-    // Load synced preferences from iCloud (theme + calendar colours)
-    if (typeof applySyncedPreferences === 'function') {
-      await applySyncedPreferences();
-    }
+    const prefsPromise = (typeof applySyncedPreferences === 'function')
+      ? applySyncedPreferences()
+      : Promise.resolve();
+
+    await Promise.all([migrationPromise, prefsPromise]);
 
     if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
       await loadNote(lastFile, true);
@@ -817,7 +828,7 @@ if (savedChain) {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen) {
       loadingScreen.classList.add('fade-out');
-      setTimeout(() => loadingScreen.remove(), 450);
+      setTimeout(() => loadingScreen.remove(), 200);
     }
   }
 

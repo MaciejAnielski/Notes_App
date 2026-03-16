@@ -4,6 +4,20 @@
 // modules depend on: DOM element references, application state variables,
 // search predicates, formatting helpers, and attachment utilities.
 
+// ── Lazy script loader ───────────────────────────────────────────────────
+// Used to defer loading of heavy vendor libraries (mermaid, vis-network)
+// until they are actually needed, reducing initial startup time.
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
 // ── Marked configuration ──────────────────────────────────────────────────
 // Disable indented code blocks so indented text renders as normal paragraphs.
 // Fenced code blocks (``` ... ```) still work correctly.

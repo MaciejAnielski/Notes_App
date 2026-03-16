@@ -53,11 +53,15 @@ async function renderNoteGraph() {
   previewDiv.style.overflow = 'hidden';
 
   if (!window.vis) {
-    const msg = document.createElement('div');
-    msg.style.cssText = 'padding:2em;color:var(--error);font-family:monospace;';
-    msg.textContent = 'vis.js library not loaded. Check your network connection and reload.';
-    previewDiv.appendChild(msg);
-    return;
+    try {
+      await loadScript('vendor/vis-network.min.js');
+    } catch {
+      const msg = document.createElement('div');
+      msg.style.cssText = 'padding:2em;color:var(--error);font-family:monospace;';
+      msg.textContent = 'vis.js library failed to load. Check your network connection and reload.';
+      previewDiv.appendChild(msg);
+      return;
+    }
   }
 
   const allNotes = await NoteStorage.getAllNotes();

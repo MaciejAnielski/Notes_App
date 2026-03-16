@@ -611,8 +611,14 @@ function setupPlainCheckboxes(container) {
 }
 
 async function renderMermaidDiagrams(container) {
-  if (!window.mermaid) return;
   const codeBlocks = container.querySelectorAll('pre code.language-mermaid');
+  if (codeBlocks.length === 0) return;
+  if (!window.mermaid) {
+    try {
+      await loadScript('vendor/mermaid.min.js');
+      if (typeof reinitMermaidTheme === 'function') reinitMermaidTheme();
+    } catch { return; }
+  }
   let mermaidId = 0;
   for (const codeEl of codeBlocks) {
     const pre = codeEl.parentElement;
@@ -654,9 +660,10 @@ async function renderPreview() {
   // default collapse markers take effect on every new open.
   if (_collapseStateFile === currentFileName) {
     _collapseState = {};
+    let _csIdx = 0;
     previewDiv.querySelectorAll('details').forEach(d => {
       const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
-      if (h) _collapseState[h.tagName + ':' + h.textContent.trim()] = d.open;
+      if (h) _collapseState[h.tagName + ':' + h.textContent.trim() + ':' + (_csIdx++)] = d.open;
     });
   } else {
     _collapseState = {};
@@ -684,10 +691,11 @@ async function renderPreview() {
   });
 
   // Restore collapse state after re-render (only applies to same-note re-renders)
+  let _restoreIdx = 0;
   previewDiv.querySelectorAll('details').forEach(d => {
     const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
     if (h) {
-      const key = h.tagName + ':' + h.textContent.trim();
+      const key = h.tagName + ':' + h.textContent.trim() + ':' + (_restoreIdx++);
       if (key in _collapseState) d.open = _collapseState[key];
     }
   });
@@ -699,7 +707,7 @@ async function renderPreview() {
   await renderMermaidDiagrams(previewDiv);
   if (window.MathJax) {
     MathJax.typesetPromise([previewDiv]).then(() => {
-      setupClickableMathFormulas();
+      if (isPreview) setupClickableMathFormulas();
     });
   }
 
