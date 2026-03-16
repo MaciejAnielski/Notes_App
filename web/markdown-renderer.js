@@ -622,7 +622,9 @@ async function renderMermaidDiagrams(container) {
     const id = 'mermaid-' + Date.now() + '-' + (mermaidId++);
     try {
       const { svg } = await mermaid.render(id, source);
-      wrapper.innerHTML = svg;
+      // Remove !important from mermaid's generated CSS to allow custom styling
+      const cleanSvg = svg.replace(/!important/g, '');
+      wrapper.innerHTML = cleanSvg;
       pre.replaceWith(wrapper);
     } catch {
       // Silently fail - don't replace the code block or show error messages
