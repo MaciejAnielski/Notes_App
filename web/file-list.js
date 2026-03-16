@@ -366,7 +366,7 @@ function setupPreviewTaskCheckboxes() {
           // not overwrite this checkbox toggle with stale content.
           _lastSavedContent = textarea.value;
         }
-        renderPreview();
+        if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
         await updateTodoList();
       }
     };

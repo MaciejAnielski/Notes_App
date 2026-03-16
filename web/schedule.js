@@ -463,7 +463,7 @@ async function toggleScheduleTask(fileName, lineIndex, checked) {
     await NoteStorage.setNote(fileName, lines.join('\n'));
     if (currentFileName === fileName) {
       textarea.value = lines.join('\n');
-      if (isPreview || projectsViewActive) renderPreview();
+      if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
     }
   }
   await updateTodoList();

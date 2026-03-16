@@ -185,6 +185,7 @@ async function checkAttachmentRenames(prevContent, newContent, noteName) {
     textarea.value = updatedContent;
     await NoteStorage.setNote(noteName, updatedContent);
     _lastSavedContent = updatedContent;
+    if (isPreview) renderPreview(); else refreshHighlight();
   }
 }
 

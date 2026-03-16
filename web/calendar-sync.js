@@ -169,7 +169,7 @@ async function updateCalendarsNote() {
   // Update editor if this note is currently open
   if (currentFileName === CALENDARS_NOTE) {
     textarea.value = newContent;
-    if (isPreview) renderPreview();
+    if (isPreview) renderPreview(); else refreshHighlight();
   }
 }
 
@@ -301,7 +301,7 @@ async function migrateInlineMetadata(store) {
     await NoteStorage.setNote(name, cleanedContent);
     if (currentFileName === name) {
       textarea.value = cleanedContent;
-      if (isPreview) renderPreview();
+      if (isPreview) renderPreview(); else refreshHighlight();
     }
   }
 }
@@ -430,7 +430,7 @@ async function syncCalendarToMarkdown(calendarIds) {
       // Update editor if this note is open
       if (currentFileName === noteName) {
         textarea.value = content;
-        if (isPreview) renderPreview();
+        if (isPreview) renderPreview(); else refreshHighlight();
       }
     }
   }
@@ -681,7 +681,7 @@ async function migrateDailyNoteNames() {
       currentFileName = newName;
       localStorage.setItem('current_file', newName);
       textarea.value = finalContent;
-      if (isPreview) renderPreview();
+      if (isPreview) renderPreview(); else refreshHighlight();
     }
   }
 

@@ -208,7 +208,7 @@ gsReplaceBtn.addEventListener('click', async () => {
   await NoteStorage.setNote(result.noteName, content);
   if (currentFileName === result.noteName) {
     textarea.value = content;
-    if (isPreview) renderPreview();
+    if (isPreview) renderPreview(); else refreshHighlight();
   }
 
   await handleRenameAfterReplace(result.noteName, content);
@@ -251,7 +251,7 @@ gsReplaceAllBtn.addEventListener('click', async () => {
     await NoteStorage.setNote(noteName, newContent);
     if (currentFileName === noteName) {
       textarea.value = newContent;
-      if (isPreview) renderPreview();
+      if (isPreview) renderPreview(); else refreshHighlight();
     }
     await handleRenameAfterReplace(noteName, newContent);
   }

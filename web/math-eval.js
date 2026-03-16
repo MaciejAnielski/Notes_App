@@ -292,6 +292,7 @@ function saveFormulaResult(mathExpr, resultStr) {
   NoteStorage.setNote(currentFileName, newContent);
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
+  if (isPreview) renderPreview(); else refreshHighlight();
 }
 
 function findCurrentFormulaIndex(content, mathExpr) {
@@ -369,6 +370,7 @@ function unsaveFormulaResult(mathExpr) {
   NoteStorage.setNote(currentFileName, newContent);
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
+  if (isPreview) renderPreview(); else refreshHighlight();
 }
 
 function makeFormulaClickable(container, texSource, varMap, mathExpr) {

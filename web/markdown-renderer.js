@@ -556,7 +556,7 @@ function setupPlainCheckboxes(container) {
         _lastSavedContent = textarea.value;
         NoteStorage.setNote(currentFileName, textarea.value);
       }
-      renderPreview();
+      if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
     });
   });
 }
