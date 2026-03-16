@@ -99,6 +99,8 @@
           logLevel: 'off',
           themeVariables: _buildMermaidThemeVars()
         });
+        // Suppress mermaid error banner
+        mermaid.setErrorHandler(() => {});
       }
 
       // Mermaid initialization is triggered by the onload attribute on the
