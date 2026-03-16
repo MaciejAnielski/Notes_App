@@ -196,7 +196,7 @@ function preprocessMarkdown(text) {
         const depth = tabMatch[1].length;
         const content = tabMatch[2];
         const trimmed = content.trimStart();
-        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed) || /^[a-zA-Z][.)]\s/.test(trimmed);
+        const isListItem = /^[-*+]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed) || /^[a-zA-Z][.)]\s/.test(trimmed) || /^\[[ xX]\]\s/.test(trimmed);
         const isBlockquote = trimmed.startsWith('>');
         const isHeading = trimmed.startsWith('#');
 
