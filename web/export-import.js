@@ -4,6 +4,187 @@
 // and importing from ZIP files. Supports both web (browser download) and
 // iCloud (desktop/iOS) save paths.
 
+// ── Export rendering helpers ───────────────────────────────────────────────
+
+// Reads current CSS custom properties and returns a :root block string so
+// exported HTML matches whatever theme the user has active.
+function getExportThemeCSSRoot() {
+  const s = getComputedStyle(document.documentElement);
+  const v = (p, fb) => (s.getPropertyValue(p) || '').trim() || fb;
+  return [
+    `--bg: ${v('--bg', '#1e1e1e')}`,
+    `--text: ${v('--text', '#e8dcf4')}`,
+    `--accent: ${v('--accent', '#a272b0')}`,
+    `--surface: ${v('--surface', '#2e2e2e')}`,
+    `--border: ${v('--border', '#444')}`,
+    `--h1: ${v('--h1', '#c89fdf')}`,
+    `--h2: ${v('--h2', '#b98fd0')}`,
+    `--h3: ${v('--h3', '#a47fc0')}`,
+    `--h4: ${v('--h4', '#9370b0')}`,
+    `--h5: ${v('--h5', '#8060a0')}`,
+    `--h6: ${v('--h6', '#6d5090')}`,
+    `--link: ${v('--link', '#9cdcfe')}`,
+    `--bold: ${v('--bold', '#f0e6ff')}`,
+    `--italic: ${v('--italic', '#c8a0e0')}`,
+    `--strike: ${v('--strike', '#7a6a8a')}`,
+    `--code: ${v('--code', '#9ec7b5')}`,
+    `--code-bg: ${v('--code-bg', '#2a2a3a')}`,
+    `--code-block-bg: ${v('--code-block-bg', '#252535')}`,
+    `--code-block-border: ${v('--code-block-border', '#3a3a5a')}`,
+    `--mark-bg: ${v('--mark-bg', '#3a1060')}`,
+    `--mark-color: ${v('--mark-color', '#c89fdf')}`,
+    `--blockquote-border: ${v('--blockquote-border', '#a272b0')}`,
+    `--blockquote-bg: ${v('--blockquote-bg', '#2a2040')}`,
+    `--blockquote-text: ${v('--blockquote-text', '#b8a8cc')}`,
+    `--table-header-bg: ${v('--table-header-bg', '#2a2040')}`,
+    `--table-alt-row: ${v('--table-alt-row', '#242030')}`,
+    `--hr: ${v('--hr', '#6b4e7a')}`,
+    `--footnote: ${v('--footnote', '#a272b0')}`,
+    `--footnote-back: ${v('--footnote-back', '#6b4e7a')}`,
+  ].join('; ');
+}
+
+// Pre-fills results of open (trailing "=") equations into the markdown so
+// the exported HTML shows solved values without needing math-eval.js.
+function preEvaluateOpenEquations(markdown) {
+  if (typeof extractAllMathExpressions !== 'function') return markdown;
+  const exprs = extractAllMathExpressions(markdown);
+  if (exprs.length === 0) return markdown;
+  const varMap = buildMathVariableMap(exprs);
+
+  const modifications = [];
+  for (const expr of exprs) {
+    const tex = expr.tex.trim();
+    if (!/=\s*$/.test(tex)) continue;
+    const exprPart = tex.replace(/=\s*$/, '').trim();
+    const value = evaluateLatexExpr(exprPart, varMap);
+    if (value === null) continue;
+    modifications.push({ expr, formatted: formatMathResult(value) });
+  }
+  if (modifications.length === 0) return markdown;
+
+  // Process highest index first so earlier positions stay valid.
+  modifications.sort((a, b) => b.expr.index - a.expr.index);
+
+  let result = markdown;
+  for (const { expr, formatted } of modifications) {
+    if (expr.type === 'block') {
+      const innerStart = expr.index + 2;
+      const innerEnd = result.indexOf('$$', innerStart);
+      if (innerEnd === -1) continue;
+      const inner = result.slice(innerStart, innerEnd);
+      const newInner = inner.replace(/=\s*$/, `= ${formatted}`);
+      if (newInner === inner) continue;
+      result = result.slice(0, innerStart) + newInner + result.slice(innerEnd);
+    } else {
+      let j = expr.index + 1;
+      while (j < result.length) {
+        if (result[j] === '\\') { j += 2; continue; }
+        if (result[j] === '$') break;
+        j++;
+      }
+      if (j >= result.length) continue;
+      const inner = result.slice(expr.index + 1, j);
+      const newInner = inner.replace(/=\s*$/, `= ${formatted}`);
+      if (newInner === inner) continue;
+      result = result.slice(0, expr.index + 1) + newInner + result.slice(j);
+    }
+  }
+  return result;
+}
+
+// Returns any MathJax-generated CSS present in the document (added by
+// MathJax after typesetPromise runs) so it can be embedded in the export.
+function getMathJaxCSS() {
+  const parts = [];
+  for (const style of document.querySelectorAll('style')) {
+    if ((style.id && style.id.startsWith('MJX')) ||
+        style.textContent.includes('mjx-container')) {
+      parts.push(style.textContent);
+    }
+  }
+  return parts.join('\n');
+}
+
+// CSS shared by single-note and notebook exports.  Uses the CSS-variable
+// names resolved above so the output matches the active theme exactly.
+const _EXPORT_SHARED_CSS = `
+  *, *::before, *::after { box-sizing: border-box; }
+  a { color: var(--link); }
+  h1 { color: var(--h1); border-bottom: 1px solid var(--accent); padding-bottom: 8px; margin-bottom: 12px; }
+  h2 { color: var(--h2); }
+  h3 { color: var(--h3); }
+  h4 { color: var(--h4); }
+  h5 { color: var(--h5); }
+  h6 { color: var(--h6); }
+  strong { color: var(--bold); }
+  em { color: var(--italic); }
+  del { color: var(--strike); }
+  hr { border: none; border-top: 1px solid var(--accent); margin: 1em 0; }
+  code { color: var(--code); background-color: var(--code-bg); padding: 0 4px; border-radius: 3px; font-family: 'Consolas','Monaco','Courier New',monospace; font-size: 0.9em; }
+  pre { background-color: var(--code-block-bg); border: 1px solid var(--code-block-border); border-radius: 4px; padding: 10px; overflow-x: auto; margin: 0.75em 0; font-size: 0.9em; line-height: 1.5; }
+  pre code { color: var(--code); background: none; padding: 0; border-radius: 0; font-size: 1em; }
+  mark { background-color: var(--mark-bg); color: var(--mark-color); border-radius: 2px; padding: 0 2px; }
+  mark * { color: var(--mark-color); }
+  p { margin: 0.5em 0; }
+  blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid var(--blockquote-border); background-color: var(--blockquote-bg); color: var(--blockquote-text); border-radius: 0 4px 4px 0; }
+  blockquote p { margin: 0; }
+  ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
+  li > ul, li > ol { margin: 0; }
+  li { margin: 0.15em 0; }
+  ul { list-style-type: disc; }
+  ul ul { list-style-type: circle; }
+  ul ul ul { list-style-type: square; }
+  li p:first-child:last-child { margin: 0; }
+  li.task-item + li.bullet-item, li.bullet-item + li.task-item { margin-top: 8px; }
+  img { max-width: 100%; border: 1px solid var(--border); }
+  table { border-collapse: collapse; margin: 0.75em 0; }
+  th, td { border: 1px solid var(--border); padding: 6px 12px; }
+  thead tr { background-color: var(--table-header-bg); }
+  tbody tr:nth-child(even) { background-color: var(--table-alt-row); }
+  .footnote-ref { color: var(--footnote); text-decoration: none; font-size: 0.75em; vertical-align: super; }
+  .footnote-hr { border: none; border-top: 1px solid var(--border); margin: 24px 0 12px; }
+  .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: var(--footnote); }
+  .footnote-back { color: var(--footnote-back); text-decoration: none; margin-left: 4px; }
+  details { margin: 0; }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary h2, details > summary h3, details > summary h4,
+  details > summary h5, details > summary h6 { display: inline; margin: revert; }
+  details > summary::after { content: ' \u203a'; font-size: 0.8em; color: var(--accent); }
+  details[open] > summary::after { content: ' \u2304'; }
+  .mermaid-diagram { overflow-x: auto; margin: 0.75em 0; }
+  .mermaid-diagram svg { max-width: 100%; height: auto; }
+  mjx-container[jax="CHTML"] { line-height: normal; }
+  mjx-container[display="true"] { display: block !important; max-width: 100% !important; overflow-x: auto; margin: 0.5em 0; text-align: center; }
+  mjx-container:not([display="true"]) { display: inline-block; max-width: 100% !important; overflow-x: auto; vertical-align: middle; }
+  input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1.5px solid var(--border); background-color: var(--code-bg); vertical-align: middle; margin-right: 4px; border-radius: 3px; position: relative; cursor: default; }
+  input[type="checkbox"]:checked { background-color: var(--accent); border-color: var(--accent); }
+  input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 3px; top: 0px; width: 5px; height: 9px; border: 2px solid white; border-top: none; border-left: none; transform: rotate(45deg); }
+  li.task-item { list-style-type: none; }
+`;
+
+// Runs the full rendering pipeline on a detached container:
+//   Mermaid diagrams → SVG, then MathJax typeset (requires brief DOM attachment).
+// Returns the MathJax CSS that was generated (empty string if MathJax unavailable).
+async function renderContainerForExport(container) {
+  await renderMermaidDiagrams(container);
+
+  if (!window.MathJax) return '';
+
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;visibility:hidden;top:-9999px;' +
+                       'left:-9999px;pointer-events:none;width:0;height:0;overflow:hidden;';
+  host.appendChild(container);
+  document.body.appendChild(host);
+  try {
+    await MathJax.typesetPromise([container]);
+  } finally {
+    document.body.removeChild(host);
+  }
+  return getMathJaxCSS();
+}
+
 async function embedAttachmentsInHtml(container, noteName) {
   const hasDesktop = !!window.electronAPI?.notes?.readAttachment;
   const hasIOS     = !!window.CapacitorNoteStorage?.readAttachment;
@@ -31,54 +212,40 @@ async function embedAttachmentsInHtml(container, noteName) {
 }
 
 async function generateHtmlContent(title, markdown, noteName) {
+  const processedMarkdown = preEvaluateOpenEquations(markdown);
+
   const container = document.createElement('div');
-  container.innerHTML = marked.parse(preprocessMarkdown(markdown));
+  container.innerHTML = marked.parse(preprocessMarkdown(processedMarkdown));
   styleTaskListItems(container);
   if (noteName) await embedAttachmentsInHtml(container, noteName);
-  const style = `
-    body {
-      width: 100%;
-      max-width: 800px;
-      min-height: 400px;
-      padding: 10px;
-      font-family: Arial, sans-serif;
-      font-size: 16px;
-      line-height: 1.5;
-      border-radius: 4px;
-      box-sizing: border-box;
-      background-color: #1e1e1e;
-      color: #e8dcf4;
-      margin: 20px auto;
-    }
-    a { color: #9cdcfe; }
-    blockquote {
-      margin: 12px 0; padding: 6px 14px;
-      border-left: 3px solid #a272b0;
-      background-color: #262030; color: #b8a8cc;
-      border-radius: 0 4px 4px 0;
-    }
-    blockquote p { margin: 0; }
-    p { margin: 0.5em 0; }
-    ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
-    li > ul, li > ol { margin: 0; }
-    li { margin: 0.15em 0; }
-    ul { list-style-type: disc; }
-    ul ul { list-style-type: circle; }
-    ul ul ul { list-style-type: square; }
-    li p:first-child:last-child { margin: 0; }
-    li.task-item + li.bullet-item,
-    li.bullet-item + li.task-item { margin-top: 8px; }
-    .footnote-ref { color: #a272b0; text-decoration: none; font-size: 0.75em; vertical-align: super; }
-    .footnote-hr { border: none; border-top: 1px solid #333; margin: 24px 0 12px; }
-    .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: #9a8aaa; }
-    .footnote-back { color: #6b4e7a; text-decoration: none; margin-left: 4px; }
-    table { border-collapse: collapse; margin: 0.75em 0; }
-    th, td { border: 1px solid #444; padding: 6px 12px; }
-    thead tr { background-color: #2a2040; }
-    tbody tr:nth-child(even) { background-color: #242030; }
-  `;
   alignTableColumns(container);
-  return `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>${title}</title>\n<style>${style}</style>\n<script>window.MathJax = { tex: { inlineMath: [['$','$'],['\\\\(','\\\\)']], displayMath: [['$$','$$'],['\\\\[','\\\\]']] }, chtml: { linebreaks: { automatic: true } } };</script>\n<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>\n</head>\n<body>\n${container.innerHTML}\n</body>\n</html>`;
+  setupCollapsibleHeadings(container);
+
+  const mathJaxCSS = await renderContainerForExport(container);
+
+  const cssRoot = getExportThemeCSSRoot();
+  const style = `
+    :root { ${cssRoot} }
+    body { max-width: 800px; margin: 20px auto; padding: 10px 20px; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; background-color: var(--bg); color: var(--text); }
+    ${_EXPORT_SHARED_CSS}
+  `;
+
+  const mathSection = mathJaxCSS
+    ? `<style>${mathJaxCSS}</style>`
+    : `<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]},chtml:{linebreaks:{automatic:true}}};</script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>${style}</style>
+${mathSection}
+</head>
+<body>
+${container.innerHTML}
+</body>
+</html>`;
 }
 
 function noteNameToId(name) {
@@ -92,9 +259,13 @@ async function generateNotebookHtml(noteEntries) {
     `<li><a href="#${noteNameToId(name)}">${name}</a></li>`
   ).join('\n      ');
 
-  const sectionParts = await Promise.all(noteEntries.map(async ({ name, content }) => {
+  // Build and pre-process each note container sequentially (avoids mermaid ID
+  // collisions that could occur with concurrent renders).
+  const noteContainers = [];
+  for (const { name, content } of noteEntries) {
+    const processedContent = preEvaluateOpenEquations(content);
     const container = document.createElement('div');
-    container.innerHTML = marked.parse(preprocessMarkdown(content));
+    container.innerHTML = marked.parse(preprocessMarkdown(processedContent));
     styleTaskListItems(container);
     await embedAttachmentsInHtml(container, name);
     container.querySelectorAll('a').forEach(a => {
@@ -106,44 +277,52 @@ async function generateNotebookHtml(noteEntries) {
       }
     });
     alignTableColumns(container);
-    return `<article id="${noteNameToId(name)}">\n${container.innerHTML}\n</article>`;
-  }));
-  const sections = sectionParts.join('\n\n');
+    setupCollapsibleHeadings(container);
+    await renderMermaidDiagrams(container);
+    noteContainers.push({ name, container });
+  }
 
+  // Typeset all math at once for efficiency.
+  let mathJaxCSS = '';
+  if (window.MathJax && noteContainers.length > 0) {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;visibility:hidden;top:-9999px;' +
+                         'left:-9999px;pointer-events:none;width:0;height:0;overflow:hidden;';
+    for (const { container } of noteContainers) host.appendChild(container);
+    document.body.appendChild(host);
+    try {
+      await MathJax.typesetPromise(noteContainers.map(nc => nc.container));
+    } finally {
+      document.body.removeChild(host);
+    }
+    mathJaxCSS = getMathJaxCSS();
+  }
+
+  const sections = noteContainers
+    .map(({ name, container }) =>
+      `<article id="${noteNameToId(name)}">\n${container.innerHTML}\n</article>`)
+    .join('\n\n');
+
+  const cssRoot = getExportThemeCSSRoot();
   const style = `
-    *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; font-size: 16px; background-color: #1e1e1e; color: #e8dcf4; }
-    #toc { width: 220px; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid #333; padding: 20px 12px; background-color: #1a1a1a; scrollbar-width: none; }
+    :root { ${cssRoot} }
+    body { margin: 0; display: flex; height: 100vh; font-family: Arial, sans-serif; font-size: 16px; background-color: var(--bg); color: var(--text); }
+    #toc { width: 220px; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); padding: 20px 12px; background-color: var(--bg); scrollbar-width: none; }
     #toc::-webkit-scrollbar { display: none; }
-    #toc h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b4e7a; }
+    #toc h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--hr); }
     #toc ul { list-style: none; margin: 0; padding: 0; }
-    #toc a { display: block; padding: 4px 6px; border-radius: 3px; color: #9a7aaa; text-decoration: none; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #toc a:hover { color: #e8dcf4; background-color: #2e2e2e; }
+    #toc a { display: block; padding: 4px 6px; border-radius: 3px; color: var(--h4); text-decoration: none; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #toc a:hover { color: var(--text); background-color: var(--surface); }
     main { flex: 1; overflow-y: auto; padding: 40px; scrollbar-width: none; }
     main::-webkit-scrollbar { display: none; }
     article { max-width: 800px; margin: 0 auto 60px; }
-    article + article { border-top: 1px solid #333; padding-top: 40px; }
-    a { color: #9cdcfe; }
-    blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid #a272b0; background-color: #262030; color: #b8a8cc; border-radius: 0 4px 4px 0; }
-    blockquote p { margin: 0; }
-    p { margin: 0.5em 0; }
-    ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
-    li > ul, li > ol { margin: 0; }
-    li { margin: 0.15em 0; }
-    ul { list-style-type: disc; }
-    ul ul { list-style-type: circle; }
-    ul ul ul { list-style-type: square; }
-    li p:first-child:last-child { margin: 0; }
-    li.task-item + li.bullet-item, li.bullet-item + li.task-item { margin-top: 8px; }
-    .footnote-ref { color: #a272b0; text-decoration: none; font-size: 0.75em; vertical-align: super; }
-    .footnote-hr { border: none; border-top: 1px solid #333; margin: 24px 0 12px; }
-    .footnotes { list-style: none; padding: 0; font-size: 0.85em; color: #9a8aaa; }
-    .footnote-back { color: #6b4e7a; text-decoration: none; margin-left: 4px; }
-    table { border-collapse: collapse; margin: 0.75em 0; }
-    th, td { border: 1px solid #444; padding: 6px 12px; }
-    thead tr { background-color: #2a2040; }
-    tbody tr:nth-child(even) { background-color: #242030; }
+    article + article { border-top: 1px solid var(--border); padding-top: 40px; }
+    ${_EXPORT_SHARED_CSS}
   `;
+
+  const mathSection = mathJaxCSS
+    ? `<style>${mathJaxCSS}</style>`
+    : `<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]},chtml:{linebreaks:{automatic:true}}};</script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -151,8 +330,7 @@ async function generateNotebookHtml(noteEntries) {
 <meta charset="UTF-8">
 <title>Notes Notebook</title>
 <style>${style}</style>
-<script>window.MathJax = { tex: { inlineMath: [['$','$'],['\\\\(','\\\\)']], displayMath: [['$$','$$'],['\\\\[','\\\\]']] }, chtml: { linebreaks: { automatic: true } } };</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+${mathSection}
 </head>
 <body>
 <nav id="toc">
