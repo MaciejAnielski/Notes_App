@@ -46,7 +46,7 @@ function initSyntaxHighlight() {
   let _highlightTimer = null;
   textarea.addEventListener('input', () => {
     clearTimeout(_highlightTimer);
-    _highlightTimer = setTimeout(_updateHighlight, 80);
+    _highlightTimer = setTimeout(_updateHighlight, 10);
   });
   textarea.addEventListener('scroll', _syncScroll);
 
