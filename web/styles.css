@@ -362,15 +362,14 @@ button.btn-busy {
 }
 
 /* ── Today's Daily Note highlight ── */
+#fileList li.today-note {
+  background: var(--today-bg);
+  border-radius: 4px;
+}
+
 #fileList li.today-note > span {
   color: var(--today-color);
   font-weight: bold;
-}
-
-#fileList li.today-note > span::before {
-  content: '◆ ';
-  font-size: 0.7em;
-  vertical-align: middle;
 }
 
 /* ── Hide scrollbars while keeping scroll functionality ── */
