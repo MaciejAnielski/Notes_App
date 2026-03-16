@@ -361,7 +361,8 @@ async function exportNote() {
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
     const timestamp = formatTimestamp();
-    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); } catch {}
+    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
+    catch { updateStatus('Export failed — check storage.', false); return; }
   } else {
     const blob = new Blob([html], { type: 'text/html' });
     const link = document.createElement('a');
@@ -384,7 +385,8 @@ async function exportAllNotes() {
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
     const timestamp = formatTimestamp();
-    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); } catch {}
+    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
+    catch { updateStatus('Export failed — check storage.', false); return; }
   } else {
     const blob = new Blob([html], { type: 'text/html' });
     const link = document.createElement('a');
@@ -411,7 +413,8 @@ async function exportSelectedNotes() {
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   if (hasICloud) {
     const timestamp = formatTimestamp();
-    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); } catch {}
+    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
+    catch { updateStatus('Export failed — check storage.', false); return; }
   } else {
     const blob = new Blob([html], { type: 'text/html' });
     const link = document.createElement('a');
@@ -452,7 +455,8 @@ async function downloadAllNotes() {
   if (hasICloud) {
     const timestamp = formatTimestamp();
     const base64 = await zip.generateAsync({ type: 'base64' });
-    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); } catch {}
+    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); }
+    catch { updateStatus('Backup failed — check storage.', false); return; }
   } else {
     const blob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
@@ -492,7 +496,8 @@ async function backupSelectedNotes() {
   if (hasICloud) {
     const timestamp = formatTimestamp();
     const base64 = await zip.generateAsync({ type: 'base64' });
-    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); } catch {}
+    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); }
+    catch { updateStatus('Backup failed — check storage.', false); return; }
   } else {
     const blob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
@@ -521,6 +526,23 @@ async function importNotesFromZip(file) {
         attachmentEntries.push({ relativePath, zipEntry });
       }
     });
+
+    // Check for existing notes that would be overwritten
+    const existingNames = [];
+    for (const { name } of entries) {
+      if (await NoteStorage.getNote(name) !== null) existingNames.push(name);
+    }
+    if (existingNames.length > 0) {
+      const list = existingNames.length <= 5
+        ? existingNames.map(n => `"${n}"`).join(', ')
+        : existingNames.slice(0, 5).map(n => `"${n}"`).join(', ') + ` and ${existingNames.length - 5} more`;
+      if (!confirm(`Import will overwrite ${existingNames.length} existing note${existingNames.length === 1 ? '' : 's'}: ${list}. Continue?`)) {
+        updateStatus('Import cancelled.', false);
+        importZipInput.value = '';
+        return;
+      }
+    }
+
     for (const { name, zipEntry } of entries) {
       const content = await zipEntry.async('string');
       await NoteStorage.setNote(name, content);
@@ -540,6 +562,6 @@ async function importNotesFromZip(file) {
     importZipInput.value = '';
     updateStatus(`Imported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
   } catch (err) {
-    alert('Error importing zip: ' + err.message);
+    updateStatus('Import failed: ' + err.message, false);
   }
 }

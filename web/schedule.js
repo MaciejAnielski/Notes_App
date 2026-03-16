@@ -321,7 +321,28 @@ function _makeScheduleBlock(item, extraClass) {
 
 // ── Main schedule render ──────────────────────────────────────────────────
 
+let _renderScheduleRunning = false;
+let _renderScheduleQueued = false;
+
 async function renderSchedule() {
+  // Serialize concurrent calls to prevent timer interleaving
+  if (_renderScheduleRunning) {
+    _renderScheduleQueued = true;
+    return;
+  }
+  _renderScheduleRunning = true;
+  try {
+    await _doRenderSchedule();
+  } finally {
+    _renderScheduleRunning = false;
+    if (_renderScheduleQueued) {
+      _renderScheduleQueued = false;
+      renderSchedule();
+    }
+  }
+}
+
+async function _doRenderSchedule() {
   if (!scheduleGrid) return;
   if (scheduleNowTimer) { clearInterval(scheduleNowTimer); scheduleNowTimer = null; }
   await renderWeekRow();
@@ -386,7 +407,8 @@ async function renderSchedule() {
   // ── Timed grid ────────────────────────────────────────────────────────────
   scheduleGrid.style.height = (SLOTS * ROW_H) + 'px';
 
-  // Gridlines + time labels
+  // Gridlines + time labels — batch via DocumentFragment to avoid layout thrashing
+  const gridFrag = document.createDocumentFragment();
   for (let s = 0; s <= SLOTS; s++) {
     const hour = START_H + Math.floor(s / 2);
     const min  = (s % 2) * 30;
@@ -395,7 +417,7 @@ async function renderSchedule() {
     const gl = document.createElement('div');
     gl.className = 'schedule-gridline' + (min === 0 ? ' schedule-gridline-hour' : '');
     gl.style.top = top + 'px';
-    scheduleGrid.appendChild(gl);
+    gridFrag.appendChild(gl);
 
     if (min === 0 && hour < 24) {
       const lbl = document.createElement('div');
@@ -405,9 +427,10 @@ async function renderSchedule() {
         : hour === 12 ? '12 PM'
         : (hour - 12) + ' PM';
       lbl.style.top = top + 'px';
-      scheduleGrid.appendChild(lbl);
+      gridFrag.appendChild(lbl);
     }
   }
+  scheduleGrid.appendChild(gridFrag);
 
   // Place timed items
   const gridStart  = START_H * 60;
@@ -447,6 +470,7 @@ async function renderSchedule() {
   // Current time indicator + auto-scroll to now (today only)
   if (dateStr === toYYMMDD(new Date())) {
     updateNowIndicator();
+    clearInterval(scheduleNowTimer);
     scheduleNowTimer = setInterval(updateNowIndicator, 60000);
     // Scroll after a brief layout settle so the wrapper has its final height
     requestAnimationFrame(() => scrollScheduleToNow());

@@ -329,11 +329,11 @@ function registerNoteHandlers() {
       // Mirror to iOS deleted dir
       if (iosDeletedDir) {
         await fs.mkdir(iosDeletedDir, { recursive: true });
-        try { await fs.copyFile(path.join(deletedDir, filename), path.join(iosDeletedDir, filename)); } catch {}
+        try { await fs.copyFile(path.join(deletedDir, filename), path.join(iosDeletedDir, filename)); } catch (e) { console.error('[sync] Failed to copy deleted note to iOS mirror:', e.message); }
       }
       // Remove from iOS notes dir
       if (iosNotesDir) {
-        try { await fs.unlink(path.join(iosNotesDir, filename)); } catch {}
+        try { await fs.unlink(path.join(iosNotesDir, filename)); } catch (e) { console.error('[sync] Failed to delete note from iOS mirror:', e.message); }
         await rmdir(path.join(iosNotesDir, attDirName));
         if (iosDeletedDir) {
           try {
@@ -418,7 +418,7 @@ function registerNoteHandlers() {
       try {
         await fs.mkdir(iosAttDir, { recursive: true });
         await fs.copyFile(path.join(attDir, filename), path.join(iosAttDir, filename));
-      } catch {}
+      } catch (e) { console.error('[sync] Failed to mirror attachment to iOS:', e.message); }
     }
     return true;
   });
@@ -438,7 +438,7 @@ function registerNoteHandlers() {
       await fs.rename(path.join(attDir, oldFilename), path.join(attDir, newFilename));
       if (iosNotesDir) {
         const iosAttDir = path.join(iosNotesDir, noteNameToAttachmentDir(noteName));
-        try { await fs.rename(path.join(iosAttDir, oldFilename), path.join(iosAttDir, newFilename)); } catch {}
+        try { await fs.rename(path.join(iosAttDir, oldFilename), path.join(iosAttDir, newFilename)); } catch (e) { console.error('[sync] Failed to rename attachment in iOS mirror:', e.message); }
       }
       return true;
     } catch { return false; }
@@ -474,11 +474,11 @@ function registerNoteHandlers() {
     if (!notesDir) return;
     const oldDir = path.join(notesDir, noteNameToAttachmentDir(oldNoteName));
     const newDir = path.join(notesDir, noteNameToAttachmentDir(newNoteName));
-    try { await fs.rename(oldDir, newDir); } catch {}
+    try { await fs.rename(oldDir, newDir); } catch (e) { console.error('[sync] Failed to rename attachment dir:', e.message); }
     if (iosNotesDir) {
       const iosOld = path.join(iosNotesDir, noteNameToAttachmentDir(oldNoteName));
       const iosNew = path.join(iosNotesDir, noteNameToAttachmentDir(newNoteName));
-      try { await fs.rename(iosOld, iosNew); } catch {}
+      try { await fs.rename(iosOld, iosNew); } catch (e) { console.error('[sync] Failed to rename attachment dir in iOS mirror:', e.message); }
     }
   });
 

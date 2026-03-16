@@ -60,15 +60,23 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     /// daemon is aware of our file operations.
     private var directoryPresenter: NotesDirectoryPresenter?
 
+    /// Cached result of containerDocumentsURL() to avoid repeated
+    /// FileManager.url(forUbiquityContainerIdentifier:) calls.
+    private var _cachedDocsURL: URL?
+    private var _cachedDocsURLChecked = false
+
     /// Returns the iCloud container Documents URL, or nil when iCloud is not
     /// configured or the device is not signed in to iCloud.
     ///
     /// FileManager.url(forUbiquityContainerIdentifier:) must be called on a
     /// background thread; calling it on the main thread can block the UI.
+    /// The result is cached after the first successful lookup.
     private func containerDocumentsURL() -> URL? {
+        if _cachedDocsURLChecked { return _cachedDocsURL }
         guard let docs = FileManager.default
             .url(forUbiquityContainerIdentifier: "iCloud.com.notesapp.ios")?
             .appendingPathComponent("Documents") else {
+            // Don't cache nil — iCloud may become available later
             return nil
         }
         // Register a file presenter for the Notes App subdirectory on first
@@ -97,6 +105,8 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             NSFileCoordinator.addFilePresenter(presenter)
             directoryPresenter = presenter
         }
+        _cachedDocsURL = docs
+        _cachedDocsURLChecked = true
         return docs
     }
 

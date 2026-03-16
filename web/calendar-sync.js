@@ -352,8 +352,10 @@ async function syncCalendarToMarkdown(calendarIds) {
   // Group events by date (YYMMDD)
   const eventsByDate = {};
   for (const evt of calendarEvents) {
+    if (!evt.startDate || !evt.endDate) continue;
     const evtStart = new Date(evt.startDate);
     const evtEnd = new Date(evt.endDate);
+    if (isNaN(evtStart.getTime()) || isNaN(evtEnd.getTime())) continue;
     const dateStr = dateToYYMMDD(evtStart);
 
     if (!eventsByDate[dateStr]) eventsByDate[dateStr] = [];
@@ -527,7 +529,8 @@ async function syncMarkdownToCalendar(calendarIds) {
       if (matchedCurrentIndices.has(ci)) continue;
       const evt = mdEvents[ci];
       const lineText = (evt.lineIndex < lines.length) ? lines[evt.lineIndex].trim() : '';
-      if (!evt.text || !evt.startDate) continue;
+      if (!evt.text || !evt.startDate || !evt.endDate) continue;
+      if (isNaN(evt.startDate.getTime()) || isNaN(evt.endDate.getTime())) continue;
 
       const metaIdx = meta.events.findIndex(
         (e, i) => !matchedMetaIndices.has(i) && e.lineIndex === evt.lineIndex
@@ -592,7 +595,8 @@ async function syncMarkdownToCalendar(calendarIds) {
       if (matchedCurrentIndices.has(ci)) continue;
       const evt = mdEvents[ci];
       const lineText = (evt.lineIndex < lines.length) ? lines[evt.lineIndex].trim() : '';
-      if (!evt.text || !evt.startDate) continue;
+      if (!evt.text || !evt.startDate || !evt.endDate) continue;
+      if (isNaN(evt.startDate.getTime()) || isNaN(evt.endDate.getTime())) continue;
 
       try {
         const result = await plugin.createEvent({

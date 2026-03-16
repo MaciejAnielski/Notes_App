@@ -30,10 +30,8 @@
         }
       };
     </script>
-    <script async src="vendor/tex-chtml-full.js"></script>
-    <script async src="vendor/mermaid.min.js" onload="reinitMermaidTheme()"></script>
+    <!-- tex-chtml-full.js, mermaid.min.js, vis-network.min.js are lazy-loaded on demand -->
     <link rel="stylesheet" href="vendor/vis-network.min.css">
-    <script async src="vendor/vis-network.min.js"></script>
     <script>
       // Build Mermaid theme variables from current CSS custom properties.
       function _buildMermaidThemeVars() {
