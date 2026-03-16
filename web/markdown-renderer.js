@@ -723,13 +723,15 @@ async function renderPreview() {
   setupPlainCheckboxes(previewDiv);
   await resolveAttachments(previewDiv);
   await renderMermaidDiagrams(previewDiv);
-  // Lazy-load MathJax only when the note contains math syntax
-  if (!window.MathJax && /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(textarea.value)) {
+  // Lazy-load MathJax only when the note contains math syntax.
+  // Check for typesetPromise (not just window.MathJax) because window.MathJax
+  // is pre-set to a config object in index.html before the script loads.
+  if (!window.MathJax?.typesetPromise && /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(textarea.value)) {
     try {
       await loadScript('vendor/tex-chtml-full.js');
     } catch { /* MathJax failed to load */ }
   }
-  if (window.MathJax) {
+  if (window.MathJax?.typesetPromise) {
     MathJax.typesetPromise([previewDiv]).then(() => {
       if (isPreview) setupClickableMathFormulas();
     });
