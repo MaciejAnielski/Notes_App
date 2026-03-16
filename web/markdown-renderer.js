@@ -574,11 +574,10 @@ async function renderMermaidDiagrams(container) {
     try {
       const { svg } = await mermaid.render(id, source);
       wrapper.innerHTML = svg;
+      pre.replaceWith(wrapper);
     } catch {
-      wrapper.textContent = 'Mermaid diagram error';
-      wrapper.style.color = 'var(--error)';
+      // Silently fail - don't replace the code block or show error messages
     }
-    pre.replaceWith(wrapper);
   }
 }
 
