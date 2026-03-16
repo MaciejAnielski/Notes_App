@@ -101,6 +101,9 @@ function deriveThemeVars(bg, accent) {
   const surfaceDelta = dark ? 6 : -6;
   const surface = _hslToHex(bgH, bgS, bgL + surfaceDelta);
 
+  // Gantt excluded days — reduced saturation and further shifted from surface
+  const ganttExcludeBg = _hslToHex(bgH, Math.max(0, bgS - 10), dark ? bgL + 12 : bgL - 12);
+
   // Border — same saturation cap on dark themes as muted
   const borderSat = dark ? Math.min(acS, 45) : acS;
   const border = _hslToHex(acH, borderSat, refL + dimDir * 22);
@@ -402,6 +405,7 @@ function deriveThemeVars(bg, accent) {
     // Mermaid diagrams
     '--mermaid-text': text,
     '--mermaid-line': border,
+    '--gantt-exclude-bg': ganttExcludeBg,
 
     // Editor token colours
     '--task-marker': taskMarker,

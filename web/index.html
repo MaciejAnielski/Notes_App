@@ -56,6 +56,7 @@
         var border = v('--border') || '#333';
         var mermaidText = v('--mermaid-text') || text;
         var mermaidLine = v('--mermaid-line') || border;
+        var ganttExcludeBg = v('--gantt-exclude-bg') || bg;
         return {
           darkMode: true,
           background: bg, primaryColor: surface, primaryTextColor: mermaidText,
@@ -74,7 +75,7 @@
           activationBorderColor: activeColor, activationBkgColor: schedHighlightBg,
           sequenceNumberColor: text,
           gridColor: mermaidLine, gridTextColor: mermaidText, todayLineColor: errorColor,
-          excludeBkgColor: tableHeaderBg,
+          excludeBkgColor: ganttExcludeBg,
           taskBkgColor: surface, taskBorderColor: accent,
           taskTextColor: text, taskTextOutsideColor: text, taskTextLightColor: text,
           activeTaskBkgColor: schedHighlightBg, activeTaskBorderColor: activeColor,
