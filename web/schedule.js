@@ -467,4 +467,5 @@ async function toggleScheduleTask(fileName, lineIndex, checked) {
     }
   }
   await updateTodoList();
+  await renderWeekRow();
 }
