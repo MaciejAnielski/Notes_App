@@ -259,6 +259,7 @@ textarea.addEventListener('keydown', e => {
     const end = textarea.selectionEnd;
     textarea.value = textarea.value.substring(0, start) + '\t' + textarea.value.substring(end);
     textarea.selectionStart = textarea.selectionEnd = start + 1;
+    refreshHighlight();
   }
 });
 
@@ -480,7 +481,7 @@ window.addEventListener('storage', e => {
           textarea.value = '';
           currentFileName = null;
           localStorage.removeItem('current_file');
-          if (isPreview) previewDiv.innerHTML = '';
+          if (isPreview) previewDiv.innerHTML = ''; else refreshHighlight();
           updateStatus('Note Deleted In Another Window.', false);
         }
       } else if (hasUnsavedEdits) {

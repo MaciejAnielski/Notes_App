@@ -64,6 +64,10 @@ let linkedNoteChain = [];
 // Track the last content that was saved or loaded from storage so we can
 // detect whether the user has unsaved edits when a sync event arrives.
 let _lastSavedContent = null;
+// When the note title is edited, the desired new filename is held here and
+// applied only when the user commits (View toggle, note switch, new note).
+// This prevents repeated filesystem renames while the user is mid-typing.
+let _pendingRename = null;
 
 const PROJECTS_NOTE = 'Projects';
 const CALENDARS_NOTE = 'Settings';

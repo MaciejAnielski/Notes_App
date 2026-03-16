@@ -551,9 +551,12 @@ function setupPlainCheckboxes(container) {
       }
       textarea.value = lines.join('\n');
       if (currentFileName) {
+        // Update _lastSavedContent immediately so a pending auto-save timer
+        // does not overwrite this checkbox toggle with stale content.
+        _lastSavedContent = textarea.value;
         NoteStorage.setNote(currentFileName, textarea.value);
       }
-      renderPreview();
+      if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
     });
   });
 }
@@ -870,6 +873,15 @@ async function toggleView() {
         break;
       }
     }
+
+    // Flush any pending auto-save and apply a pending title rename so the
+    // preview and file list immediately reflect the committed note name.
+    if (autoSaveTimer !== null) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+      await autoSaveNote();
+    }
+    await applyPendingRename();
 
     await renderPreview();
     previewDiv.style.display = 'block';
