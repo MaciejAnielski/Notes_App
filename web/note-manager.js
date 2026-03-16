@@ -22,9 +22,11 @@ async function handleRenameAfterReplace(noteName, newContent) {
   const newTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
   if (!newTitle || newTitle === noteName) return;
   if (await NoteStorage.getNote(newTitle) !== null) return;
+  // Write the new note before removing the old one so a storage failure
+  // cannot result in data loss.
+  await NoteStorage.setNote(newTitle, newContent);
   await NoteStorage.removeNote(noteName);
   await NoteStorage.renameAttachmentDir(noteName, newTitle);
-  await NoteStorage.setNote(newTitle, newContent);
   if (currentFileName === noteName) {
     currentFileName = newTitle;
     localStorage.setItem('current_file', newTitle);
@@ -190,46 +192,116 @@ async function checkAttachmentRenames(prevContent, newContent, noteName) {
 
 async function autoSaveNote() {
   if (currentFileName === PROJECTS_NOTE) return;
+
+  // Capture mutable globals at the start to avoid race conditions while
+  // async operations yield to other event handlers.
+  const capturedFileName = currentFileName;
+  const capturedContent = textarea.value;
   const prevContent = _lastSavedContent;
+
   const name = getNoteTitle();
   if (!name) {
     updateStatus('File Not Saved. Please Add A Title Starting With "#".', false);
     return;
   }
-  if (currentFileName && currentFileName !== name) {
-    await NoteStorage.removeNote(currentFileName);
-    await NoteStorage.renameAttachmentDir(currentFileName, name);
-  }
 
-  if (await NoteStorage.getNote(name) !== null && currentFileName !== name) {
-    if (isNoteBodyEmpty()) {
-      await loadNote(name);
-      updateStatus(`Opened Existing Note "${name}".`, true);
-    } else {
-      updateStatus(`File Not Saved. A File Named "${name}" Already Exists. Please Rename.`, false);
+  const useICloud = !!(window.electronAPI?.notes ||
+    (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
+
+  // ── New note (no current file) ─────────────────────────────────────────
+  // Create the note using the title as the filename.
+  if (!capturedFileName) {
+    if (await NoteStorage.getNote(name) !== null) {
+      if (isNoteBodyEmpty()) {
+        await loadNote(name);
+        updateStatus(`Opened Existing Note "${name}".`, true);
+      } else {
+        updateStatus(`File Not Saved. A File Named "${name}" Already Exists. Please Rename.`, false);
+      }
+      return;
     }
+    try {
+      await NoteStorage.setNote(name, capturedContent);
+    } catch (e) {
+      updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
+      return;
+    }
+    _lastSavedContent = capturedContent;
+    currentFileName = name;
+    localStorage.setItem('current_file', name);
+    await updateFileList();
+    updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
+    await checkAttachmentRenames(prevContent, capturedContent, currentFileName);
     return;
   }
 
+  // ── Existing note ──────────────────────────────────────────────────────
+  // Save content under the CURRENT filename — do not rename while the user
+  // is mid-typing.  If the title has changed, record the desired new name in
+  // _pendingRename so the actual filesystem rename happens only when the user
+  // commits by pressing View or switching to another note.
+  if (name !== capturedFileName) {
+    _pendingRename = name;
+  } else {
+    _pendingRename = null;
+  }
+
   try {
-    await NoteStorage.setNote(name, textarea.value);
+    await NoteStorage.setNote(capturedFileName, capturedContent);
   } catch (e) {
     updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
     return;
   }
-  const nameChanged = currentFileName !== name;
-  _lastSavedContent = textarea.value;
-  currentFileName = name;
-  localStorage.setItem('current_file', name);
-  if (nameChanged) {
-    await updateFileList();
-  } else {
-    await updateTodoList();
+  _lastSavedContent = capturedContent;
+  await updateTodoList();
+  updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
+  await checkAttachmentRenames(prevContent, capturedContent, capturedFileName);
+}
+
+// ── Apply pending rename ───────────────────────────────────────────────────
+// Renames the current note from currentFileName to _pendingRename.
+// Called when the user commits a title change: pressing View, switching to
+// another note, or creating a new note.
+async function applyPendingRename() {
+  if (!_pendingRename || !currentFileName || currentFileName === PROJECTS_NOTE) {
+    _pendingRename = null;
+    return;
   }
+  const oldName = currentFileName;
+  const newName = _pendingRename;
+  _pendingRename = null;
+
+  if (oldName === newName) return;
+
+  // Abort if a note with the target name already exists.
+  if (await NoteStorage.getNote(newName) !== null) {
+    updateStatus(`A Note Named "${newName}" Already Exists. Please Choose A Different Title.`, false);
+    return;
+  }
+
+  // Write the new note BEFORE removing the old one so a storage failure
+  // cannot result in data loss.
+  const content = textarea.value;
   const useICloud = !!(window.electronAPI?.notes ||
     (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
+  try {
+    await NoteStorage.setNote(newName, content);
+  } catch (e) {
+    updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
+    return;
+  }
+  _lastSavedContent = content;
+  await NoteStorage.removeNote(oldName);
+  await NoteStorage.renameAttachmentDir(oldName, newName);
+  currentFileName = newName;
+  localStorage.setItem('current_file', newName);
+  const chainIdx = linkedNoteChain.indexOf(oldName);
+  if (chainIdx !== -1) {
+    linkedNoteChain[chainIdx] = newName;
+    saveChain();
+  }
+  await updateFileList();
   updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
-  await checkAttachmentRenames(prevContent, textarea.value, currentFileName);
 }
 
 // ── Load / New / Delete ───────────────────────────────────────────────────
@@ -237,6 +309,18 @@ async function autoSaveNote() {
 async function loadNote(name, fromLink = false) {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
+
+  // Switching to a different note: flush any unsaved edits under the current
+  // filename and apply any pending title rename before navigating away.
+  if (currentFileName && currentFileName !== name) {
+    if (textarea.value !== _lastSavedContent) {
+      try {
+        await NoteStorage.setNote(currentFileName, textarea.value);
+        _lastSavedContent = textarea.value;
+      } catch (_) { /* ignore — content is still in textarea */ }
+    }
+    await applyPendingRename();
+  }
 
   // If reloading the same note that is already open, flush any pending edits
   // to storage first so that changes (e.g. adding/removing ">" on a heading)
@@ -307,6 +391,18 @@ async function loadNote(name, fromLink = false) {
 }
 
 async function newNote() {
+  // Flush unsaved content and apply any pending rename before leaving the
+  // current note, so the title change is not silently discarded.
+  if (currentFileName) {
+    if (textarea.value !== _lastSavedContent) {
+      try {
+        await NoteStorage.setNote(currentFileName, textarea.value);
+        _lastSavedContent = textarea.value;
+      } catch (_) { /* ignore */ }
+    }
+    await applyPendingRename();
+  }
+
   const today = getFormattedDate();
   const defaultTitle = today + ' Daily Note';
   const allNames = await NoteStorage.getAllNoteNames();
@@ -358,6 +454,7 @@ async function deleteNote() {
   }
   if (!confirm(`Move "${name}" to the Deleted folder?`)) return;
 
+  _pendingRename = null;
   await NoteStorage.trashNote(name);
   textarea.value = '';
   if (isPreview) toggleView();
@@ -370,6 +467,7 @@ async function deleteNote() {
 
 async function deleteAllNotes() {
   if (!confirm('Move all notes to the Deleted folder?')) return;
+  _pendingRename = null;
   const names = await NoteStorage.getAllNoteNames();
   await Promise.all(names.map(name => NoteStorage.trashNote(name)));
   textarea.value = '';
@@ -388,6 +486,7 @@ async function deleteSelectedNotes() {
     return;
   }
   if (!confirm('Delete visible notes?')) return;
+  _pendingRename = null;
   await Promise.all(notes.map(async name => {
     await NoteStorage.trashNote(name);
     if (currentFileName === name) {

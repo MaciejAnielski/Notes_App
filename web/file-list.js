@@ -362,6 +362,9 @@ function setupPreviewTaskCheckboxes() {
         textarea.value = currentLines.join('\n');
         if (currentFileName) {
           await NoteStorage.setNote(currentFileName, textarea.value);
+          // Keep _lastSavedContent in sync so a pending auto-save timer does
+          // not overwrite this checkbox toggle with stale content.
+          _lastSavedContent = textarea.value;
         }
         renderPreview();
         await updateTodoList();
