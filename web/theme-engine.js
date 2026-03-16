@@ -399,6 +399,10 @@ function deriveThemeVars(bg, accent) {
     // Images
     '--image-border': imageBorder,
 
+    // Mermaid diagrams
+    '--mermaid-text': text,
+    '--mermaid-line': border,
+
     // Editor token colours
     '--task-marker': taskMarker,
     '--footnote-marker': footnoteMarker,
