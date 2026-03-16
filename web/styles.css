@@ -439,6 +439,8 @@ textarea {
   z-index: 1;
   /* Keep same base metrics as highlight pre */
   line-height: 1.5;
+  tab-size: 4;
+  -moz-tab-size: 4;
 }
 
 /* Placeholder text — all inputs and the editor textarea */
