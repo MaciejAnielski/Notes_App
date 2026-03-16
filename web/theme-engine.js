@@ -169,7 +169,7 @@ function deriveThemeVars(bg, accent) {
 
   // Today note
   const todayColor = activeColor;
-  const todayBg    = _hslToHex(acH, Math.min(acS, 40), bgL + (dark ? 10 : -10));
+  const todayBg    = surface;
 
   // Panel heading hover
   const panelHeadingHover = activeColor;
