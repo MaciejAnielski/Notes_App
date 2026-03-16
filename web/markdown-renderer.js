@@ -888,17 +888,22 @@ function injectThemeColorPickers(container) {
 async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
+    const scrollRatio = (previewDiv.scrollHeight - previewDiv.clientHeight) > 0
+      ? previewDiv.scrollTop / (previewDiv.scrollHeight - previewDiv.clientHeight)
+      : 0;
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
     toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
-    const cursorY = getLineScrollY(textarea, textarea.selectionStart);
-    textarea.scrollTop = Math.max(0, cursorY - textarea.clientHeight / 2);
+    const maxScroll = textarea.scrollHeight - textarea.clientHeight;
+    textarea.scrollTop = maxScroll > 0 ? scrollRatio * maxScroll : 0;
   } else {
+    const scrollRatio = (textarea.scrollHeight - textarea.clientHeight) > 0
+      ? textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight)
+      : 0;
     const cursorOffset = textarea.selectionStart;
     const totalLen = textarea.value.length;
-    const ratio = totalLen > 0 ? cursorOffset / totalLen : 0;
 
     // Identify which heading section the cursor is in so we can expand it
     // after rendering if it happens to be collapsed.
@@ -953,6 +958,6 @@ async function toggleView() {
     }
 
     const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
-    if (maxScroll > 0) previewDiv.scrollTop = ratio * maxScroll;
+    if (maxScroll > 0) previewDiv.scrollTop = scrollRatio * maxScroll;
   }
 }
