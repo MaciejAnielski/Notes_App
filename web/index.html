@@ -96,11 +96,20 @@
         mermaid.initialize({
           startOnLoad: false, theme: 'base', darkMode: true,
           securityLevel: 'strict', fontFamily: 'Arial, sans-serif',
-          logLevel: 'off',
+          logLevel: 'off', suppressErrorRendering: true,
           themeVariables: _buildMermaidThemeVars()
         });
-        // Suppress mermaid error banner
+        // Suppress mermaid error handler completely
         mermaid.setErrorHandler(() => {});
+        // Suppress console errors from mermaid
+        const originalError = console.error;
+        const mermaidErrorPatterns = ['Mermaid', 'diagram', 'syntax'];
+        console.error = function(...args) {
+          const msg = args[0]?.toString?.() || '';
+          if (!mermaidErrorPatterns.some(p => msg.includes(p))) {
+            originalError.apply(console, args);
+          }
+        };
       }
 
       // Mermaid initialization is triggered by the onload attribute on the

@@ -2,6 +2,19 @@
   --gap: 10px;
 }
 
+/* Hide mermaid error messages and related error UI */
+.mermaid-error,
+.mermaid-error-icon,
+.mermaid-error-text,
+.error-container,
+svg.error,
+.diagram-error,
+g[id*="error"],
+text[class*="error"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
 /* ── Loading screen ── */
 #loading-screen {
   position: fixed;
