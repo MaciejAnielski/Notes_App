@@ -137,8 +137,8 @@ function _applyInline(line) {
       '$1<span class="hl-list-marker">$2</span>$3');
   }
 
-  // 12. Ordered list markers at line start (1. / 1))
-  line = line.replace(/^(\s*)(\d+[.)])(\s)/,
+  // 12. Ordered list markers at line start (1. / 1)) and lettered (a. / a))
+  line = line.replace(/^(\s*)(\d+[.)]|[a-zA-Z][.)])(\s)/,
     '$1<span class="hl-list-marker">$2</span>$3');
 
   // 13. Footnote references [^id]

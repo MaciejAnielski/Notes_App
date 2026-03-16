@@ -439,8 +439,8 @@ textarea {
   z-index: 1;
   /* Keep same base metrics as highlight pre */
   line-height: 1.5;
-  tab-size: 4;
-  -moz-tab-size: 4;
+  tab-size: 8;
+  -moz-tab-size: 8;
 }
 
 /* Placeholder text — all inputs and the editor textarea */
@@ -471,8 +471,8 @@ input::placeholder {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  tab-size: 4;
-  -moz-tab-size: 4;
+  tab-size: 8;
+  -moz-tab-size: 8;
   box-sizing: border-box;
   background-color: var(--bg);
   color: var(--text);
