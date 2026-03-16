@@ -77,6 +77,12 @@ async function _doUpdateFileList() {
     delete noteMap[currentFileName];
   }
 
+  // Pin today's daily note to the top (after the active file)
+  if (noteMap[todayNote]) {
+    items.push(noteMap[todayNote]);
+    delete noteMap[todayNote];
+  }
+
   linkedNoteChain.forEach((name, idx) => {
     if (noteMap[name]) {
       noteMap[name].classList.add('linked-file');

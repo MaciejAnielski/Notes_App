@@ -364,7 +364,13 @@ button.btn-busy {
 /* ── Today's Daily Note highlight ── */
 #fileList li.today-note > span {
   color: var(--today-color);
-  font-style: italic;
+  font-weight: bold;
+}
+
+#fileList li.today-note > span::before {
+  content: '◆ ';
+  font-size: 0.7em;
+  vertical-align: middle;
 }
 
 /* ── Hide scrollbars while keeping scroll functionality ── */
