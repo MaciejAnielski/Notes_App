@@ -169,6 +169,7 @@ function deriveThemeVars(bg, accent) {
 
   // Today note
   const todayColor = activeColor;
+  const todayBg    = _hslToHex(acH, Math.min(acS, 40), bgL + (dark ? 10 : -10));
 
   // Panel heading hover
   const panelHeadingHover = activeColor;
@@ -338,7 +339,7 @@ function deriveThemeVars(bg, accent) {
     // Sidebar
     '--active-color': activeColor, '--active-border': activeBorder,
     '--linked-color': linkedColor, '--linked-border': linkedBorder,
-    '--today-color': todayColor,
+    '--today-color': todayColor, '--today-bg': todayBg,
     '--panel-heading-hover': panelHeadingHover,
     '--pin-color': pinColor, '--pin-active': pinActive,
 
