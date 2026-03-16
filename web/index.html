@@ -54,10 +54,12 @@
         var warningColor = v('--warning') || '#d4a24a';
         var linkColor = v('--link') || '#9cdcfe';
         var border = v('--border') || '#333';
+        var mermaidText = v('--mermaid-text') || text;
+        var mermaidLine = v('--mermaid-line') || border;
         return {
           darkMode: true,
-          background: bg, primaryColor: surface, primaryTextColor: text,
-          primaryBorderColor: accent, lineColor: accent,
+          background: bg, primaryColor: surface, primaryTextColor: mermaidText,
+          primaryBorderColor: accent, lineColor: mermaidLine,
           secondaryColor: blockquoteBg, secondaryTextColor: text,
           secondaryBorderColor: headingMarker,
           tertiaryColor: tableHeaderBg, tertiaryTextColor: text,
