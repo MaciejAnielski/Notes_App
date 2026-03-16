@@ -292,7 +292,11 @@ function saveFormulaResult(mathExpr, resultStr) {
   NoteStorage.setNote(currentFileName, newContent);
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
-  if (isPreview) renderPreview(); else refreshHighlight();
+  // Don't re-render preview here — the DOM already shows the correct state
+  // (formula + result element). Re-rendering would destroy the result element
+  // and re-create the formula without the clickable class (since the source
+  // now ends with "= result" not bare "="), breaking the ability to unsave.
+  if (!isPreview) refreshHighlight();
 }
 
 function findCurrentFormulaIndex(content, mathExpr) {
@@ -370,7 +374,11 @@ function unsaveFormulaResult(mathExpr) {
   NoteStorage.setNote(currentFileName, newContent);
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
-  if (isPreview) renderPreview(); else refreshHighlight();
+  // Don't re-render preview here — the click handler already removed the
+  // result element from the DOM before calling this function. The formula
+  // container remains with its math-evaluable class so it can be clicked
+  // again. Re-rendering would be redundant and would reset click state.
+  if (!isPreview) refreshHighlight();
 }
 
 function makeFormulaClickable(container, texSource, varMap, mathExpr) {
