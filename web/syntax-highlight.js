@@ -11,6 +11,9 @@
 
 let _highlightPre = null;
 let _editorWrapper = null;
+let _searchMatchIdx = -1;
+let _searchMatchLen = 0;
+let _searchHighlightTimer = null;
 
 // ── Initialise overlay ────────────────────────────────────────────────────
 
@@ -59,6 +62,41 @@ function initSyntaxHighlight() {
 function _updateHighlight() {
   if (!_highlightPre) return;
   _highlightPre.innerHTML = highlightMarkdown(textarea.value);
+  if (_searchMatchIdx >= 0 && _searchMatchLen > 0) {
+    _applySearchHighlight();
+  }
+}
+
+// Walk the pre's text nodes and wrap the character range in a <mark>.
+function _applySearchHighlight() {
+  const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
+  let charCount = 0;
+  const endTarget = _searchMatchIdx + _searchMatchLen;
+  let startNode = null, startOff = 0;
+  let endNode = null, endOff = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    const len = node.textContent.length;
+    if (startNode === null && charCount + len > _searchMatchIdx) {
+      startNode = node;
+      startOff = _searchMatchIdx - charCount;
+    }
+    if (startNode !== null && charCount + len >= endTarget) {
+      endNode = node;
+      endOff = endTarget - charCount;
+      break;
+    }
+    charCount += len;
+  }
+  if (!startNode || !endNode) return;
+  try {
+    const range = document.createRange();
+    range.setStart(startNode, startOff);
+    range.setEnd(endNode, endOff);
+    const mark = document.createElement('mark');
+    mark.className = 'hl-search-match';
+    range.surroundContents(mark);
+  } catch (_) { /* range spans element boundaries — skip visual mark */ }
 }
 
 function _syncScroll() {
@@ -235,6 +273,20 @@ function highlightMarkdown(rawText) {
 function refreshHighlight() {
   _updateHighlight();
   _syncScroll();
+}
+
+// Briefly highlights the matched text in the pre layer (edit mode).
+// charIndex/length are character offsets into textarea.value.
+function flashSearchHighlight(charIndex, length) {
+  clearTimeout(_searchHighlightTimer);
+  _searchMatchIdx = charIndex;
+  _searchMatchLen = length;
+  _updateHighlight();
+  _searchHighlightTimer = setTimeout(() => {
+    _searchMatchIdx = -1;
+    _searchMatchLen = 0;
+    _updateHighlight();
+  }, 2000);
 }
 
 // ── Auto-init ─────────────────────────────────────────────────────────────
