@@ -230,6 +230,8 @@ async function autoSaveNote() {
     _lastSavedContent = capturedContent;
     currentFileName = name;
     localStorage.setItem('current_file', name);
+    invalidateScheduleCache();
+    if (scheduleContainer.classList.contains('active')) renderSchedule();
     await updateFileList();
     updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
     await checkAttachmentRenames(prevContent, capturedContent, currentFileName);
@@ -254,6 +256,8 @@ async function autoSaveNote() {
     return;
   }
   _lastSavedContent = capturedContent;
+  invalidateScheduleCache();
+  if (scheduleContainer.classList.contains('active')) renderSchedule();
   await updateTodoList();
   updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
   await checkAttachmentRenames(prevContent, capturedContent, capturedFileName);
