@@ -56,7 +56,7 @@ importZipInput.addEventListener('change', withBusyGuard(async (e) => {
   }
 }));
 
-toggleViewBtn.addEventListener('click', toggleView);
+toggleViewBtn.addEventListener('click', withBusyGuard(toggleView));
 
 // ── Tools overflow menu ────────────────────────────────────────────────────
 const toolsToggleGroup = document.getElementById('tools-toggle-group');
