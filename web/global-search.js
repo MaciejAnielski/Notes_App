@@ -30,14 +30,17 @@ function closeGlobalSearch() {
 }
 
 async function gsGetAllMatches(query, caseSensitive) {
-  const results = [];
-  if (!query) return results;
+  if (!query) return [];
   const needle  = caseSensitive ? query : query.toLowerCase();
   const CONTEXT = 55;
 
+  const currentResults = [];
+  const otherResults   = [];
+
   const allNotes = await NoteStorage.getAllNotes();
   for (const { name: noteName, content: rawContent } of allNotes) {
-    const haystack   = caseSensitive ? rawContent : rawContent.toLowerCase();
+    const haystack = caseSensitive ? rawContent : rawContent.toLowerCase();
+    const bucket   = (noteName === currentFileName) ? currentResults : otherResults;
 
     let pos = 0;
     while (true) {
@@ -48,11 +51,11 @@ async function gsGetAllMatches(query, caseSensitive) {
       const prefix = (start > 0 ? '\u2026' : '') + rawContent.slice(start, idx);
       const match  = rawContent.slice(idx, idx + query.length);
       const suffix = rawContent.slice(idx + query.length, end) + (end < rawContent.length ? '\u2026' : '');
-      results.push({ noteName, matchIndex: idx, prefix, match, suffix });
+      bucket.push({ noteName, matchIndex: idx, prefix, match, suffix });
       pos = idx + needle.length;
     }
   }
-  return results;
+  return [...currentResults, ...otherResults];
 }
 
 function gsSetStatus(text, ok) {
@@ -126,16 +129,20 @@ async function gsSelectResult(index) {
   const result = gsCurrentResults[index];
   if (!result) return;
 
-  if (currentFileName) {
-    await NoteStorage.setNote(currentFileName, textarea.value);
+  const sameNote = (currentFileName === result.noteName);
+
+  if (!sameNote) {
+    if (currentFileName) {
+      await NoteStorage.setNote(currentFileName, textarea.value);
+    }
+    await loadNote(result.noteName);
   }
 
-  await loadNote(result.noteName);
+  const query = gsSearchInput.value;
+  const caseSensitive = gsCaseCheckbox.checked;
+  const occurrenceIndex = gsCurrentResults.slice(0, index).filter(r => r.noteName === result.noteName).length;
 
-  setTimeout(() => {
-    const query = gsSearchInput.value;
-    const caseSensitive = gsCaseCheckbox.checked;
-    const occurrenceIndex = gsCurrentResults.slice(0, index).filter(r => r.noteName === result.noteName).length;
+  const applyHighlight = () => {
     if (isPreview) {
       highlightTextInPreview(query, caseSensitive, occurrenceIndex);
     } else {
@@ -144,9 +151,18 @@ async function gsSelectResult(index) {
         textarea.focus();
         textarea.setSelectionRange(idx, idx + query.length);
         textarea.scrollTop = Math.max(0, getLineScrollY(textarea, idx) - textarea.clientHeight / 2);
+        flashSearchHighlight(idx, query.length);
       }
     }
-  }, 50);
+  };
+
+  // For a newly loaded note a short delay lets the DOM settle; for the
+  // already-open note we can apply the highlight immediately.
+  if (sameNote) {
+    applyHighlight();
+  } else {
+    setTimeout(applyHighlight, 50);
+  }
 }
 
 async function gsRunFind() {

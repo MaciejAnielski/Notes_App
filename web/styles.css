@@ -1582,6 +1582,14 @@ body.panel-pinned {
   padding: 0 1px;
 }
 
+/* ── Edit-mode search match highlight in the syntax-highlight pre layer ── */
+#editor-highlight .hl-search-match {
+  background-color: var(--gs-snippet-mark);
+  color: var(--gs-snippet-mark-text);
+  border-radius: 2px;
+  outline: 1px solid var(--sched-highlight-outline);
+}
+
 /* ── Schedule / search navigation highlight (flashes then fades) ── */
 #preview .schedule-highlight {
   background-color: var(--sched-highlight-bg);
