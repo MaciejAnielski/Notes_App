@@ -320,7 +320,7 @@
       },
 
       async writeBackup(filename, data) {
-        if (!await isAvailable()) return;
+        if (!await isAvailable()) throw new Error('iCloud not available');
         await ICloudPlugin.mkdir({ path: BACKUPS_DIR });
         // Backup data is base64-encoded zip — write as binary
         if (ICloudPlugin.writeBinaryFile) {
@@ -331,7 +331,7 @@
       },
 
       async writeExport(filename, data) {
-        if (!await isAvailable()) return;
+        if (!await isAvailable()) throw new Error('iCloud not available');
         await ICloudPlugin.mkdir({ path: EXPORTS_DIR });
         await ICloudPlugin.writeFile({ path: `${EXPORTS_DIR}/${filename}`, data });
       }

@@ -430,8 +430,6 @@ async function exportSelectedNotes() {
 // ── Backup operations ─────────────────────────────────────────────────────
 
 async function downloadAllNotes() {
-  localStorage.setItem('last_backup_time', Date.now().toString());
-  updateBackupStatus();
   updateStatus(`Backing Up\u2026`, true, true);
   const zip = new JSZip();
 
@@ -466,12 +464,12 @@ async function downloadAllNotes() {
     URL.revokeObjectURL(link.href);
   }
 
+  localStorage.setItem('last_backup_time', Date.now().toString());
+  updateBackupStatus();
   updateStatus(`Backed Up ${allNotes.length} Note${allNotes.length === 1 ? '' : 's'}.`, true);
 }
 
 async function backupSelectedNotes() {
-  localStorage.setItem('last_backup_time', Date.now().toString());
-  updateBackupStatus();
   updateStatus(`Backing Up\u2026`, true, true);
   const notes = await getVisibleNotes();
   if (notes.length === 0) {
@@ -507,6 +505,8 @@ async function backupSelectedNotes() {
     URL.revokeObjectURL(link.href);
   }
 
+  localStorage.setItem('last_backup_time', Date.now().toString());
+  updateBackupStatus();
   updateStatus(`Backed Up ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
 }
 
