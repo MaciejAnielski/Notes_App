@@ -71,16 +71,16 @@ async function _doUpdateFileList() {
 
   const items = [];
 
+  // Pin today's daily note to the very top (above the active file)
+  if (noteMap[todayNote]) {
+    items.push(noteMap[todayNote]);
+    delete noteMap[todayNote];
+  }
+
   if (currentFileName && noteMap[currentFileName]) {
     noteMap[currentFileName].classList.add('active-file');
     items.push(noteMap[currentFileName]);
     delete noteMap[currentFileName];
-  }
-
-  // Pin today's daily note to the top (after the active file)
-  if (noteMap[todayNote]) {
-    items.push(noteMap[todayNote]);
-    delete noteMap[todayNote];
   }
 
   linkedNoteChain.forEach((name, idx) => {
