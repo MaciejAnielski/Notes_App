@@ -27,17 +27,21 @@ async function _buildScheduleCache() {
 
       let m;
       if ((m = line.match(reTimed))) {
-        // Timed: > YYMMDD HHMM HHMM
-        const dateStr = m[1];
-        if (!cache[dateStr]) cache[dateStr] = [];
-        let text = trimmed.replace(reTimed, '');
-        if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
-        cache[dateStr].push({
-          fileName, lineIndex: idx, text: text.trim(),
-          startTime: m[2], endTime: m[3],
-          isTask, isCompleted, isAllDay: false,
-          calendarTag: m[4] || null
-        });
+        // Timed: > YYMMDD HHMM HHMM — validate that hours/minutes are in range
+        const startH = parseInt(m[2].slice(0, 2), 10), startM = parseInt(m[2].slice(2), 10);
+        const endH   = parseInt(m[3].slice(0, 2), 10), endM   = parseInt(m[3].slice(2), 10);
+        if (startH <= 23 && startM <= 59 && endH <= 23 && endM <= 59) {
+          const dateStr = m[1];
+          if (!cache[dateStr]) cache[dateStr] = [];
+          let text = trimmed.replace(reTimed, '');
+          if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
+          cache[dateStr].push({
+            fileName, lineIndex: idx, text: text.trim(),
+            startTime: m[2], endTime: m[3],
+            isTask, isCompleted, isAllDay: false,
+            calendarTag: m[4] || null
+          });
+        }
       } else if ((m = line.match(reMultiDay))) {
         // Multi-day: > YYMMDD YYMMDD
         const startDate = m[1], endDate = m[2];
@@ -491,5 +495,5 @@ async function toggleScheduleTask(fileName, lineIndex, checked) {
     }
   }
   await updateTodoList();
-  await renderWeekRow();
+  await renderSchedule();
 }
