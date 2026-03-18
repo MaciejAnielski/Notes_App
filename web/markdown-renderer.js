@@ -949,13 +949,16 @@ function injectProjectEmojiPickers(container) {
   controls.className = 'emoji-controls';
   controls.style.cssText = 'padding: 8px 0;';
 
-  // Active emoji picker (like the theme color picker with a clickable circle)
+  // Active emoji picker
   const activeRow = document.createElement('div');
-  activeRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;';
+  activeRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;';
   const activeLabel = document.createElement('span');
   activeLabel.className = 'theme-label';
   activeLabel.textContent = 'Ongoing Projects';
   activeRow.appendChild(activeLabel);
+
+  const activeWrapper = document.createElement('div');
+  activeWrapper.style.cssText = 'position:relative;display:inline-block;';
 
   const activeEmojiBtn = document.createElement('button');
   activeEmojiBtn.className = 'emoji-display';
@@ -965,7 +968,7 @@ function injectProjectEmojiPickers(container) {
   let activePickerOpen = false;
   const activePickerGrid = document.createElement('div');
   activePickerGrid.className = 'emoji-picker-grid';
-  activePickerGrid.style.cssText = 'display:none;position:absolute;top:56px;left:140px;grid-template-columns:repeat(6,40px);gap:6px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;';
+  activePickerGrid.style.cssText = 'display:none;position:absolute;top:0;left:0;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:1000;max-width:calc(100vw - 2rem);width:max-content;';
 
   for (const emoji of EMOJI_OPTIONS.active) {
     const btn = document.createElement('button');
@@ -989,17 +992,21 @@ function injectProjectEmojiPickers(container) {
     completedPickerOpen = false;
   });
 
-  activeRow.appendChild(activeEmojiBtn);
-  activeRow.appendChild(activePickerGrid);
+  activeWrapper.appendChild(activeEmojiBtn);
+  activeWrapper.appendChild(activePickerGrid);
+  activeRow.appendChild(activeWrapper);
   controls.appendChild(activeRow);
 
   // Completed emoji picker
   const completedRow = document.createElement('div');
-  completedRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;';
+  completedRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;';
   const completedLabel = document.createElement('span');
   completedLabel.className = 'theme-label';
   completedLabel.textContent = 'Completed Projects';
   completedRow.appendChild(completedLabel);
+
+  const completedWrapper = document.createElement('div');
+  completedWrapper.style.cssText = 'position:relative;display:inline-block;';
 
   const completedEmojiBtn = document.createElement('button');
   completedEmojiBtn.className = 'emoji-display';
@@ -1009,7 +1016,7 @@ function injectProjectEmojiPickers(container) {
   let completedPickerOpen = false;
   const completedPickerGrid = document.createElement('div');
   completedPickerGrid.className = 'emoji-picker-grid';
-  completedPickerGrid.style.cssText = 'display:none;position:absolute;top:56px;left:140px;grid-template-columns:repeat(6,40px);gap:6px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;';
+  completedPickerGrid.style.cssText = 'display:none;position:absolute;top:0;left:0;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:1000;max-width:calc(100vw - 2rem);width:max-content;';
 
   for (const emoji of EMOJI_OPTIONS.completed) {
     const btn = document.createElement('button');
@@ -1033,8 +1040,9 @@ function injectProjectEmojiPickers(container) {
     activePickerOpen = false;
   });
 
-  completedRow.appendChild(completedEmojiBtn);
-  completedRow.appendChild(completedPickerGrid);
+  completedWrapper.appendChild(completedEmojiBtn);
+  completedWrapper.appendChild(completedPickerGrid);
+  completedRow.appendChild(completedWrapper);
   controls.appendChild(completedRow);
 
   // Reset button
