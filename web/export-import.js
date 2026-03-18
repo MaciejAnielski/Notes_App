@@ -450,18 +450,22 @@ async function downloadAllNotes() {
   }
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-  if (hasICloud) {
-    const timestamp = formatTimestamp();
-    const base64 = await zip.generateAsync({ type: 'base64' });
-    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); }
-    catch { updateStatus('Backup failed — check storage.', false); return; }
-  } else {
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'all_notes.zip';
-    link.click();
-    URL.revokeObjectURL(link.href);
+  try {
+    if (hasICloud) {
+      const timestamp = formatTimestamp();
+      const base64 = await zip.generateAsync({ type: 'base64' });
+      await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64);
+    } else {
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'all_notes.zip';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+  } catch {
+    updateStatus('Backup failed — check storage.', false);
+    return;
   }
 
   localStorage.setItem('last_backup_time', Date.now().toString());
@@ -491,18 +495,22 @@ async function backupSelectedNotes() {
   }
 
   const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-  if (hasICloud) {
-    const timestamp = formatTimestamp();
-    const base64 = await zip.generateAsync({ type: 'base64' });
-    try { await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64); }
-    catch { updateStatus('Backup failed — check storage.', false); return; }
-  } else {
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'selected_notes.zip';
-    link.click();
-    URL.revokeObjectURL(link.href);
+  try {
+    if (hasICloud) {
+      const timestamp = formatTimestamp();
+      const base64 = await zip.generateAsync({ type: 'base64' });
+      await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64);
+    } else {
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'selected_notes.zip';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+  } catch {
+    updateStatus('Backup failed — check storage.', false);
+    return;
   }
 
   localStorage.setItem('last_backup_time', Date.now().toString());

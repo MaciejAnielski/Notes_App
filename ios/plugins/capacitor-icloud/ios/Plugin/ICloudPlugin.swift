@@ -41,17 +41,19 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "ICloudPlugin"
     public let jsName = "ICloudPlugin"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "isAvailable",      returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getContainerPath",  returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readFile",          returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "writeFile",         returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "deleteFile",        returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readdir",           returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "mkdir",             returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "writeBinaryFile",   returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readBinaryFile",    returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "rename",            returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "rmdir",             returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isAvailable",        returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getContainerPath",   returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readFile",           returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeFile",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteFile",         returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readdir",            returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "mkdir",              returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeBinaryFile",    returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readBinaryFile",     returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "rename",             returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "rmdir",              returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeBinaryChunk",   returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "finalizeBinaryFile", returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - Private helpers
@@ -382,6 +384,8 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// Writes a binary file from base64-encoded data.
+    /// All work (including base64 decoding) runs on a background thread to avoid
+    /// blocking the main thread for large backups.
     /// Call parameters:
     ///   - path (String, required): relative path inside the container
     ///   - data (String, required): base64-encoded binary data
@@ -391,11 +395,15 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("path and data are required")
             return
         }
-        guard let binaryData = Data(base64Encoded: base64Data) else {
-            call.reject("Invalid base64 data")
-            return
-        }
         resolve(call) {
+            // Decode base64 on the background thread — never block the main thread
+            // with large data decoding.  .ignoreUnknownCharacters tolerates any
+            // incidental whitespace in the base64 string.
+            guard let binaryData = Data(base64Encoded: base64Data,
+                                        options: .ignoreUnknownCharacters) else {
+                call.reject("Invalid base64 data")
+                return
+            }
             guard let base = self.containerDocumentsURL() else {
                 call.reject("iCloud container not available")
                 return
@@ -420,6 +428,111 @@ public class ICloudPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.resolve()
             } catch {
                 call.reject("Write failed: \(path)", nil, error)
+            }
+        }
+    }
+
+    /// Returns a URL in NSTemporaryDirectory for staging chunked writes.
+    /// The name is derived from the final destination path so concurrent backups
+    /// don't collide.
+    private func tempFileURL(for path: String) -> URL {
+        let safeName = path.replacingOccurrences(of: "/", with: "_")
+        return URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("icloud_backup_\(safeName)")
+    }
+
+    /// Writes one base64-encoded chunk to a local temporary staging file.
+    /// Must be called in order; the caller is responsible for calling
+    /// finalizeBinaryFile once all chunks have been written.
+    ///
+    /// Using a staging file in NSTemporaryDirectory means iCloud never sees
+    /// partial data, and each bridge call carries at most ~512 KB instead of
+    /// the full backup payload.
+    ///
+    /// Call parameters:
+    ///   - path (String, required): destination path relative to the iCloud container
+    ///   - data (String, required): base64-encoded chunk
+    ///   - isFirst (Bool, optional, default true): true → create/replace staging file;
+    ///                                             false → append to existing staging file
+    @objc func writeBinaryChunk(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"),
+              let base64Data = call.getString("data") else {
+            call.reject("path and data are required")
+            return
+        }
+        let isFirst = call.getBool("isFirst", true)
+        resolve(call) {
+            guard let chunkData = Data(base64Encoded: base64Data,
+                                       options: .ignoreUnknownCharacters) else {
+                call.reject("Invalid base64 chunk")
+                return
+            }
+            let tmpURL = self.tempFileURL(for: path)
+            do {
+                if isFirst {
+                    try chunkData.write(to: tmpURL)
+                } else {
+                    guard let handle = try? FileHandle(forWritingTo: tmpURL) else {
+                        throw NSError(domain: "ICloudPlugin", code: 1,
+                                      userInfo: [NSLocalizedDescriptionKey:
+                                                 "Cannot open staging file for chunk append"])
+                    }
+                    defer { handle.closeFile() }
+                    handle.seekToEndOfFile()
+                    handle.write(chunkData)
+                }
+                call.resolve()
+            } catch {
+                call.reject("Chunk write failed: \(path)", nil, error)
+            }
+        }
+    }
+
+    /// Moves the staging file created by writeBinaryChunk calls into the iCloud
+    /// container at the given path, using NSFileCoordinator so the iCloud daemon
+    /// is properly notified.  The staging file is removed regardless of outcome.
+    ///
+    /// Call parameters:
+    ///   - path (String, required): destination path relative to the iCloud container
+    @objc func finalizeBinaryFile(_ call: CAPPluginCall) {
+        guard let path = call.getString("path") else {
+            call.reject("path is required")
+            return
+        }
+        resolve(call) {
+            guard let base = self.containerDocumentsURL() else {
+                call.reject("iCloud container not available")
+                return
+            }
+            let tmpURL = self.tempFileURL(for: path)
+            let finalURL = base.appendingPathComponent(path)
+            defer {
+                // Always clean up the staging file
+                try? FileManager.default.removeItem(at: tmpURL)
+            }
+            do {
+                let dir = finalURL.deletingLastPathComponent()
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                var coordinatorError: NSError?
+                var writeError: Error?
+                let coordinator = NSFileCoordinator(filePresenter: self.directoryPresenter)
+                coordinator.coordinate(writingItemAt: finalURL, options: .forReplacing,
+                                       error: &coordinatorError) { url in
+                    do {
+                        if FileManager.default.fileExists(atPath: url.path) {
+                            try FileManager.default.removeItem(at: url)
+                        }
+                        try FileManager.default.copyItem(at: tmpURL, to: url)
+                    } catch {
+                        writeError = error
+                    }
+                }
+                if let err = coordinatorError ?? writeError {
+                    throw err
+                }
+                call.resolve()
+            } catch {
+                call.reject("Finalize failed: \(path)", nil, error)
             }
         }
     }
