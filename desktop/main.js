@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -928,6 +928,26 @@ resolveNotesDir();
 registerNoteHandlers();
 
 app.whenReady().then(async () => {
+  // Set Content-Security-Policy to suppress the Electron security warning and
+  // restrict resource loading.  'unsafe-inline' is required for the inline
+  // MathJax/Mermaid config blocks in index.html; 'unsafe-eval' is required by
+  // the Mermaid renderer which uses new Function() internally.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+          "style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: blob:; " +
+          "font-src 'self' data:; " +
+          "connect-src 'self'"
+        ]
+      }
+    });
+  });
+
   await migrateOldNotes();
 
   // Bidirectional sync between CloudDocs and iOS container on startup
