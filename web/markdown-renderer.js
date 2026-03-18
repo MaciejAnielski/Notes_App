@@ -964,35 +964,34 @@ function injectProjectEmojiPickers(container) {
     const btn = document.createElement('button');
     btn.className = 'emoji-picker-btn';
     btn.textContent = emoji;
-    btn.style.cssText = 'font-size: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1;';
+    btn.style.cssText = 'font-size: 24px; padding: 4px; border: none; background: none; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1; opacity: 0.7;';
     if (emoji === emojis.active) {
       btn.classList.add('selected');
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.borderWidth = '2px';
-      btn.style.background = 'var(--surface)';
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1.2)';
     }
     btn.addEventListener('click', () => {
       setProjectEmoji('active', emoji);
       // Update UI
       for (const b of activeGrid.querySelectorAll('button')) {
-        b.style.borderColor = 'var(--border)';
-        b.style.borderWidth = '1px';
         b.classList.remove('selected');
+        b.style.opacity = '0.7';
+        b.style.transform = 'scale(1)';
       }
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.borderWidth = '2px';
       btn.classList.add('selected');
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1.2)';
     });
     btn.addEventListener('mouseenter', () => {
+      btn.style.opacity = '1';
       if (!btn.classList.contains('selected')) {
-        btn.style.background = 'var(--surface)';
-        btn.style.borderColor = 'var(--accent)';
+        btn.style.transform = 'scale(1.1)';
       }
     });
     btn.addEventListener('mouseleave', () => {
       if (!btn.classList.contains('selected')) {
-        btn.style.background = 'var(--surface)';
-        btn.style.borderColor = 'var(--border)';
+        btn.style.opacity = '0.7';
+        btn.style.transform = 'scale(1)';
       }
     });
     activeGrid.appendChild(btn);
@@ -1015,34 +1014,34 @@ function injectProjectEmojiPickers(container) {
     const btn = document.createElement('button');
     btn.className = 'emoji-picker-btn';
     btn.textContent = emoji;
-    btn.style.cssText = 'font-size: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1;';
+    btn.style.cssText = 'font-size: 24px; padding: 4px; border: none; background: none; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1; opacity: 0.7;';
     if (emoji === emojis.completed) {
       btn.classList.add('selected');
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.borderWidth = '2px';
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1.2)';
     }
     btn.addEventListener('click', () => {
       setProjectEmoji('completed', emoji);
       // Update UI
       for (const b of completedGrid.querySelectorAll('button')) {
-        b.style.borderColor = 'var(--border)';
-        b.style.borderWidth = '1px';
         b.classList.remove('selected');
+        b.style.opacity = '0.7';
+        b.style.transform = 'scale(1)';
       }
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.borderWidth = '2px';
       btn.classList.add('selected');
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1.2)';
     });
     btn.addEventListener('mouseenter', () => {
+      btn.style.opacity = '1';
       if (!btn.classList.contains('selected')) {
-        btn.style.background = 'var(--surface)';
-        btn.style.borderColor = 'var(--accent)';
+        btn.style.transform = 'scale(1.1)';
       }
     });
     btn.addEventListener('mouseleave', () => {
       if (!btn.classList.contains('selected')) {
-        btn.style.background = 'var(--surface)';
-        btn.style.borderColor = 'var(--border)';
+        btn.style.opacity = '0.7';
+        btn.style.transform = 'scale(1)';
       }
     });
     completedGrid.appendChild(btn);
@@ -1072,35 +1071,35 @@ function injectProjectEmojiPickers(container) {
       const btn = document.createElement('button');
       btn.className = 'emoji-picker-btn';
       btn.textContent = emoji;
-      btn.style.cssText = 'font-size: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1;';
+      btn.style.cssText = 'font-size: 24px; padding: 4px; border: none; background: none; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1; opacity: 0.7;';
       if (emoji === emojis[season]) {
         btn.classList.add('selected');
-        btn.style.borderColor = 'var(--accent)';
-        btn.style.borderWidth = '2px';
+        btn.style.opacity = '1';
+        btn.style.transform = 'scale(1.2)';
       }
       const seasonName = season;
       btn.addEventListener('click', () => {
         setProjectEmoji(seasonName, emoji);
         // Update UI
         for (const b of seasonGrid.querySelectorAll('button')) {
-          b.style.borderColor = 'var(--border)';
-          b.style.borderWidth = '1px';
           b.classList.remove('selected');
+          b.style.opacity = '0.7';
+          b.style.transform = 'scale(1)';
         }
-        btn.style.borderColor = 'var(--accent)';
-        btn.style.borderWidth = '2px';
         btn.classList.add('selected');
+        btn.style.opacity = '1';
+        btn.style.transform = 'scale(1.2)';
       });
       btn.addEventListener('mouseenter', () => {
+        btn.style.opacity = '1';
         if (!btn.classList.contains('selected')) {
-          btn.style.background = 'var(--surface)';
-          btn.style.borderColor = 'var(--accent)';
+          btn.style.transform = 'scale(1.1)';
         }
       });
       btn.addEventListener('mouseleave', () => {
         if (!btn.classList.contains('selected')) {
-          btn.style.background = 'var(--surface)';
-          btn.style.borderColor = 'var(--border)';
+          btn.style.opacity = '0.7';
+          btn.style.transform = 'scale(1)';
         }
       });
       seasonGrid.appendChild(btn);
