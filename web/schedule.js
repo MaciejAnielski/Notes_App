@@ -308,6 +308,8 @@ function _makeScheduleBlock(item, extraClass) {
     displayText = displayText.replace(/^\s*[-*+]\s+/, '');
     displayText = displayText.replace(/^\s*\d+[.)]\s+/, '');
     displayText = displayText.replace(/^\s*- \[[ xX]\]\s+/, '');
+    // Strip link syntax — show only the display text, not clickable anchors.
+    displayText = displayText.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1');
     nameSpan.innerHTML = marked.parseInline(displayText);
   }
   nameSpan.addEventListener('click', () => {
