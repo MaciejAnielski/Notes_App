@@ -322,11 +322,29 @@
       async writeBackup(filename, data) {
         if (!await isAvailable()) throw new Error('iCloud not available');
         await ICloudPlugin.mkdir({ path: BACKUPS_DIR });
-        // Backup data is base64-encoded zip — write as binary
-        if (ICloudPlugin.writeBinaryFile) {
-          await ICloudPlugin.writeBinaryFile({ path: `${BACKUPS_DIR}/${filename}`, data });
+        const destPath = `${BACKUPS_DIR}/${filename}`;
+        // Use chunked writes to avoid passing the entire backup payload through the
+        // Capacitor bridge in one shot.  Sending a large base64 string (tens of MB)
+        // as a single bridge message holds the data in both the JS heap and in native
+        // memory simultaneously, which can push the WKWebView content process over
+        // iOS's memory limit and cause it to be killed — showing the loading screen
+        // on auto-reload.  Writing in 512 KB chunks keeps peak bridge overhead low.
+        if (ICloudPlugin.writeBinaryChunk && ICloudPlugin.finalizeBinaryFile) {
+          const CHUNK = 512 * 1024; // 512 KB of base64 per bridge call
+          let isFirst = true;
+          for (let i = 0; i < data.length; i += CHUNK) {
+            await ICloudPlugin.writeBinaryChunk({
+              path: destPath,
+              data: data.slice(i, i + CHUNK),
+              isFirst
+            });
+            isFirst = false;
+          }
+          await ICloudPlugin.finalizeBinaryFile({ path: destPath });
+        } else if (ICloudPlugin.writeBinaryFile) {
+          await ICloudPlugin.writeBinaryFile({ path: destPath, data });
         } else {
-          await ICloudPlugin.writeFile({ path: `${BACKUPS_DIR}/${filename}`, data });
+          await ICloudPlugin.writeFile({ path: destPath, data });
         }
       },
 
