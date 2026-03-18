@@ -925,210 +925,175 @@ function injectThemeColorPickers(container) {
 // ── Project emoji pickers in Settings note preview ──────────────────────────
 
 function injectProjectEmojiPickers(container) {
-  // Find the <details> containing the "Theme" h2 (emojis go in Theme section)
-  let themeSection = null;
+  // Find the <details> containing the "Projects Note Emojis" h3
+  let emojiSection = null;
   for (const details of container.querySelectorAll('details')) {
-    const h = details.querySelector('summary h2');
-    if (h && h.textContent.includes('Theme')) { themeSection = details; break; }
+    const h = details.querySelector('summary h3');
+    if (h && h.textContent.includes('Projects Note Emojis')) { emojiSection = details; break; }
   }
-  // Fall back to plain h2 if not collapsible
-  if (!themeSection) {
-    for (const h of container.querySelectorAll('h2')) {
-      if (h.textContent.includes('Theme')) { themeSection = h.parentElement; break; }
+  // Fall back to plain h3 if not collapsible
+  if (!emojiSection) {
+    for (const h of container.querySelectorAll('h3')) {
+      if (h.textContent.includes('Projects Note Emojis')) { emojiSection = h.parentElement; break; }
     }
   }
-  if (!themeSection) return;
+  if (!emojiSection) return;
 
   // Don't inject twice
-  if (themeSection.querySelector('.emoji-picker-container')) return;
+  if (emojiSection.querySelector('.emoji-controls')) return;
 
   const emojis = getProjectEmojis();
   const defaults = DEFAULT_PROJECT_EMOJIS;
 
-  const container_el = document.createElement('div');
-  container_el.className = 'emoji-picker-container';
-  container_el.style.cssText = 'padding: 8px 0; border-top: 1px solid var(--border); margin-top: 12px;';
+  const controls = document.createElement('div');
+  controls.className = 'emoji-controls';
+  controls.style.cssText = 'padding: 8px 0;';
 
-  // Active emoji picker
-  const activeSection = document.createElement('div');
-  activeSection.style.cssText = 'margin-bottom: 12px;';
-  const activeLabel = document.createElement('div');
-  activeLabel.className = 'emoji-picker-label';
+  // Active emoji picker (like the theme color picker with a clickable circle)
+  const activeRow = document.createElement('div');
+  activeRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;';
+  const activeLabel = document.createElement('span');
+  activeLabel.className = 'emoji-label';
   activeLabel.textContent = 'Ongoing Projects';
-  activeLabel.style.cssText = 'font-weight: 500; font-size: 13px; color: var(--muted); margin-bottom: 6px;';
-  activeSection.appendChild(activeLabel);
-  const activeGrid = document.createElement('div');
-  activeGrid.className = 'emoji-picker-grid';
-  activeGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; max-width: 200px;';
+  activeLabel.style.cssText = 'font-weight:500;font-size:13px;color:var(--muted);min-width:120px;';
+  activeRow.appendChild(activeLabel);
+
+  const activeEmojiBtn = document.createElement('button');
+  activeEmojiBtn.className = 'emoji-display';
+  activeEmojiBtn.textContent = emojis.active;
+  activeEmojiBtn.style.cssText = 'font-size:32px;width:48px;height:48px;border:2px solid var(--border);border-radius:50%;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0;line-height:1;';
+
+  let activePickerOpen = false;
+  const activePickerGrid = document.createElement('div');
+  activePickerGrid.className = 'emoji-picker-grid';
+  activePickerGrid.style.cssText = 'display:none;position:absolute;top:56px;left:140px;grid-template-columns:repeat(6,40px);gap:6px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;';
+
   for (const emoji of EMOJI_OPTIONS.active) {
     const btn = document.createElement('button');
-    btn.className = 'emoji-picker-btn';
     btn.textContent = emoji;
-    btn.style.cssText = 'font-size: 24px; padding: 4px; border: none; background: none; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1; opacity: 0.7;';
+    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:all 0.15s;padding:0;line-height:1;border-radius:4px;';
     if (emoji === emojis.active) {
-      btn.classList.add('selected');
-      btn.style.opacity = '1';
-      btn.style.transform = 'scale(1.2)';
+      btn.style.background = 'var(--border)';
     }
     btn.addEventListener('click', () => {
       setProjectEmoji('active', emoji);
-      // Update UI
-      for (const b of activeGrid.querySelectorAll('button')) {
-        b.classList.remove('selected');
-        b.style.opacity = '0.7';
-        b.style.transform = 'scale(1)';
+      activeEmojiBtn.textContent = emoji;
+      for (const b of activePickerGrid.querySelectorAll('button')) {
+        b.style.background = 'none';
       }
-      btn.classList.add('selected');
-      btn.style.opacity = '1';
-      btn.style.transform = 'scale(1.2)';
+      btn.style.background = 'var(--border)';
+      activePickerOpen = false;
+      activePickerGrid.style.display = 'none';
     });
     btn.addEventListener('mouseenter', () => {
-      btn.style.opacity = '1';
-      if (!btn.classList.contains('selected')) {
-        btn.style.transform = 'scale(1.1)';
-      }
+      btn.style.transform = 'scale(1.1)';
+      btn.style.background = btn.style.background ? btn.style.background : 'var(--surface)';
     });
     btn.addEventListener('mouseleave', () => {
-      if (!btn.classList.contains('selected')) {
-        btn.style.opacity = '0.7';
-        btn.style.transform = 'scale(1)';
+      btn.style.transform = 'scale(1)';
+      if (btn.textContent !== emojis.active) {
+        btn.style.background = 'none';
       }
     });
-    activeGrid.appendChild(btn);
+    activePickerGrid.appendChild(btn);
   }
-  activeSection.appendChild(activeGrid);
-  container_el.appendChild(activeSection);
+
+  activeEmojiBtn.addEventListener('click', () => {
+    activePickerOpen = !activePickerOpen;
+    activePickerGrid.style.display = activePickerOpen ? 'grid' : 'none';
+    completedPickerGrid.style.display = 'none';
+    completedPickerOpen = false;
+  });
+
+  activeRow.appendChild(activeEmojiBtn);
+  activeRow.appendChild(activePickerGrid);
+  controls.appendChild(activeRow);
 
   // Completed emoji picker
-  const completedSection = document.createElement('div');
-  completedSection.style.cssText = 'margin-bottom: 12px;';
-  const completedLabel = document.createElement('div');
-  completedLabel.className = 'emoji-picker-label';
+  const completedRow = document.createElement('div');
+  completedRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;';
+  const completedLabel = document.createElement('span');
+  completedLabel.className = 'emoji-label';
   completedLabel.textContent = 'Completed Projects';
-  completedLabel.style.cssText = 'font-weight: 500; font-size: 13px; color: var(--muted); margin-bottom: 6px;';
-  completedSection.appendChild(completedLabel);
-  const completedGrid = document.createElement('div');
-  completedGrid.className = 'emoji-picker-grid';
-  completedGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; max-width: 200px;';
+  completedLabel.style.cssText = 'font-weight:500;font-size:13px;color:var(--muted);min-width:120px;';
+  completedRow.appendChild(completedLabel);
+
+  const completedEmojiBtn = document.createElement('button');
+  completedEmojiBtn.className = 'emoji-display';
+  completedEmojiBtn.textContent = emojis.completed;
+  completedEmojiBtn.style.cssText = 'font-size:32px;width:48px;height:48px;border:2px solid var(--border);border-radius:50%;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0;line-height:1;';
+
+  let completedPickerOpen = false;
+  const completedPickerGrid = document.createElement('div');
+  completedPickerGrid.className = 'emoji-picker-grid';
+  completedPickerGrid.style.cssText = 'display:none;position:absolute;top:56px;left:140px;grid-template-columns:repeat(6,40px);gap:6px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;';
+
   for (const emoji of EMOJI_OPTIONS.completed) {
     const btn = document.createElement('button');
-    btn.className = 'emoji-picker-btn';
     btn.textContent = emoji;
-    btn.style.cssText = 'font-size: 24px; padding: 4px; border: none; background: none; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1; opacity: 0.7;';
+    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:all 0.15s;padding:0;line-height:1;border-radius:4px;';
     if (emoji === emojis.completed) {
-      btn.classList.add('selected');
-      btn.style.opacity = '1';
-      btn.style.transform = 'scale(1.2)';
+      btn.style.background = 'var(--border)';
     }
     btn.addEventListener('click', () => {
       setProjectEmoji('completed', emoji);
-      // Update UI
-      for (const b of completedGrid.querySelectorAll('button')) {
-        b.classList.remove('selected');
-        b.style.opacity = '0.7';
-        b.style.transform = 'scale(1)';
+      completedEmojiBtn.textContent = emoji;
+      for (const b of completedPickerGrid.querySelectorAll('button')) {
+        b.style.background = 'none';
       }
-      btn.classList.add('selected');
-      btn.style.opacity = '1';
-      btn.style.transform = 'scale(1.2)';
+      btn.style.background = 'var(--border)';
+      completedPickerOpen = false;
+      completedPickerGrid.style.display = 'none';
     });
     btn.addEventListener('mouseenter', () => {
-      btn.style.opacity = '1';
-      if (!btn.classList.contains('selected')) {
-        btn.style.transform = 'scale(1.1)';
-      }
+      btn.style.transform = 'scale(1.1)';
+      btn.style.background = btn.style.background ? btn.style.background : 'var(--surface)';
     });
     btn.addEventListener('mouseleave', () => {
-      if (!btn.classList.contains('selected')) {
-        btn.style.opacity = '0.7';
-        btn.style.transform = 'scale(1)';
+      btn.style.transform = 'scale(1)';
+      if (btn.textContent !== emojis.completed) {
+        btn.style.background = 'none';
       }
     });
-    completedGrid.appendChild(btn);
+    completedPickerGrid.appendChild(btn);
   }
-  completedSection.appendChild(completedGrid);
-  container_el.appendChild(completedSection);
 
-  // Season emojis section
-  const seasonSection = document.createElement('div');
-  seasonSection.style.cssText = 'margin-bottom: 12px;';
-  const seasonLabel = document.createElement('div');
-  seasonLabel.className = 'emoji-picker-label';
-  seasonLabel.textContent = 'Seasons';
-  seasonLabel.style.cssText = 'font-weight: 500; font-size: 13px; color: var(--muted); margin-bottom: 6px;';
-  seasonSection.appendChild(seasonLabel);
+  completedEmojiBtn.addEventListener('click', () => {
+    completedPickerOpen = !completedPickerOpen;
+    completedPickerGrid.style.display = completedPickerOpen ? 'grid' : 'none';
+    activePickerGrid.style.display = 'none';
+    activePickerOpen = false;
+  });
 
-  for (const season of SEASON_ORDER) {
-    const seasonRow = document.createElement('div');
-    seasonRow.style.cssText = 'margin-bottom: 8px;';
-    const seasonSubLabel = document.createElement('div');
-    seasonSubLabel.style.cssText = 'font-size: 12px; color: var(--muted); margin-bottom: 4px; padding-left: 0;';
-    seasonSubLabel.textContent = season;
-    seasonRow.appendChild(seasonSubLabel);
-    const seasonGrid = document.createElement('div');
-    seasonGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; max-width: 150px;';
-    for (const emoji of EMOJI_OPTIONS[season]) {
-      const btn = document.createElement('button');
-      btn.className = 'emoji-picker-btn';
-      btn.textContent = emoji;
-      btn.style.cssText = 'font-size: 24px; padding: 4px; border: none; background: none; cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1; opacity: 0.7;';
-      if (emoji === emojis[season]) {
-        btn.classList.add('selected');
-        btn.style.opacity = '1';
-        btn.style.transform = 'scale(1.2)';
-      }
-      const seasonName = season;
-      btn.addEventListener('click', () => {
-        setProjectEmoji(seasonName, emoji);
-        // Update UI
-        for (const b of seasonGrid.querySelectorAll('button')) {
-          b.classList.remove('selected');
-          b.style.opacity = '0.7';
-          b.style.transform = 'scale(1)';
-        }
-        btn.classList.add('selected');
-        btn.style.opacity = '1';
-        btn.style.transform = 'scale(1.2)';
-      });
-      btn.addEventListener('mouseenter', () => {
-        btn.style.opacity = '1';
-        if (!btn.classList.contains('selected')) {
-          btn.style.transform = 'scale(1.1)';
-        }
-      });
-      btn.addEventListener('mouseleave', () => {
-        if (!btn.classList.contains('selected')) {
-          btn.style.opacity = '0.7';
-          btn.style.transform = 'scale(1)';
-        }
-      });
-      seasonGrid.appendChild(btn);
-    }
-    seasonRow.appendChild(seasonGrid);
-    seasonSection.appendChild(seasonRow);
-  }
-  container_el.appendChild(seasonSection);
+  completedRow.appendChild(completedEmojiBtn);
+  completedRow.appendChild(completedPickerGrid);
+  controls.appendChild(completedRow);
 
   // Reset button
   const resetBtn = document.createElement('button');
-  resetBtn.className = 'emoji-picker-reset-btn';
+  resetBtn.className = 'emoji-reset-btn';
   resetBtn.textContent = 'Reset to Defaults';
-  resetBtn.style.cssText = 'margin-top: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px;';
+  resetBtn.style.cssText = 'margin-top:8px;padding:6px 12px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);cursor:pointer;font-size:13px;';
   resetBtn.addEventListener('click', () => {
     resetProjectEmojis();
-    // Refresh the whole picker by re-injecting
-    const oldPicker = themeSection.querySelector('.emoji-picker-container');
-    if (oldPicker) oldPicker.remove();
-    injectProjectEmojiPickers(container);
+    activeEmojiBtn.textContent = DEFAULT_PROJECT_EMOJIS.active;
+    completedEmojiBtn.textContent = DEFAULT_PROJECT_EMOJIS.completed;
+    for (const b of activePickerGrid.querySelectorAll('button')) {
+      b.style.background = b.textContent === DEFAULT_PROJECT_EMOJIS.active ? 'var(--border)' : 'none';
+    }
+    for (const b of completedPickerGrid.querySelectorAll('button')) {
+      b.style.background = b.textContent === DEFAULT_PROJECT_EMOJIS.completed ? 'var(--border)' : 'none';
+    }
   });
-  container_el.appendChild(resetBtn);
+  controls.appendChild(resetBtn);
 
-  // Insert controls after theme controls
-  const themeControls = themeSection.querySelector('.theme-controls');
-  if (themeControls && themeControls.nextSibling) {
-    themeSection.insertBefore(container_el, themeControls.nextSibling);
+  // Insert controls after the list items or at end of section
+  const lists = emojiSection.querySelectorAll('ul, ol, p');
+  const lastList = lists.length > 0 ? lists[lists.length - 1] : null;
+  if (lastList && lastList.nextSibling) {
+    emojiSection.insertBefore(controls, lastList.nextSibling);
   } else {
-    themeSection.appendChild(container_el);
+    emojiSection.appendChild(controls);
   }
 }
 
