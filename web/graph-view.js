@@ -175,6 +175,7 @@ async function renderNoteGraph() {
         width: exists ? 1.5 : 1,
         arrows: { to: { enabled: true, scaleFactor: 0.4 } },
         smooth: { type: 'continuous' },
+        hidden: true,
       });
     }
   }
@@ -253,9 +254,15 @@ async function renderNoteGraph() {
     loadNote(nodeId, true);
   });
 
-  // Hover: show note preview tooltip
+  // Hover: show note preview tooltip and reveal connected edges
   network.on('hoverNode', async params => {
     const nodeId = params.node;
+
+    // Show only edges connected to the hovered node
+    const connectedEdgeIds = network.getConnectedEdges(nodeId);
+    const connectedSet = new Set(connectedEdgeIds);
+    edges.update(edges.getIds().map(id => ({ id, hidden: !connectedSet.has(id) })));
+
     if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) {
       const missingName = nodeId.replace(/^__missing__/, '');
       tooltip.innerHTML =
@@ -276,6 +283,8 @@ async function renderNoteGraph() {
 
   network.on('blurNode', () => {
     tooltip.style.display = 'none';
+    // Hide all edges again when no node is hovered
+    edges.update(edges.getIds().map(id => ({ id, hidden: true })));
   });
 
   // Hide tooltip when dragging/zooming to avoid stale positions
