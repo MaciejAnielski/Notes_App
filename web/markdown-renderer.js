@@ -958,7 +958,7 @@ function injectProjectEmojiPickers(container) {
   activeRow.appendChild(activeLabel);
 
   const activeWrapper = document.createElement('div');
-  activeWrapper.style.cssText = 'position:relative;display:inline-block;';
+  activeWrapper.style.cssText = 'display:inline-block;';
 
   const activeEmojiBtn = document.createElement('button');
   activeEmojiBtn.className = 'emoji-display';
@@ -968,7 +968,7 @@ function injectProjectEmojiPickers(container) {
   let activePickerOpen = false;
   const activePickerGrid = document.createElement('div');
   activePickerGrid.className = 'emoji-picker-grid';
-  activePickerGrid.style.cssText = 'display:none;position:absolute;top:0;left:0;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:1000;max-width:calc(100vw - 2rem);width:max-content;';
+  activePickerGrid.style.cssText = 'display:none;position:fixed;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:9999;';
 
   for (const emoji of EMOJI_OPTIONS.active) {
     const btn = document.createElement('button');
@@ -987,9 +987,19 @@ function injectProjectEmojiPickers(container) {
 
   activeEmojiBtn.addEventListener('click', () => {
     activePickerOpen = !activePickerOpen;
-    activePickerGrid.style.display = activePickerOpen ? 'grid' : 'none';
     completedPickerGrid.style.display = 'none';
     completedPickerOpen = false;
+    if (activePickerOpen) {
+      const rect = activeEmojiBtn.getBoundingClientRect();
+      const w = Math.min(240, window.innerWidth - 16);
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
+      activePickerGrid.style.width = w + 'px';
+      activePickerGrid.style.left = left + 'px';
+      activePickerGrid.style.top = rect.top + 'px';
+      activePickerGrid.style.display = 'grid';
+    } else {
+      activePickerGrid.style.display = 'none';
+    }
   });
 
   activeWrapper.appendChild(activeEmojiBtn);
@@ -1006,7 +1016,7 @@ function injectProjectEmojiPickers(container) {
   completedRow.appendChild(completedLabel);
 
   const completedWrapper = document.createElement('div');
-  completedWrapper.style.cssText = 'position:relative;display:inline-block;';
+  completedWrapper.style.cssText = 'display:inline-block;';
 
   const completedEmojiBtn = document.createElement('button');
   completedEmojiBtn.className = 'emoji-display';
@@ -1016,7 +1026,7 @@ function injectProjectEmojiPickers(container) {
   let completedPickerOpen = false;
   const completedPickerGrid = document.createElement('div');
   completedPickerGrid.className = 'emoji-picker-grid';
-  completedPickerGrid.style.cssText = 'display:none;position:absolute;top:0;left:0;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:1000;max-width:calc(100vw - 2rem);width:max-content;';
+  completedPickerGrid.style.cssText = 'display:none;position:fixed;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:9999;';
 
   for (const emoji of EMOJI_OPTIONS.completed) {
     const btn = document.createElement('button');
@@ -1035,9 +1045,19 @@ function injectProjectEmojiPickers(container) {
 
   completedEmojiBtn.addEventListener('click', () => {
     completedPickerOpen = !completedPickerOpen;
-    completedPickerGrid.style.display = completedPickerOpen ? 'grid' : 'none';
     activePickerGrid.style.display = 'none';
     activePickerOpen = false;
+    if (completedPickerOpen) {
+      const rect = completedEmojiBtn.getBoundingClientRect();
+      const w = Math.min(240, window.innerWidth - 16);
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
+      completedPickerGrid.style.width = w + 'px';
+      completedPickerGrid.style.left = left + 'px';
+      completedPickerGrid.style.top = rect.top + 'px';
+      completedPickerGrid.style.display = 'grid';
+    } else {
+      completedPickerGrid.style.display = 'none';
+    }
   });
 
   completedWrapper.appendChild(completedEmojiBtn);
