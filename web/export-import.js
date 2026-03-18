@@ -431,7 +431,6 @@ async function exportSelectedNotes() {
 
 async function downloadAllNotes() {
   updateStatus(`Backing Up\u2026`, true, true);
-  const zip = new JSZip();
 
   const allNotes = await NoteStorage.getAllNotes();
   if (allNotes.length === 0) {
@@ -439,18 +438,19 @@ async function downloadAllNotes() {
     return;
   }
 
-  for (const { name, content } of allNotes) {
-    zip.file(name + '.md', content);
-    const attFiles = await NoteStorage.listAttachments(name);
-    const attDir = noteNameToAttachmentDir(name);
-    for (const filename of attFiles) {
-      const b64 = await NoteStorage.readAttachment(name, filename);
-      if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
-    }
-  }
-
-  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
   try {
+    const zip = new JSZip();
+    for (const { name, content } of allNotes) {
+      zip.file(name + '.md', content);
+      const attFiles = await NoteStorage.listAttachments(name);
+      const attDir = noteNameToAttachmentDir(name);
+      for (const filename of attFiles) {
+        const b64 = await NoteStorage.readAttachment(name, filename);
+        if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
+      }
+    }
+
+    const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
     if (hasICloud) {
       const timestamp = formatTimestamp();
       const base64 = await zip.generateAsync({ type: 'base64' });
@@ -480,22 +480,23 @@ async function backupSelectedNotes() {
     alert('No notes match the filter.');
     return;
   }
-  const zip = new JSZip();
-  for (const name of notes) {
-    const content = await NoteStorage.getNote(name);
-    if (content !== null) {
-      zip.file(name + '.md', content);
-      const attFiles = await NoteStorage.listAttachments(name);
-      const attDir = noteNameToAttachmentDir(name);
-      for (const filename of attFiles) {
-        const b64 = await NoteStorage.readAttachment(name, filename);
-        if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
+
+  try {
+    const zip = new JSZip();
+    for (const name of notes) {
+      const content = await NoteStorage.getNote(name);
+      if (content !== null) {
+        zip.file(name + '.md', content);
+        const attFiles = await NoteStorage.listAttachments(name);
+        const attDir = noteNameToAttachmentDir(name);
+        for (const filename of attFiles) {
+          const b64 = await NoteStorage.readAttachment(name, filename);
+          if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
+        }
       }
     }
-  }
 
-  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-  try {
+    const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
     if (hasICloud) {
       const timestamp = formatTimestamp();
       const base64 = await zip.generateAsync({ type: 'base64' });
