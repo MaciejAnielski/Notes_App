@@ -58,6 +58,13 @@
     let _availableLastCheck = 0;
     const RECHECK_INTERVAL = 30000; // retry every 30s if unavailable
     let _notesDirCreated = false; // skip redundant mkdir after first call
+    // Cache of attachment directory basenames (e.g. "My Note.attachments") that
+    // are known to exist inside NOTES_DIR.  Populated as a side-effect of the
+    // readdir(NOTES_DIR) call in getAllNoteNames() so that listAttachments() can
+    // skip the native readdir call for notes with no attachment directory —
+    // avoiding hundreds of failing bridge round-trips during a backup.
+    // Set to null when any write operation may have created/removed a dir.
+    let _attachmentDirCache = null;
 
     async function isAvailable() {
       const now = Date.now();
@@ -193,8 +200,12 @@
             _notesDirCreated = true;
           }
           const result = await ICloudPlugin.readdir({ path: NOTES_DIR });
-          return result.files
-            .map(f => (typeof f === 'string' ? f : f.name))
+          const files = result.files.map(f => (typeof f === 'string' ? f : f.name));
+          // Populate attachment directory cache as a free side-effect of this
+          // readdir so listAttachments() can skip the native call for notes
+          // without an attachment directory (the common case).
+          _attachmentDirCache = new Set(files.filter(f => f.endsWith('.attachments') && !f.startsWith('.')));
+          return files
             .filter(f => f.endsWith('.md'))
             .map(f => fileNameToNoteName(f))
             .filter(Boolean);
@@ -238,6 +249,7 @@
           await ICloudPlugin.mkdir({ path: attDir });
           const writeFn = ICloudPlugin.writeBinaryFile || ICloudPlugin.writeFile;
           await writeFn.call(ICloudPlugin, { path: `${attDir}/${filename}`, data: base64data });
+          _attachmentDirCache = null; // directory may have been created
           return true;
         } catch { return false; }
       },
@@ -270,7 +282,14 @@
 
       async listAttachments(noteName) {
         if (!await isAvailable()) return [];
-        const attDir = `${NOTES_DIR}/${noteNameToAttachmentDir(noteName)}`;
+        const attDirBasename = noteNameToAttachmentDir(noteName);
+        // If we have a cached NOTES_DIR listing and this attachment directory
+        // was not in it, skip the native readdir call entirely.  This avoids
+        // hundreds of failing bridge round-trips when most notes have no
+        // attachments (the common case), which was causing excessive errors
+        // and contributing to backup instability on iOS.
+        if (_attachmentDirCache !== null && !_attachmentDirCache.has(attDirBasename)) return [];
+        const attDir = `${NOTES_DIR}/${attDirBasename}`;
         try {
           const result = await ICloudPlugin.readdir({ path: attDir });
           return result.files.map(f => (typeof f === 'string' ? f : f.name)).filter(f => !f.startsWith('.'));
@@ -292,6 +311,7 @@
               }
             } catch {}
           }
+          _attachmentDirCache = null; // directory may have been removed
         } catch {}
       },
 
@@ -316,6 +336,7 @@
               } catch {}
             }
           }
+          _attachmentDirCache = null; // directory was renamed
         } catch {}
       },
 
