@@ -354,7 +354,7 @@ async function updateTodoList(cachedNotes) {
   }
   styleTaskListItems(todoList);
   await setupNoteLinks(todoList);
-  if (window.MathJax) {
+  if (window.MathJax?.typesetPromise) {
     MathJax.typesetPromise([todoList]);
   }
   renderSchedule();
