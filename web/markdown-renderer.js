@@ -742,10 +742,11 @@ async function renderPreview() {
     } catch { /* MathJax failed to load */ }
   }
   if (window.MathJax?.typesetPromise) {
-    MathJax.typesetPromise([previewDiv]).then(() => {
-      markOverflowingMathContainers();
-      if (isPreview) setupClickableMathFormulas();
-    });
+    // Await typesetting so setupClickableMathFormulas runs after the mjx-container
+    // elements exist, and doesn't race against isPreview being set by the caller.
+    await MathJax.typesetPromise([previewDiv]);
+    markOverflowingMathContainers();
+    setupClickableMathFormulas();
   }
 
   // Settings note: inject colour pickers for calendar entries and theme pickers
