@@ -483,7 +483,11 @@ const PROJECT_EMOJI_STORAGE_KEY = 'project_emojis';
 
 const DEFAULT_PROJECT_EMOJIS = {
   active: '🚀',
-  completed: '✨'
+  completed: '✨',
+  Winter: '❄️',
+  Spring: '🌱',
+  Summer: '☀️',
+  Autumn: '🍂'
 };
 
 const EMOJI_OPTIONS = {

@@ -148,9 +148,16 @@ async function updateCalendarsNote() {
     if (themeMatch) themeBody = themeMatch[1];
   }
 
-  // Build new note content — Theme section always present; Calendars section
-  // only when the iOS calendar plugin returned at least one calendar.
-  const lines = ['# Settings', '', '## 🎨 Theme' + themeBody.trimEnd(), ''];
+  // Extract existing Projects Note Emojis section to preserve it across rebuilds.
+  let emojiBody = '\nCustomise the emojis used in the Projects note.\n';
+  if (selSource) {
+    const emojiMatch = selSource.match(/### Projects Note Emojis([\s\S]*?)(?=\n##|$)/);
+    if (emojiMatch) emojiBody = emojiMatch[1];
+  }
+
+  // Build new note content — Theme section always present; Projects Note Emojis section always present;
+  // Calendars section only when the iOS calendar plugin returned at least one calendar.
+  const lines = ['# Settings', '', '## 🎨 Theme' + themeBody.trimEnd(), '', '### Projects Note Emojis' + emojiBody.trimEnd(), ''];
   if (calendars.length > 0) {
     lines.push('## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', '');
     calendars
