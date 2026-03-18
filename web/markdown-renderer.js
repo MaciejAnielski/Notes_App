@@ -394,6 +394,7 @@ async function setupNoteLinks(container = previewDiv) {
         a.removeAttribute('rel');
         a.addEventListener('click', e => {
           e.preventDefault();
+          e.stopPropagation();
           window.electronAPI.notes.openExternal(href);
         });
       } else if (window.Capacitor) {
@@ -402,12 +403,15 @@ async function setupNoteLinks(container = previewDiv) {
         a.removeAttribute('rel');
         a.addEventListener('click', e => {
           e.preventDefault();
+          e.stopPropagation();
           const App = window.Capacitor?.Plugins?.App;
           if (App) App.openUrl({ url: href });
         });
       } else {
         a.setAttribute('target', '_blank');
         a.setAttribute('rel', 'noopener noreferrer');
+        // Prevent click from bubbling to a parent heading or <summary> element.
+        a.addEventListener('click', e => e.stopPropagation());
       }
       return;
     }
@@ -427,6 +431,7 @@ async function setupNoteLinks(container = previewDiv) {
 
     a.addEventListener('click', async e => {
       e.preventDefault();
+      e.stopPropagation();
       if (await NoteStorage.getNote(noteName) !== null) {
         if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
           linkedNoteChain.unshift(currentFileName);
@@ -690,8 +695,12 @@ async function renderPreview() {
 
   previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
   styleTaskListItems(previewDiv);
-  await setupNoteLinks(previewDiv);
+  // Collapsible headings must be set up BEFORE note-links so that when
+  // setupNoteLinks runs, anchor elements inside <summary> already exist
+  // in their final DOM positions and receive click handlers correctly.
+  // (cloneNode used inside setupCollapsibleHeadings does not copy listeners.)
   setupCollapsibleHeadings(previewDiv);
+  await setupNoteLinks(previewDiv);
 
   // H1 title: clicking navigates back to the previously accessed note (breadcrumb).
   previewDiv.querySelectorAll('h1').forEach(h1 => {
@@ -699,7 +708,8 @@ async function renderPreview() {
       h1.classList.add('note-title-back');
       h1.title = `Back to "${linkedNoteChain[0]}"`;
     }
-    h1.addEventListener('click', () => {
+    h1.addEventListener('click', e => {
+      if (e.target.closest('a')) return; // let link clicks pass through unobstructed
       if (linkedNoteChain.length === 0) return;
       const prevNote = linkedNoteChain[0];
       linkedNoteChain = linkedNoteChain.slice(1);

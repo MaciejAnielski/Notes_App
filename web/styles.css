@@ -2006,3 +2006,60 @@ input[type="checkbox"] {
   font-size: 0.78em !important;
   box-shadow: 0 2px 8px var(--shadow-light) !important;
 }
+
+/* ── Wiki-link autocomplete dropdown ─────────────────────────────────────── */
+
+#wikilink-dropdown {
+  position: fixed;
+  z-index: 9999;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px var(--shadow);
+  max-height: 240px;
+  overflow-y: auto;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.wikilink-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.88em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.wikilink-item:hover,
+.wikilink-item-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Note list context menu ───────────────────────────────────────────────── */
+
+#note-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px var(--shadow);
+  padding: 4px 0;
+  min-width: 160px;
+}
+
+#note-context-copy {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.88em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+#note-context-copy:hover {
+  background: var(--accent);
+  color: #fff;
+}

@@ -338,6 +338,138 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ── Wiki-link autocomplete ────────────────────────────────────────────────
+// Shows a floating dropdown of note names when the user types [[ in the editor.
+
+{
+  const dropdown = document.getElementById('wikilink-dropdown');
+  let _acItems = [];
+  let _acIdx = -1;
+  let _acStart = -1; // char offset of the opening [[ in textarea
+
+  function _renderDropdown(names) {
+    dropdown.innerHTML = '';
+    names.forEach((name, i) => {
+      const item = document.createElement('div');
+      item.className = 'wikilink-item' + (i === _acIdx ? ' wikilink-item-active' : '');
+      item.setAttribute('role', 'option');
+      item.textContent = name;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault(); // keep textarea focus
+        _complete(name);
+      });
+      dropdown.appendChild(item);
+    });
+    dropdown.style.display = 'block';
+  }
+
+  function _positionDropdown() {
+    // Mirror the textarea content up to the cursor to measure caret position.
+    const cs = window.getComputedStyle(textarea);
+    const mirror = document.createElement('div');
+    mirror.style.cssText =
+      'position:fixed;visibility:hidden;overflow:hidden;white-space:pre-wrap;' +
+      'word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
+      'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
+      'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
+    mirror.appendChild(document.createTextNode(textarea.value.slice(0, textarea.selectionStart)));
+    const caret = document.createElement('span');
+    caret.textContent = '\u200b'; // zero-width space marks the caret position
+    mirror.appendChild(caret);
+    document.body.appendChild(mirror);
+    const caretRect = caret.getBoundingClientRect();
+    const taRect = textarea.getBoundingClientRect();
+    document.body.removeChild(mirror);
+
+    // Position below caret, clamping to stay within the textarea bounds.
+    const lineH = parseFloat(cs.lineHeight) || 18;
+    let top = caretRect.bottom + 4;
+    let left = caretRect.left;
+    // Clamp so the dropdown doesn't overflow right edge of viewport
+    const dropW = Math.min(320, window.innerWidth - 16);
+    if (left + dropW > window.innerWidth - 8) left = window.innerWidth - dropW - 8;
+    // If caret is below the textarea (can happen with overflow), clamp to ta bottom
+    if (top > taRect.bottom) top = taRect.bottom + 4;
+
+    dropdown.style.top = top + 'px';
+    dropdown.style.left = left + 'px';
+  }
+
+  function _complete(name) {
+    const pos = textarea.selectionStart;
+    const before = textarea.value.slice(0, _acStart);
+    const after  = textarea.value.slice(pos);
+    const insert = '[[' + name + ']]';
+    textarea.value = before + insert + after;
+    const newPos = before.length + insert.length;
+    textarea.selectionStart = textarea.selectionEnd = newPos;
+    _hide();
+    textarea.focus();
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function _hide() {
+    dropdown.style.display = 'none';
+    _acItems = [];
+    _acIdx = -1;
+    _acStart = -1;
+  }
+
+  textarea.addEventListener('input', () => {
+    const pos = textarea.selectionStart;
+    const before = textarea.value.slice(0, pos);
+    // Look for an unclosed [[ before the cursor (no closing ]] yet on this line)
+    const m = before.match(/\[\[([^\]\n]*)$/);
+    if (!m) { _hide(); return; }
+
+    const partial = m[1].toLowerCase();
+    _acStart = before.length - m[0].length;
+
+    NoteStorage.getAllNoteNames().then(names => {
+      const filtered = names
+        .filter(n => !n.startsWith('.') && n.toLowerCase().includes(partial))
+        .sort((a, b) => {
+          const as = a.toLowerCase().startsWith(partial);
+          const bs = b.toLowerCase().startsWith(partial);
+          return (bs - as) || a.localeCompare(b);
+        })
+        .slice(0, 10);
+
+      if (filtered.length === 0) { _hide(); return; }
+      _acItems = filtered;
+      _acIdx = 0;
+      _renderDropdown(filtered);
+      _positionDropdown();
+    });
+  });
+
+  // Capture keydown so we intercept arrow keys before the textarea moves the cursor.
+  textarea.addEventListener('keydown', e => {
+    if (dropdown.style.display === 'none') return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _acIdx = (_acIdx + 1) % _acItems.length;
+      _renderDropdown(_acItems);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _acIdx = (_acIdx - 1 + _acItems.length) % _acItems.length;
+      _renderDropdown(_acItems);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (_acIdx >= 0 && _acItems[_acIdx]) {
+        e.preventDefault();
+        e.stopPropagation();
+        _complete(_acItems[_acIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      _hide();
+    }
+  }, true); // capture phase so we beat the Tab handler
+
+  // Dismiss when the textarea loses focus (slight delay lets mousedown fire first).
+  textarea.addEventListener('blur', () => setTimeout(_hide, 150));
+}
+
 // ── Mobile Swipe Navigation ──────────────────────────────────────────────
 {
   const mobileRightPanel = document.getElementById('mobile-right-panel');
