@@ -1614,28 +1614,27 @@ body.panel-pinned {
   line-height: normal;
 }
 
-/* Block / display math: cap at parent width, scroll when too wide. */
+/* Block / display math: cap at parent width. */
 #preview mjx-container[display="true"] {
   display: block !important;
   max-width: 100% !important;
+}
+
+/* Inline math: cap at line width. */
+#preview mjx-container:not([display="true"]) {
+  display: inline-block;
+  max-width: 100% !important;
+  vertical-align: middle;
+}
+
+/* Only equations whose content actually overflows get horizontal scrolling.
+   The .math-overflow class is applied by JS after each render. */
+#preview mjx-container.math-overflow {
   overflow-x: auto;
   overflow-y: hidden;
   /* iOS momentum scrolling */
   -webkit-overflow-scrolling: touch;
-  /* Android/iOS: allow horizontal pan inside this element without
-     triggering page-level swipe-back/forward navigation. */
-  overscroll-behavior-x: contain;
-  touch-action: pan-x pan-y;
-}
-
-/* Inline math: cap at line width, scroll when too wide. */
-#preview mjx-container:not([display="true"]) {
-  display: inline-block;
-  max-width: 100% !important;
-  overflow-x: auto;
-  overflow-y: hidden;
-  vertical-align: middle;
-  -webkit-overflow-scrolling: touch;
+  /* Prevent page-level swipe-back/forward navigation while scrolling math. */
   overscroll-behavior-x: contain;
   touch-action: pan-x pan-y;
 }
@@ -1644,8 +1643,6 @@ body.panel-pinned {
 #preview .MathJax_Display,
 #preview .MathJax[display="true"] {
   max-width: 100% !important;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
 }
 
 /* ── Plain (non-task) checkboxes ── */
