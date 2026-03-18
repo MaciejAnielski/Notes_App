@@ -364,7 +364,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   let content = prefetchedContent !== null ? prefetchedContent : await NoteStorage.getNote(name);
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
   if (content === null && name === CALENDARS_NOTE) {
-    content = '# Settings\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
+    content = '# Settings\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
     await NoteStorage.setNote(name, content);
   } else if (content === null) {
     alert('File not found.');
@@ -382,19 +382,26 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     }
     await NoteStorage.setNote(name, content);
   }
+  // Migrate old ### Projects Note Emojis to ## (top-level section)
+  if (name === CALENDARS_NOTE && content.includes('### Projects Note Emojis')) {
+    content = content.replace('### Projects Note Emojis', '## Projects Note Emojis');
+    await NoteStorage.setNote(name, content);
+  }
   // Ensure Settings note has the Projects Note Emojis section
-  if (name === CALENDARS_NOTE && !content.includes('### Projects Note Emojis')) {
-    if (content.includes('## 🎨 Theme')) {
-      const insertPos = content.lastIndexOf('\n## ');
-      if (insertPos !== -1) {
-        content = content.slice(0, insertPos) +
-          '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
-          content.slice(insertPos);
+  if (name === CALENDARS_NOTE && !content.includes('## Projects Note Emojis')) {
+    const themeIdx = content.indexOf('## 🎨 Theme');
+    if (themeIdx !== -1) {
+      // Insert after the Theme section (before the next ## heading, or at end)
+      const nextSecIdx = content.indexOf('\n## ', themeIdx + 1);
+      if (nextSecIdx !== -1) {
+        content = content.slice(0, nextSecIdx) +
+          '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
+          content.slice(nextSecIdx);
       } else {
-        content += '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
+        content += '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
       }
     } else {
-      content += '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
+      content += '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
     }
     await NoteStorage.setNote(name, content);
   }
