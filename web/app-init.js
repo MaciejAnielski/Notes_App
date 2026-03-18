@@ -531,7 +531,10 @@ if (window.electronAPI?.notes?.onExternalChange) {
       ? changedFile.slice(0, -3)
       : null;
     if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
+      const hasUnsavedEdits = _lastSavedContent !== null && (
+        textarea.value !== _lastSavedContent ||
+        (_lastRemoteContent !== null && _lastSavedContent !== _lastRemoteContent)
+      );
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
         if (textarea.value.trim()) {
@@ -565,14 +568,17 @@ if (window.electronAPI?.notes?.onExternalChange) {
         } else {
           textarea.value = content;
           _lastSavedContent = content;
+          _lastRemoteContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
           contentChanged = true;
         }
       } else if (changedNote && changedNote !== currentFileName) {
+        _lastRemoteContent = content;
         updateStatus(`iCloud: "${changedNote}" synced.`, true);
       } else if (!changedNote) {
         // Wildcard event (from force sync): current note is already up to date.
+        _lastRemoteContent = content;
         updateStatus('iCloud: Up to date.', true);
       }
     } else if (changedNote) {
@@ -605,7 +611,10 @@ if (window.Capacitor?.isNativePlatform()) {
     let structuralChanged = false;
     let contentChanged = false;
     if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
+      const hasUnsavedEdits = _lastSavedContent !== null && (
+        textarea.value !== _lastSavedContent ||
+        (_lastRemoteContent !== null && _lastSavedContent !== _lastRemoteContent)
+      );
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null && NoteStorage._lastGetNoteTimedOut) {
         // Download timed out (slow network) — do not treat as deletion.
@@ -639,16 +648,49 @@ if (window.Capacitor?.isNativePlatform()) {
         } else {
           textarea.value = content;
           _lastSavedContent = content;
+          _lastRemoteContent = content;
+          _perNoteSavedContent.set(currentFileName, content);
+          _perNoteRemoteContent.set(currentFileName, content);
           if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
           contentChanged = true;
         }
-      } else if (showStatus) {
-        updateStatus('iCloud: Up to date.', true);
+      } else {
+        _lastRemoteContent = content;
+        _perNoteRemoteContent.set(currentFileName, content);
+        if (showStatus) updateStatus('iCloud: Up to date.', true);
       }
     } else if (showStatus) {
       updateStatus('iCloud: Up to date.', true);
     }
+
+    // ── Background note protection ──────────────────────────────────────────
+    // Check notes we've edited on this device that are not currently open.
+    // If _perNoteSavedContent differs from _perNoteRemoteContent, we have a
+    // local save that hasn't been confirmed by the remote yet.  Read the
+    // remote version and re-assert our saved content if it was overwritten.
+    for (const [bgName, bgSaved] of _perNoteSavedContent) {
+      if (bgName === currentFileName) continue; // already handled above
+      if (!_perNoteRemoteContent.has(bgName)) continue; // never confirmed from remote
+      if (bgSaved === _perNoteRemoteContent.get(bgName)) continue; // already in sync
+
+      const bgContent = await NoteStorage.getNote(bgName);
+      if (bgContent === bgSaved) {
+        // Remote now matches our saved content — mark as confirmed.
+        _perNoteRemoteContent.set(bgName, bgSaved);
+      } else if (bgContent !== null) {
+        // Conflict: remote has different content.  Re-assert our saved version.
+        try {
+          await NoteStorage.setNote(bgName, bgSaved);
+          _perNoteRemoteContent.set(bgName, bgSaved);
+          updateStatus(`iCloud: Remote change to "${bgName}" detected — keeping your edits.`, true);
+          structuralChanged = true;
+        } catch { /* non-fatal — will retry next poll */ }
+      }
+      // bgContent === null: note was deleted remotely; leave maps as-is and
+      // let the user discover this when they next open the note.
+    }
+
     const names = await NoteStorage.getAllNoteNames();
     const nameStr = names.slice().sort().join('\n');
     if (_iCloudPollKnownNames !== null && _iCloudPollKnownNames !== nameStr) {
@@ -822,8 +864,9 @@ if (savedChain) {
 
     await Promise.all([migrationPromise, prefsPromise]);
 
-    if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
-      await loadNote(lastFile, true);
+    const initialContent = lastFile ? await NoteStorage.getNote(lastFile) : null;
+    if (initialContent !== null) {
+      await loadNote(lastFile, true, initialContent);
     } else {
       await newNote();
     }
