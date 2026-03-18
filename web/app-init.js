@@ -364,7 +364,8 @@ document.addEventListener('keydown', e => {
   }
 
   function _positionDropdown() {
-    // Mirror the textarea content up to the cursor to measure caret position.
+    // Anchor to the first character after [[ so the dropdown stays fixed while
+    // the user types, and typing remains visible above it.
     const cs = window.getComputedStyle(textarea);
     const mirror = document.createElement('div');
     mirror.style.cssText =
@@ -372,23 +373,20 @@ document.addEventListener('keydown', e => {
       'word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
       'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
       'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
-    mirror.appendChild(document.createTextNode(textarea.value.slice(0, textarea.selectionStart)));
-    const caret = document.createElement('span');
-    caret.textContent = '\u200b'; // zero-width space marks the caret position
-    mirror.appendChild(caret);
+    // Measure position at _acStart + 2 (right after the opening [[).
+    mirror.appendChild(document.createTextNode(textarea.value.slice(0, _acStart + 2)));
+    const anchor = document.createElement('span');
+    anchor.textContent = '\u200b';
+    mirror.appendChild(anchor);
     document.body.appendChild(mirror);
-    const caretRect = caret.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
     const taRect = textarea.getBoundingClientRect();
     document.body.removeChild(mirror);
 
-    // Position below caret, clamping to stay within the textarea bounds.
-    const lineH = parseFloat(cs.lineHeight) || 18;
-    let top = caretRect.bottom + 4;
-    let left = caretRect.left;
-    // Clamp so the dropdown doesn't overflow right edge of viewport
+    let top = anchorRect.bottom + 4;
+    let left = anchorRect.left;
     const dropW = Math.min(320, window.innerWidth - 16);
     if (left + dropW > window.innerWidth - 8) left = window.innerWidth - dropW - 8;
-    // If caret is below the textarea (can happen with overflow), clamp to ta bottom
     if (top > taRect.bottom) top = taRect.bottom + 4;
 
     dropdown.style.top = top + 'px';
@@ -423,7 +421,9 @@ document.addEventListener('keydown', e => {
     if (!m) { _hide(); return; }
 
     const partial = m[1].toLowerCase();
-    _acStart = before.length - m[0].length;
+    const newStart = before.length - m[0].length;
+    const isNewTrigger = newStart !== _acStart;
+    _acStart = newStart;
 
     NoteStorage.getAllNoteNames().then(names => {
       const filtered = names
@@ -439,7 +439,8 @@ document.addEventListener('keydown', e => {
       _acItems = filtered;
       _acIdx = 0;
       _renderDropdown(filtered);
-      _positionDropdown();
+      // Only reposition when [[ is first typed; anchor stays fixed after that.
+      if (isNewTrigger) _positionDropdown();
     });
   });
 
