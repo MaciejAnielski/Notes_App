@@ -477,6 +477,65 @@ function getThemeCalendarColorByHash(name) {
 
 const PREFS_NOTE = '.app_preferences';
 
+// ── Project emoji preferences ────────────────────────────────────────────────
+
+const PROJECT_EMOJI_STORAGE_KEY = 'project_emojis';
+
+const DEFAULT_PROJECT_EMOJIS = {
+  active: '🟢',
+  completed: '✅',
+  Winter: '❄️',
+  Spring: '🌱',
+  Summer: '☀️',
+  Autumn: '🍂'
+};
+
+const EMOJI_OPTIONS = {
+  active: ['🔵', '🟢', '🟡', '🔴', '⚪', '🟣', '🟠', '📌', '⭐', '▶️', '▪️', '◆'],
+  completed: ['✅', '✔️', '☑️', '🎉', '🏆', '🎯', '💯', '🔒', '🏁', '🌟', '⭐'],
+  Winter: ['❄️', '🧊', '⛄', '🎄', '🎅'],
+  Spring: ['🌱', '🌸', '🌼', '🐝', '🌿'],
+  Summer: ['☀️', '🌞', '🏖️', '🌊', '🍦'],
+  Autumn: ['🍂', '🍁', '🌰', '🧡', '🎃']
+};
+
+function getProjectEmojis() {
+  const stored = localStorage.getItem(PROJECT_EMOJI_STORAGE_KEY);
+  if (stored) {
+    try {
+      return { ...DEFAULT_PROJECT_EMOJIS, ...JSON.parse(stored) };
+    } catch {}
+  }
+  return DEFAULT_PROJECT_EMOJIS;
+}
+
+function setProjectEmoji(type, emoji) {
+  const current = getProjectEmojis();
+  const updated = { ...current, [type]: emoji };
+  // Remove defaults to keep storage lean
+  const toStore = {};
+  for (const key of Object.keys(updated)) {
+    if (updated[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
+      toStore[key] = updated[key];
+    }
+  }
+  localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
+  syncProjectEmojisToNote();
+  if (typeof refreshProjectsNote === 'function') {
+    refreshProjectsNote();
+  }
+}
+
+function resetProjectEmojis() {
+  localStorage.removeItem(PROJECT_EMOJI_STORAGE_KEY);
+  syncProjectEmojisToNote();
+  if (typeof refreshProjectsNote === 'function') {
+    refreshProjectsNote();
+  }
+}
+
+// ── Synced preferences ────────────────────────────────────────────────────────
+
 async function loadSyncedPreferences() {
   if (typeof NoteStorage === 'undefined') return null;
   try {
@@ -507,6 +566,21 @@ async function syncCalendarColorsToNote() {
   } catch {}
 }
 
+async function syncProjectEmojisToNote() {
+  try {
+    const emojis = getProjectEmojis();
+    const toStore = {};
+    for (const key of Object.keys(emojis)) {
+      if (emojis[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
+        toStore[key] = emojis[key];
+      }
+    }
+    if (Object.keys(toStore).length > 0) {
+      await saveSyncedPreferences({ projectEmojis: toStore });
+    }
+  } catch {}
+}
+
 async function applySyncedPreferences() {
   const prefs = await loadSyncedPreferences();
   if (!prefs) return;
@@ -525,6 +599,21 @@ async function applySyncedPreferences() {
     const local = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
     const merged = { ...local, ...prefs.calendarColors };
     localStorage.setItem('calendar_colors', JSON.stringify(merged));
+  }
+
+  // Apply synced project emojis
+  if (prefs.projectEmojis) {
+    const current = getProjectEmojis();
+    const merged = { ...current, ...prefs.projectEmojis };
+    const toStore = {};
+    for (const key of Object.keys(merged)) {
+      if (merged[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
+        toStore[key] = merged[key];
+      }
+    }
+    if (Object.keys(toStore).length > 0) {
+      localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
+    }
   }
 }
 

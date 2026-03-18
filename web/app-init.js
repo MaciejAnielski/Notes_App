@@ -470,12 +470,15 @@ window.addEventListener('storage', e => {
     return;
   }
   // Re-apply theme/calendar colours when changed in another tab
-  if (e.key === 'app_theme' || e.key === 'calendar_colors') {
+  if (e.key === 'app_theme' || e.key === 'calendar_colors' || e.key === 'project_emojis') {
     if (e.key === 'app_theme') {
       const theme = getCurrentTheme();
       applyTheme(theme.background, theme.accent);
     }
     if (e.key === 'calendar_colors') invalidateScheduleCache();
+    if (e.key === 'project_emojis' && typeof refreshProjectsNote === 'function') {
+      refreshProjectsNote();
+    }
     return;
   }
   if (e.key && e.key.startsWith('md_')) {

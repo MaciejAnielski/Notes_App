@@ -51,6 +51,7 @@ async function generateProjectsNoteContent() {
   const currentMonth = today.getMonth() + 1;
 
   const SEASON_END_MONTH = { Winter: 2, Spring: 5, Summer: 8, Autumn: 11 };
+  const emojis = getProjectEmojis();
 
   function isYearPast(yy) {
     return (2000 + parseInt(yy, 10)) < currentFullYear;
@@ -108,19 +109,20 @@ async function generateProjectsNoteContent() {
       const activeYears = Object.keys(active).sort((a, b) => b.localeCompare(a));
       for (const yy of activeYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
-        lines.push(`## 20${yy}${yCollapse}`, '');
+        lines.push(`## ${emojis.active} 20${yy}${yCollapse}`, '');
         for (const season of SEASON_ORDER) {
           const notes = active[yy][season];
           if (!notes || !notes.length) continue;
           const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
-          lines.push(`### ${season}${sCollapse}`, '');
+          const seasonEmoji = emojis[season];
+          lines.push(`### ${seasonEmoji} ${season}${sCollapse}`, '');
           for (const name of notes) lines.push(`- [[${name}]]`);
           lines.push('');
         }
       }
     }
     if (hasCompleted) {
-      lines.push('## Completed >', '');
+      lines.push(`## ${emojis.completed} Completed >`, '');
       const completedYears = Object.keys(completed).sort((a, b) => b.localeCompare(a));
       for (const yy of completedYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
@@ -129,7 +131,8 @@ async function generateProjectsNoteContent() {
           const notes = completed[yy][season];
           if (!notes || !notes.length) continue;
           const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
-          lines.push(`#### ${season}${sCollapse}`, '');
+          const seasonEmoji = emojis[season];
+          lines.push(`#### ${seasonEmoji} ${season}${sCollapse}`, '');
           for (const name of notes) lines.push(`- [[${name}]]`);
           lines.push('');
         }
