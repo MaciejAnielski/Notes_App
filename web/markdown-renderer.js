@@ -741,6 +741,7 @@ async function renderPreview() {
   if (currentFileName === CALENDARS_NOTE) {
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
+    injectProjectEmojiPickers(previewDiv);
   }
 }
 
@@ -919,6 +920,217 @@ function injectThemeColorPickers(container) {
     if (typeof syncThemeToNote === 'function') syncThemeToNote();
     reinitMermaidTheme();
   });
+}
+
+// ── Project emoji pickers in Settings note preview ──────────────────────────
+
+function injectProjectEmojiPickers(container) {
+  // Find the <details> containing the "Theme" h2 (emojis go in Theme section)
+  let themeSection = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Theme')) { themeSection = details; break; }
+  }
+  // Fall back to plain h2 if not collapsible
+  if (!themeSection) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Theme')) { themeSection = h.parentElement; break; }
+    }
+  }
+  if (!themeSection) return;
+
+  // Don't inject twice
+  if (themeSection.querySelector('.emoji-picker-container')) return;
+
+  const emojis = getProjectEmojis();
+  const defaults = DEFAULT_PROJECT_EMOJIS;
+
+  const container_el = document.createElement('div');
+  container_el.className = 'emoji-picker-container';
+  container_el.style.cssText = 'padding: 8px 0; border-top: 1px solid var(--border); margin-top: 12px;';
+
+  // Active emoji picker
+  const activeSection = document.createElement('div');
+  activeSection.style.cssText = 'margin-bottom: 12px;';
+  const activeLabel = document.createElement('div');
+  activeLabel.className = 'emoji-picker-label';
+  activeLabel.textContent = 'Ongoing Projects';
+  activeLabel.style.cssText = 'font-weight: 500; font-size: 13px; color: var(--muted); margin-bottom: 6px;';
+  activeSection.appendChild(activeLabel);
+  const activeGrid = document.createElement('div');
+  activeGrid.className = 'emoji-picker-grid';
+  activeGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; max-width: 200px;';
+  for (const emoji of EMOJI_OPTIONS.active) {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-picker-btn';
+    btn.textContent = emoji;
+    btn.style.cssText = 'font-size: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1;';
+    if (emoji === emojis.active) {
+      btn.classList.add('selected');
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.borderWidth = '2px';
+      btn.style.background = 'var(--surface)';
+    }
+    btn.addEventListener('click', () => {
+      setProjectEmoji('active', emoji);
+      // Update UI
+      for (const b of activeGrid.querySelectorAll('button')) {
+        b.style.borderColor = 'var(--border)';
+        b.style.borderWidth = '1px';
+        b.classList.remove('selected');
+      }
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.borderWidth = '2px';
+      btn.classList.add('selected');
+    });
+    btn.addEventListener('mouseenter', () => {
+      if (!btn.classList.contains('selected')) {
+        btn.style.background = 'var(--surface)';
+        btn.style.borderColor = 'var(--accent)';
+      }
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (!btn.classList.contains('selected')) {
+        btn.style.background = 'var(--surface)';
+        btn.style.borderColor = 'var(--border)';
+      }
+    });
+    activeGrid.appendChild(btn);
+  }
+  activeSection.appendChild(activeGrid);
+  container_el.appendChild(activeSection);
+
+  // Completed emoji picker
+  const completedSection = document.createElement('div');
+  completedSection.style.cssText = 'margin-bottom: 12px;';
+  const completedLabel = document.createElement('div');
+  completedLabel.className = 'emoji-picker-label';
+  completedLabel.textContent = 'Completed Projects';
+  completedLabel.style.cssText = 'font-weight: 500; font-size: 13px; color: var(--muted); margin-bottom: 6px;';
+  completedSection.appendChild(completedLabel);
+  const completedGrid = document.createElement('div');
+  completedGrid.className = 'emoji-picker-grid';
+  completedGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; max-width: 200px;';
+  for (const emoji of EMOJI_OPTIONS.completed) {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-picker-btn';
+    btn.textContent = emoji;
+    btn.style.cssText = 'font-size: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1;';
+    if (emoji === emojis.completed) {
+      btn.classList.add('selected');
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.borderWidth = '2px';
+    }
+    btn.addEventListener('click', () => {
+      setProjectEmoji('completed', emoji);
+      // Update UI
+      for (const b of completedGrid.querySelectorAll('button')) {
+        b.style.borderColor = 'var(--border)';
+        b.style.borderWidth = '1px';
+        b.classList.remove('selected');
+      }
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.borderWidth = '2px';
+      btn.classList.add('selected');
+    });
+    btn.addEventListener('mouseenter', () => {
+      if (!btn.classList.contains('selected')) {
+        btn.style.background = 'var(--surface)';
+        btn.style.borderColor = 'var(--accent)';
+      }
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (!btn.classList.contains('selected')) {
+        btn.style.background = 'var(--surface)';
+        btn.style.borderColor = 'var(--border)';
+      }
+    });
+    completedGrid.appendChild(btn);
+  }
+  completedSection.appendChild(completedGrid);
+  container_el.appendChild(completedSection);
+
+  // Season emojis section
+  const seasonSection = document.createElement('div');
+  seasonSection.style.cssText = 'margin-bottom: 12px;';
+  const seasonLabel = document.createElement('div');
+  seasonLabel.className = 'emoji-picker-label';
+  seasonLabel.textContent = 'Seasons';
+  seasonLabel.style.cssText = 'font-weight: 500; font-size: 13px; color: var(--muted); margin-bottom: 6px;';
+  seasonSection.appendChild(seasonLabel);
+
+  for (const season of SEASON_ORDER) {
+    const seasonRow = document.createElement('div');
+    seasonRow.style.cssText = 'margin-bottom: 8px;';
+    const seasonSubLabel = document.createElement('div');
+    seasonSubLabel.style.cssText = 'font-size: 12px; color: var(--muted); margin-bottom: 4px; padding-left: 0;';
+    seasonSubLabel.textContent = season;
+    seasonRow.appendChild(seasonSubLabel);
+    const seasonGrid = document.createElement('div');
+    seasonGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; max-width: 150px;';
+    for (const emoji of EMOJI_OPTIONS[season]) {
+      const btn = document.createElement('button');
+      btn.className = 'emoji-picker-btn';
+      btn.textContent = emoji;
+      btn.style.cssText = 'font-size: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1;';
+      if (emoji === emojis[season]) {
+        btn.classList.add('selected');
+        btn.style.borderColor = 'var(--accent)';
+        btn.style.borderWidth = '2px';
+      }
+      const seasonName = season;
+      btn.addEventListener('click', () => {
+        setProjectEmoji(seasonName, emoji);
+        // Update UI
+        for (const b of seasonGrid.querySelectorAll('button')) {
+          b.style.borderColor = 'var(--border)';
+          b.style.borderWidth = '1px';
+          b.classList.remove('selected');
+        }
+        btn.style.borderColor = 'var(--accent)';
+        btn.style.borderWidth = '2px';
+        btn.classList.add('selected');
+      });
+      btn.addEventListener('mouseenter', () => {
+        if (!btn.classList.contains('selected')) {
+          btn.style.background = 'var(--surface)';
+          btn.style.borderColor = 'var(--accent)';
+        }
+      });
+      btn.addEventListener('mouseleave', () => {
+        if (!btn.classList.contains('selected')) {
+          btn.style.background = 'var(--surface)';
+          btn.style.borderColor = 'var(--border)';
+        }
+      });
+      seasonGrid.appendChild(btn);
+    }
+    seasonRow.appendChild(seasonGrid);
+    seasonSection.appendChild(seasonRow);
+  }
+  container_el.appendChild(seasonSection);
+
+  // Reset button
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'emoji-picker-reset-btn';
+  resetBtn.textContent = 'Reset to Defaults';
+  resetBtn.style.cssText = 'margin-top: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px;';
+  resetBtn.addEventListener('click', () => {
+    resetProjectEmojis();
+    // Refresh the whole picker by re-injecting
+    const oldPicker = themeSection.querySelector('.emoji-picker-container');
+    if (oldPicker) oldPicker.remove();
+    injectProjectEmojiPickers(container);
+  });
+  container_el.appendChild(resetBtn);
+
+  // Insert controls after theme controls
+  const themeControls = themeSection.querySelector('.theme-controls');
+  if (themeControls && themeControls.nextSibling) {
+    themeSection.insertBefore(container_el, themeControls.nextSibling);
+  } else {
+    themeSection.appendChild(container_el);
+  }
 }
 
 async function toggleView() {
