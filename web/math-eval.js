@@ -438,6 +438,14 @@ function setupClickableMathFormulas() {
   });
 }
 
+// After each MathJax render, mark only the equations that actually overflow
+// with .math-overflow so that CSS scroll behaviour is applied selectively.
+function markOverflowingMathContainers() {
+  previewDiv.querySelectorAll('mjx-container').forEach(el => {
+    el.classList.toggle('math-overflow', el.scrollWidth > el.clientWidth);
+  });
+}
+
 function setupMathWheelScroll() {
   previewDiv.addEventListener('wheel', (e) => {
     const container = e.target.closest('mjx-container');

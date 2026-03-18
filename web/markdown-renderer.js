@@ -743,6 +743,7 @@ async function renderPreview() {
   }
   if (window.MathJax?.typesetPromise) {
     MathJax.typesetPromise([previewDiv]).then(() => {
+      markOverflowingMathContainers();
       if (isPreview) setupClickableMathFormulas();
     });
   }
