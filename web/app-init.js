@@ -531,7 +531,10 @@ if (window.electronAPI?.notes?.onExternalChange) {
       ? changedFile.slice(0, -3)
       : null;
     if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
+      const hasUnsavedEdits = _lastSavedContent !== null && (
+        textarea.value !== _lastSavedContent ||
+        (_lastRemoteContent !== null && _lastSavedContent !== _lastRemoteContent)
+      );
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
         if (textarea.value.trim()) {
@@ -565,14 +568,17 @@ if (window.electronAPI?.notes?.onExternalChange) {
         } else {
           textarea.value = content;
           _lastSavedContent = content;
+          _lastRemoteContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
           contentChanged = true;
         }
       } else if (changedNote && changedNote !== currentFileName) {
+        _lastRemoteContent = content;
         updateStatus(`iCloud: "${changedNote}" synced.`, true);
       } else if (!changedNote) {
         // Wildcard event (from force sync): current note is already up to date.
+        _lastRemoteContent = content;
         updateStatus('iCloud: Up to date.', true);
       }
     } else if (changedNote) {
@@ -605,7 +611,10 @@ if (window.Capacitor?.isNativePlatform()) {
     let structuralChanged = false;
     let contentChanged = false;
     if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
+      const hasUnsavedEdits = _lastSavedContent !== null && (
+        textarea.value !== _lastSavedContent ||
+        (_lastRemoteContent !== null && _lastSavedContent !== _lastRemoteContent)
+      );
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null && NoteStorage._lastGetNoteTimedOut) {
         // Download timed out (slow network) — do not treat as deletion.
@@ -639,12 +648,14 @@ if (window.Capacitor?.isNativePlatform()) {
         } else {
           textarea.value = content;
           _lastSavedContent = content;
+          _lastRemoteContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
           updateStatus('iCloud: Note updated from another device.', true);
           contentChanged = true;
         }
-      } else if (showStatus) {
-        updateStatus('iCloud: Up to date.', true);
+      } else {
+        _lastRemoteContent = content;
+        if (showStatus) updateStatus('iCloud: Up to date.', true);
       }
     } else if (showStatus) {
       updateStatus('iCloud: Up to date.', true);
@@ -822,8 +833,9 @@ if (savedChain) {
 
     await Promise.all([migrationPromise, prefsPromise]);
 
-    if (lastFile && await NoteStorage.getNote(lastFile) !== null) {
-      await loadNote(lastFile, true);
+    const initialContent = lastFile ? await NoteStorage.getNote(lastFile) : null;
+    if (initialContent !== null) {
+      await loadNote(lastFile, true, initialContent);
     } else {
       await newNote();
     }

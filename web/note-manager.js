@@ -316,7 +316,7 @@ async function applyPendingRename() {
 
 // ── Load / New / Delete ───────────────────────────────────────────────────
 
-async function loadNote(name, fromLink = false) {
+async function loadNote(name, fromLink = false, prefetchedContent = null) {
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
 
@@ -346,7 +346,7 @@ async function loadNote(name, fromLink = false) {
     linkedNoteChain = [];
     saveChain();
   }
-  let content = await NoteStorage.getNote(name);
+  let content = prefetchedContent !== null ? prefetchedContent : await NoteStorage.getNote(name);
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
   if (content === null && name === CALENDARS_NOTE) {
     content = '# Settings\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
@@ -369,6 +369,7 @@ async function loadNote(name, fromLink = false) {
   }
   textarea.value = content;
   _lastSavedContent = content;
+  _lastRemoteContent = content;
   currentFileName = name;
   refreshHighlight();
   localStorage.setItem('current_file', name);
@@ -437,6 +438,7 @@ async function newNote() {
   currentFileName = null;
   localStorage.removeItem('current_file');
   _lastSavedContent = textarea.value;
+  _lastRemoteContent = null;
   refreshHighlight();
   const activeItem = fileList.querySelector('.active-file');
   if (activeItem) activeItem.classList.remove('active-file');
