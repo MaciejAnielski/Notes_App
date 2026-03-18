@@ -7,13 +7,24 @@
 // ── Lazy script loader ───────────────────────────────────────────────────
 // Used to defer loading of heavy vendor libraries (mermaid, vis-network)
 // until they are actually needed, reducing initial startup time.
+// Tracks fully-loaded scripts so concurrent calls resolve immediately after
+// the first load, and don't resolve early if the tag exists but is still
+// fetching (which would leave window.mermaid / MathJax undefined).
+const _loadedScripts = new Set();
 function loadScript(src) {
   return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    if (_loadedScripts.has(src)) { resolve(); return; }
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      // Tag exists but hasn't finished loading yet — wait for it.
+      existing.addEventListener('load', () => { _loadedScripts.add(src); resolve(); }, { once: true });
+      existing.addEventListener('error', reject, { once: true });
+      return;
+    }
     const s = document.createElement('script');
     s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
+    s.addEventListener('load', () => { _loadedScripts.add(src); resolve(); }, { once: true });
+    s.addEventListener('error', reject, { once: true });
     document.head.appendChild(s);
   });
 }

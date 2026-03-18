@@ -286,8 +286,12 @@ function _makeScheduleBlock(item, extraClass) {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = item.isCompleted;
-    cb.addEventListener('change', () =>
-      toggleScheduleTask(item.fileName, item.lineIndex, cb.checked));
+    cb.addEventListener('change', () => {
+      // Optimistically update visual state immediately for instant feedback,
+      // without waiting for the async re-render to complete.
+      block.classList.toggle('completed', cb.checked);
+      toggleScheduleTask(item.fileName, item.lineIndex, cb.checked);
+    });
     block.appendChild(cb);
   } else {
     const icon = document.createElement('span');
