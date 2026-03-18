@@ -364,30 +364,43 @@ document.addEventListener('keydown', e => {
   }
 
   function _positionDropdown() {
-    // Anchor to the first character after [[ so the dropdown stays fixed while
-    // the user types, and typing remains visible above it.
+    // Place the mirror off-screen with position:absolute so that offsetTop/Left
+    // give the character's position within the text layout. Then translate to
+    // viewport coords using the textarea's bounding rect and scrollTop/Left.
+    // This correctly handles a scrolled textarea, unlike a fixed-positioned mirror.
     const cs = window.getComputedStyle(textarea);
     const mirror = document.createElement('div');
     mirror.style.cssText =
-      'position:fixed;visibility:hidden;overflow:hidden;white-space:pre-wrap;' +
-      'word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
+      'position:absolute;top:-9999px;left:-9999px;visibility:hidden;' +
+      'white-space:pre-wrap;word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
       'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
       'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
-    // Measure position at _acStart + 2 (right after the opening [[).
+    // Measure at _acStart + 2 (right after [[) — stays fixed while typing.
     mirror.appendChild(document.createTextNode(textarea.value.slice(0, _acStart + 2)));
     const anchor = document.createElement('span');
     anchor.textContent = '\u200b';
     mirror.appendChild(anchor);
     document.body.appendChild(mirror);
-    const anchorRect = anchor.getBoundingClientRect();
-    const taRect = textarea.getBoundingClientRect();
+    const anchorTop  = anchor.offsetTop;
+    const anchorLeft = anchor.offsetLeft;
+    const lineH = anchor.offsetHeight || parseFloat(cs.lineHeight) || 18;
     document.body.removeChild(mirror);
 
-    let top = anchorRect.bottom + 4;
-    let left = anchorRect.left;
+    const taRect = textarea.getBoundingClientRect();
+    // Convert layout offset → viewport position by subtracting textarea scroll.
+    let top  = taRect.top  + anchorTop  - textarea.scrollTop  + lineH + 4;
+    let left = taRect.left + anchorLeft - textarea.scrollLeft;
+
     const dropW = Math.min(320, window.innerWidth - 16);
     if (left + dropW > window.innerWidth - 8) left = window.innerWidth - dropW - 8;
-    if (top > taRect.bottom) top = taRect.bottom + 4;
+    if (left < 8) left = 8;
+    // If clipped by the bottom of the viewport, flip above the line instead.
+    if (top + 200 > window.innerHeight - 8) {
+      top = taRect.top + anchorTop - textarea.scrollTop - 4;
+      dropdown.style.transform = 'translateY(-100%)';
+    } else {
+      dropdown.style.transform = '';
+    }
 
     dropdown.style.top = top + 'px';
     dropdown.style.left = left + 'px';
