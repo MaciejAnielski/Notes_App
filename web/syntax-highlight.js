@@ -159,11 +159,13 @@ function _applyInline(line) {
     '<span class="hl-highlight">==<span class="hl-highlight-text">$1</span>==</span>');
 
   // 7. Image syntax ![alt](url) — must come before links to avoid partial match
-  line = line.replace(/!\[([^\]\n]*)\]\(([^)\n]*)\)/g,
+  // URL group allows one level of balanced parentheses (e.g. Wikipedia URLs).
+  line = line.replace(/!\[([^\]\n]*)\]\(([^()\n]*(?:\([^()\n]*\)[^()\n]*)*)\)/g,
     '<span class="hl-image">![$1]($2)</span>');
 
   // 8. Links [text](url)
-  line = line.replace(/\[([^\]\n]*)\]\(([^)\n]*)\)/g,
+  // URL group allows one level of balanced parentheses (e.g. Wikipedia URLs).
+  line = line.replace(/\[([^\]\n]*)\]\(([^()\n]*(?:\([^()\n]*\)[^()\n]*)*)\)/g,
     '<span class="hl-link">[$1]($2)</span>');
 
   // 9. Wiki links [[text]]

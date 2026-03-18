@@ -298,7 +298,18 @@ function _makeScheduleBlock(item, extraClass) {
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'schedule-item-name';
-  nameSpan.textContent = stripMarkdownText(item.text);
+  // Render inline markdown (including math delimiters for MathJax) instead of
+  // stripping everything to plain text.
+  {
+    let displayText = item.text;
+    displayText = displayText.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => inner.replace(/_/g, ' ').trim());
+    displayText = displayText.replace(/^#+\s*/, '');
+    displayText = displayText.replace(/\s*>\s*\d{6}.*$/, '');
+    displayText = displayText.replace(/^\s*[-*+]\s+/, '');
+    displayText = displayText.replace(/^\s*\d+[.)]\s+/, '');
+    displayText = displayText.replace(/^\s*- \[[ xX]\]\s+/, '');
+    nameSpan.innerHTML = marked.parseInline(displayText);
+  }
   nameSpan.addEventListener('click', () => {
     loadNote(item.fileName);
     closeMobilePanel('right');
@@ -478,6 +489,23 @@ async function _doRenderSchedule() {
     scheduleNowTimer = setInterval(updateNowIndicator, 60000);
     // Scroll after a brief layout settle so the wrapper has its final height
     requestAnimationFrame(() => scrollScheduleToNow());
+  }
+
+  // Typeset math in schedule items. Lazy-load MathJax if needed and there is
+  // math content in any of the current items.
+  const scheduleContainer = wrapper || scheduleGrid;
+  if (scheduleContainer) {
+    const hasMath = allItems.some(it =>
+      /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(it.text || '')
+    );
+    if (hasMath) {
+      if (!window.MathJax?.typesetPromise) {
+        try { await loadScript('vendor/tex-chtml-full.js'); } catch { /* ignore */ }
+      }
+      if (window.MathJax?.typesetPromise) {
+        MathJax.typesetPromise([scheduleContainer]).catch(() => {});
+      }
+    }
   }
 }
 

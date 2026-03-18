@@ -458,6 +458,12 @@ function stripMarkdownText(text) {
   text = text.replace(/\s*>\s*$/, '');
   text = text.replace(/^\s*[-*+]\s+/, '');
   text = text.replace(/^\s*\d+[.)]\s+/, '');
+  // Strip math delimiters so plain-text consumers (notifications, search)
+  // receive readable content instead of raw LaTeX syntax.
+  text = text.replace(/\$\$([^$]+)\$\$/g, '$1');
+  text = text.replace(/\$([^$\n]+)\$/g, '$1');
+  text = text.replace(/\\\((.+?)\\\)/gs, '$1');
+  text = text.replace(/\\\[(.+?)\\\]/gs, '$1');
   const tmp = document.createElement('span');
   tmp.innerHTML = marked.parseInline(text);
   text = tmp.textContent;

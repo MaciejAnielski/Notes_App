@@ -63,6 +63,10 @@ async function _doUpdateFileList() {
         loadNote(fileName);
         closeMobilePanel('left');
       };
+      span.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        _showNoteContextMenu(e.clientX, e.clientY, fileName);
+      });
       li.appendChild(span);
       if (fileName === todayNote) li.classList.add('today-note');
       noteMap[fileName] = li;
@@ -425,4 +429,41 @@ async function toggleTaskStatus(fileName, lineIndex) {
     }
   }
   await updateTodoList();
+}
+
+// ── Note list context menu ────────────────────────────────────────────────
+
+function _showNoteContextMenu(x, y, name) {
+  const menu = document.getElementById('note-context-menu');
+  if (!menu) return;
+  const copyItem = document.getElementById('note-context-copy');
+
+  copyItem.onclick = () => {
+    navigator.clipboard.writeText(name).catch(() => {
+      // Fallback for environments without clipboard API
+      const tmp = document.createElement('textarea');
+      tmp.value = name;
+      tmp.style.position = 'fixed';
+      tmp.style.opacity = '0';
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand('copy');
+      document.body.removeChild(tmp);
+    });
+    menu.style.display = 'none';
+  };
+
+  // Position, then clamp so the menu stays inside the viewport.
+  menu.style.display = 'block';
+  const mw = menu.offsetWidth  || 160;
+  const mh = menu.offsetHeight || 40;
+  const clampedX = Math.min(x, window.innerWidth  - mw - 8);
+  const clampedY = Math.min(y, window.innerHeight - mh - 8);
+  menu.style.left = clampedX + 'px';
+  menu.style.top  = clampedY + 'px';
+
+  // Dismiss on the next click anywhere
+  setTimeout(() => document.addEventListener('click', () => {
+    menu.style.display = 'none';
+  }, { once: true }), 0);
 }
