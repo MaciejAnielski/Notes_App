@@ -106,16 +106,17 @@ async function generateProjectsNoteContent() {
     lines.push('*No project notes found. Create a note titled `YYMMDD Project Name`.*', '');
   } else {
     if (hasActive) {
+      lines.push(`## ${emojis.active} Ongoing`, '');
       const activeYears = Object.keys(active).sort((a, b) => b.localeCompare(a));
       for (const yy of activeYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
-        lines.push(`## ${emojis.active} 20${yy}${yCollapse}`, '');
+        lines.push(`### 20${yy}${yCollapse}`, '');
         for (const season of SEASON_ORDER) {
           const notes = active[yy][season];
           if (!notes || !notes.length) continue;
           const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
           const seasonEmoji = emojis[season];
-          lines.push(`### ${seasonEmoji} ${season}${sCollapse}`, '');
+          lines.push(`#### ${seasonEmoji} ${season}${sCollapse}`, '');
           for (const name of notes) lines.push(`- [[${name}]]`);
           lines.push('');
         }
