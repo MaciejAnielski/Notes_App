@@ -242,7 +242,7 @@
   </div>
 
   <script src="theme-engine.js"></script>
-  <script defer src="icloud-bridge.js"></script>
+  <script>if (!window.electronAPI) document.write('<script defer src="icloud-bridge.js"><\/script>');</script>
   <script defer src="storage.js"></script>
   <script defer src="app-state.js"></script>
   <script defer src="markdown-renderer.js"></script>
