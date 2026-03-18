@@ -1021,7 +1021,7 @@ if (savedChain) {
     }
 
     if (savedPreview && !isPreview) {
-      toggleView();
+      await toggleView();
     }
   } finally {
     // Always dismiss loading screen, even if initialisation threw an error

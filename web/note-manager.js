@@ -420,7 +420,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   if (isReadOnlyNote) {
     textarea.readOnly = true;
     toggleViewBtn.disabled = true;
-    renderPreview();
+    await renderPreview();
     if (!isPreview) {
       previewDiv.style.display = 'block';
       textarea.style.display = 'none';
@@ -436,7 +436,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     }
     textarea.readOnly = false;
     toggleViewBtn.disabled = false;
-    if (isPreview) renderPreview();
+    if (isPreview) await renderPreview();
   }
 
   await updateFileList();
