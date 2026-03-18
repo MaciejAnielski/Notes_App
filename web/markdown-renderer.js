@@ -925,15 +925,15 @@ function injectThemeColorPickers(container) {
 // ── Project emoji pickers in Settings note preview ──────────────────────────
 
 function injectProjectEmojiPickers(container) {
-  // Find the <details> containing the "Projects Note Emojis" h3
+  // Find the <details> containing the "Projects Note Emojis" h2
   let emojiSection = null;
   for (const details of container.querySelectorAll('details')) {
-    const h = details.querySelector('summary h3');
+    const h = details.querySelector('summary h2');
     if (h && h.textContent.includes('Projects Note Emojis')) { emojiSection = details; break; }
   }
-  // Fall back to plain h3 if not collapsible
+  // Fall back to plain h2 if not collapsible
   if (!emojiSection) {
-    for (const h of container.querySelectorAll('h3')) {
+    for (const h of container.querySelectorAll('h2')) {
       if (h.textContent.includes('Projects Note Emojis')) { emojiSection = h.parentElement; break; }
     }
   }
@@ -953,15 +953,14 @@ function injectProjectEmojiPickers(container) {
   const activeRow = document.createElement('div');
   activeRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;';
   const activeLabel = document.createElement('span');
-  activeLabel.className = 'emoji-label';
+  activeLabel.className = 'theme-label';
   activeLabel.textContent = 'Ongoing Projects';
-  activeLabel.style.cssText = 'font-weight:500;font-size:13px;color:var(--muted);min-width:120px;';
   activeRow.appendChild(activeLabel);
 
   const activeEmojiBtn = document.createElement('button');
   activeEmojiBtn.className = 'emoji-display';
   activeEmojiBtn.textContent = emojis.active;
-  activeEmojiBtn.style.cssText = 'font-size:32px;width:48px;height:48px;border:2px solid var(--border);border-radius:50%;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0;line-height:1;';
+  activeEmojiBtn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;';
 
   let activePickerOpen = false;
   const activePickerGrid = document.createElement('div');
@@ -971,30 +970,15 @@ function injectProjectEmojiPickers(container) {
   for (const emoji of EMOJI_OPTIONS.active) {
     const btn = document.createElement('button');
     btn.textContent = emoji;
-    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:all 0.15s;padding:0;line-height:1;border-radius:4px;';
-    if (emoji === emojis.active) {
-      btn.style.background = 'var(--border)';
-    }
+    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:transform 0.15s;padding:0;line-height:1;';
     btn.addEventListener('click', () => {
       setProjectEmoji('active', emoji);
       activeEmojiBtn.textContent = emoji;
-      for (const b of activePickerGrid.querySelectorAll('button')) {
-        b.style.background = 'none';
-      }
-      btn.style.background = 'var(--border)';
       activePickerOpen = false;
       activePickerGrid.style.display = 'none';
     });
-    btn.addEventListener('mouseenter', () => {
-      btn.style.transform = 'scale(1.1)';
-      btn.style.background = btn.style.background ? btn.style.background : 'var(--surface)';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.transform = 'scale(1)';
-      if (btn.textContent !== emojis.active) {
-        btn.style.background = 'none';
-      }
-    });
+    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.2)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
     activePickerGrid.appendChild(btn);
   }
 
@@ -1013,15 +997,14 @@ function injectProjectEmojiPickers(container) {
   const completedRow = document.createElement('div');
   completedRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;';
   const completedLabel = document.createElement('span');
-  completedLabel.className = 'emoji-label';
+  completedLabel.className = 'theme-label';
   completedLabel.textContent = 'Completed Projects';
-  completedLabel.style.cssText = 'font-weight:500;font-size:13px;color:var(--muted);min-width:120px;';
   completedRow.appendChild(completedLabel);
 
   const completedEmojiBtn = document.createElement('button');
   completedEmojiBtn.className = 'emoji-display';
   completedEmojiBtn.textContent = emojis.completed;
-  completedEmojiBtn.style.cssText = 'font-size:32px;width:48px;height:48px;border:2px solid var(--border);border-radius:50%;background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0;line-height:1;';
+  completedEmojiBtn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;';
 
   let completedPickerOpen = false;
   const completedPickerGrid = document.createElement('div');
@@ -1031,30 +1014,15 @@ function injectProjectEmojiPickers(container) {
   for (const emoji of EMOJI_OPTIONS.completed) {
     const btn = document.createElement('button');
     btn.textContent = emoji;
-    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:all 0.15s;padding:0;line-height:1;border-radius:4px;';
-    if (emoji === emojis.completed) {
-      btn.style.background = 'var(--border)';
-    }
+    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:transform 0.15s;padding:0;line-height:1;';
     btn.addEventListener('click', () => {
       setProjectEmoji('completed', emoji);
       completedEmojiBtn.textContent = emoji;
-      for (const b of completedPickerGrid.querySelectorAll('button')) {
-        b.style.background = 'none';
-      }
-      btn.style.background = 'var(--border)';
       completedPickerOpen = false;
       completedPickerGrid.style.display = 'none';
     });
-    btn.addEventListener('mouseenter', () => {
-      btn.style.transform = 'scale(1.1)';
-      btn.style.background = btn.style.background ? btn.style.background : 'var(--surface)';
-    });
-    btn.addEventListener('mouseleave', () => {
-      btn.style.transform = 'scale(1)';
-      if (btn.textContent !== emojis.completed) {
-        btn.style.background = 'none';
-      }
-    });
+    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.2)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
     completedPickerGrid.appendChild(btn);
   }
 
@@ -1071,19 +1039,12 @@ function injectProjectEmojiPickers(container) {
 
   // Reset button
   const resetBtn = document.createElement('button');
-  resetBtn.className = 'emoji-reset-btn';
+  resetBtn.className = 'theme-reset-btn';
   resetBtn.textContent = 'Reset to Defaults';
-  resetBtn.style.cssText = 'margin-top:8px;padding:6px 12px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);cursor:pointer;font-size:13px;';
   resetBtn.addEventListener('click', () => {
     resetProjectEmojis();
     activeEmojiBtn.textContent = DEFAULT_PROJECT_EMOJIS.active;
     completedEmojiBtn.textContent = DEFAULT_PROJECT_EMOJIS.completed;
-    for (const b of activePickerGrid.querySelectorAll('button')) {
-      b.style.background = b.textContent === DEFAULT_PROJECT_EMOJIS.active ? 'var(--border)' : 'none';
-    }
-    for (const b of completedPickerGrid.querySelectorAll('button')) {
-      b.style.background = b.textContent === DEFAULT_PROJECT_EMOJIS.completed ? 'var(--border)' : 'none';
-    }
   });
   controls.appendChild(resetBtn);
 
