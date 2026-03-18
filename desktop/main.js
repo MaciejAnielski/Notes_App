@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -789,6 +789,15 @@ function startICloudPolling(win) {
             console.log(`[iCloud poll] "${file}" missing from iOS — skipping (recent write-through).`);
             continue;
           }
+          // If the file exists as a .icloud placeholder iCloud is still
+          // downloading the iOS version — do not overwrite it with the
+          // (potentially older) CloudDocs copy.
+          try {
+            await fs.access(path.join(iosNotesDir, `.${file}.icloud`));
+            console.log(`[iCloud poll] "${file}" has .icloud placeholder — skipping re-sync.`);
+            continue;
+          } catch { /* no placeholder — safe to restore from CloudDocs */ }
+
           // Check if the file still exists in CloudDocs (source of truth)
           try {
             await fs.access(path.join(notesDir, file));
@@ -986,4 +995,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// When the Mac wakes from sleep the iOS container snapshot is stale.
+// Clearing it prevents the polling loop from treating placeholder files
+// (files iCloud hasn't finished downloading yet) as "missing from iOS"
+// and copying the old desktop version back — which would overwrite iOS edits.
+powerMonitor.on('resume', () => {
+  lastIosPollSnapshot = new Map();
+  // Write-through timestamps from before sleep are stale; clear them so
+  // genuine iOS changes are not silently skipped by the grace-period check.
+  _iosWriteThroughs.clear();
 });
