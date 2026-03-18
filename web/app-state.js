@@ -84,6 +84,15 @@ let _lastSavedContent = null;
 // save hasn't been confirmed by the remote yet, preventing silent overwrites
 // of iOS edits that have already been auto-saved.
 let _lastRemoteContent = null;
+// Per-note Maps used by the iOS sync poller to protect notes that are not
+// currently open in the editor.  Keyed by note name (same as currentFileName).
+//   _perNoteSavedContent  — last content this device wrote to iCloud for the note
+//   _perNoteRemoteContent — last content confirmed as received FROM iCloud
+// When the two differ, the note has unconfirmed local saves: the poller reads
+// the remote version and re-asserts the local one if they conflict.
+// Only populated for notes the user has actually opened on this device.
+const _perNoteSavedContent = new Map();
+const _perNoteRemoteContent = new Map();
 // When the note title is edited, the desired new filename is held here and
 // applied only when the user commits (View toggle, note switch, new note).
 // This prevents repeated filesystem renames while the user is mid-typing.

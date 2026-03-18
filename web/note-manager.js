@@ -25,7 +25,11 @@ async function handleRenameAfterReplace(noteName, newContent) {
   // Write the new note before removing the old one so a storage failure
   // cannot result in data loss.
   await NoteStorage.setNote(newTitle, newContent);
+  _perNoteSavedContent.set(newTitle, newContent);
+  _perNoteRemoteContent.set(newTitle, newContent);
   await NoteStorage.removeNote(noteName);
+  _perNoteSavedContent.delete(noteName);
+  _perNoteRemoteContent.delete(noteName);
   await NoteStorage.renameAttachmentDir(noteName, newTitle);
   if (currentFileName === noteName) {
     currentFileName = newTitle;
@@ -228,6 +232,7 @@ async function autoSaveNote() {
       return;
     }
     _lastSavedContent = capturedContent;
+    _perNoteSavedContent.set(name, capturedContent);
     currentFileName = name;
     localStorage.setItem('current_file', name);
     invalidateScheduleCache();
@@ -256,6 +261,7 @@ async function autoSaveNote() {
     return;
   }
   _lastSavedContent = capturedContent;
+  _perNoteSavedContent.set(capturedFileName, capturedContent);
   invalidateScheduleCache();
   if (scheduleContainer.classList.contains('active')) renderSchedule();
   await updateTodoList();
@@ -296,6 +302,10 @@ async function applyPendingRename() {
     return;
   }
   _lastSavedContent = content;
+  _perNoteSavedContent.delete(oldName);
+  _perNoteRemoteContent.delete(oldName);
+  _perNoteSavedContent.set(newName, content);
+  _perNoteRemoteContent.set(newName, content);
   await NoteStorage.removeNote(oldName);
   try {
     await NoteStorage.renameAttachmentDir(oldName, newName);
@@ -327,6 +337,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
       try {
         await NoteStorage.setNote(currentFileName, textarea.value);
         _lastSavedContent = textarea.value;
+        _perNoteSavedContent.set(currentFileName, textarea.value);
       } catch (_) { /* ignore — content is still in textarea */ }
     }
     await applyPendingRename();
@@ -339,6 +350,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     try {
       await NoteStorage.setNote(name, textarea.value);
       _lastSavedContent = textarea.value;
+      _perNoteSavedContent.set(name, textarea.value);
     } catch (_) { /* ignore — content is still in textarea */ }
   }
 
@@ -370,6 +382,8 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   textarea.value = content;
   _lastSavedContent = content;
   _lastRemoteContent = content;
+  _perNoteSavedContent.set(name, content);
+  _perNoteRemoteContent.set(name, content);
   currentFileName = name;
   refreshHighlight();
   localStorage.setItem('current_file', name);
@@ -409,6 +423,7 @@ async function newNote() {
       try {
         await NoteStorage.setNote(currentFileName, textarea.value);
         _lastSavedContent = textarea.value;
+        _perNoteSavedContent.set(currentFileName, textarea.value);
       } catch (_) { /* ignore */ }
     }
     await applyPendingRename();
@@ -468,6 +483,8 @@ async function deleteNote() {
 
   _pendingRename = null;
   await NoteStorage.trashNote(name);
+  _perNoteSavedContent.delete(name);
+  _perNoteRemoteContent.delete(name);
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
@@ -482,6 +499,8 @@ async function deleteAllNotes() {
   _pendingRename = null;
   const names = await NoteStorage.getAllNoteNames();
   await Promise.all(names.map(name => NoteStorage.trashNote(name)));
+  _perNoteSavedContent.clear();
+  _perNoteRemoteContent.clear();
   textarea.value = '';
   if (isPreview) toggleView();
   else previewDiv.innerHTML = '';
@@ -501,6 +520,8 @@ async function deleteSelectedNotes() {
   _pendingRename = null;
   await Promise.all(notes.map(async name => {
     await NoteStorage.trashNote(name);
+    _perNoteSavedContent.delete(name);
+    _perNoteRemoteContent.delete(name);
     if (currentFileName === name) {
       textarea.value = '';
       currentFileName = null;
