@@ -398,11 +398,11 @@ async function exportSelectedNotes() {
   const notes = await getVisibleNotes();
   if (notes.length === 0) { alert('No notes match the filter.'); return; }
   updateStatus(`Exporting\u2026`, true, true);
-  const entries = [];
-  for (const name of notes) {
+  const results = await Promise.all(notes.map(async name => {
     const content = await NoteStorage.getNote(name);
-    if (content !== null) entries.push({ name, content });
-  }
+    return content !== null ? { name, content } : null;
+  }));
+  const entries = results.filter(Boolean);
   const html = await generateNotebookHtml(entries);
   const blob = new Blob([html], { type: 'text/html' });
   await triggerDownload(blob, 'notes_notebook.html');
@@ -414,17 +414,19 @@ async function exportSelectedNotes() {
 async function createBackupZip(noteEntries, downloadName) {
   const zip = new JSZip();
   const total = noteEntries.length;
-  for (let i = 0; i < noteEntries.length; i++) {
-    const { name, content } = noteEntries[i];
-    updateStatus(`Backing Up (${i + 1}/${total})\u2026`, true, true);
+  updateStatus(`Backing Up (0/${total})\u2026`, true, true);
+  let completed = 0;
+  await Promise.all(noteEntries.map(async ({ name, content }) => {
     zip.file(name + '.md', content);
     const attFiles = await NoteStorage.listAttachments(name);
     const attDir = noteNameToAttachmentDir(name);
-    for (const filename of attFiles) {
+    await Promise.all(attFiles.map(async filename => {
       const b64 = await NoteStorage.readAttachment(name, filename);
       if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
-    }
-  }
+    }));
+    completed++;
+    updateStatus(`Backing Up (${completed}/${total})\u2026`, true, true);
+  }));
   updateStatus(`Compressing\u2026`, true, true);
   const blob = await zip.generateAsync({ type: 'blob' });
   await triggerDownload(blob, downloadName);
@@ -460,11 +462,11 @@ async function backupSelectedNotes() {
   }
 
   try {
-    const entries = [];
-    for (const name of notes) {
+    const results = await Promise.all(notes.map(async name => {
       const content = await NoteStorage.getNote(name);
-      if (content !== null) entries.push({ name, content });
-    }
+      return content !== null ? { name, content } : null;
+    }));
+    const entries = results.filter(Boolean);
     await createBackupZip(entries, 'selected_notes.zip');
   } catch {
     updateStatus('Backup failed.', false);
@@ -491,10 +493,8 @@ async function importNotesFromMd(files) {
     }
 
     // Check for existing notes that would be overwritten
-    const existingNames = [];
-    for (const { name } of entries) {
-      if (await NoteStorage.getNote(name) !== null) existingNames.push(name);
-    }
+    const existChecks = await Promise.all(entries.map(({ name }) => NoteStorage.getNote(name)));
+    const existingNames = entries.filter((_, i) => existChecks[i] !== null).map(({ name }) => name);
     if (existingNames.length > 0) {
       const list = existingNames.length <= 5
         ? existingNames.map(n => `"${n}"`).join(', ')
@@ -506,12 +506,8 @@ async function importNotesFromMd(files) {
       }
     }
 
-    const total = entries.length;
-    for (let i = 0; i < entries.length; i++) {
-      const { name, content } = entries[i];
-      updateStatus(`Importing (${i + 1}/${total})\u2026`, true, true);
-      await NoteStorage.setNote(name, content);
-    }
+    updateStatus(`Importing\u2026`, true, true);
+    await Promise.all(entries.map(({ name, content }) => NoteStorage.setNote(name, content)));
     await updateFileList();
     importZipInput.value = '';
     updateStatus(`Imported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
@@ -539,10 +535,8 @@ async function importNotesFromZip(file) {
     });
 
     // Check for existing notes that would be overwritten
-    const existingNames = [];
-    for (const { name } of entries) {
-      if (await NoteStorage.getNote(name) !== null) existingNames.push(name);
-    }
+    const existChecks = await Promise.all(entries.map(({ name }) => NoteStorage.getNote(name)));
+    const existingNames = entries.filter((_, i) => existChecks[i] !== null).map(({ name }) => name);
     if (existingNames.length > 0) {
       const list = existingNames.length <= 5
         ? existingNames.map(n => `"${n}"`).join(', ')
@@ -554,24 +548,22 @@ async function importNotesFromZip(file) {
       }
     }
 
-    const total = entries.length;
-    for (let i = 0; i < entries.length; i++) {
-      const { name, zipEntry } = entries[i];
-      updateStatus(`Importing (${i + 1}/${total})\u2026`, true, true);
+    updateStatus(`Importing\u2026`, true, true);
+    await Promise.all(entries.map(async ({ name, zipEntry }) => {
       const content = await zipEntry.async('string');
       await NoteStorage.setNote(name, content);
-    }
-    for (const { relativePath, zipEntry } of attachmentEntries) {
+    }));
+    await Promise.all(attachmentEntries.map(async ({ relativePath, zipEntry }) => {
       const slashIdx = relativePath.indexOf('/');
-      if (slashIdx < 0) continue;
+      if (slashIdx < 0) return;
       const dirPart = relativePath.slice(0, slashIdx);
       const filename = relativePath.slice(slashIdx + 1);
-      if (!filename) continue;
+      if (!filename) return;
       const matchedEntry = entries.find(e => noteNameToAttachmentDir(e.name) === dirPart);
-      if (!matchedEntry) continue;
+      if (!matchedEntry) return;
       const b64 = await zipEntry.async('base64');
       await NoteStorage.writeAttachment(matchedEntry.name, filename, b64);
-    }
+    }));
     await updateFileList();
     importZipInput.value = '';
     updateStatus(`Imported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
