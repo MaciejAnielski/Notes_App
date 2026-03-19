@@ -127,8 +127,6 @@ let _buttonBusy = false;
 let statusTimeout = null;
 // Set by the iOS Capacitor block; called by the status-area click handler.
 let _forceSyncCallback = null;
-// Cached notes-dir path for desktop — avoids an IPC call on every render.
-let _notesDirCache = null;
 
 let scheduleDate = new Date();
 let scheduleNowTimer = null;
@@ -265,11 +263,10 @@ function updateStatus(message, success, persistent = false) {
 function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
   if (!el) return;
-  const isICloud = !!(window.electronAPI?.notes ||
-    (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
+  const isSynced = !!window.PowerSyncNoteStorage;
   const t = localStorage.getItem('last_backup_time');
-  const prefix = isICloud ? 'iCloud · ' : '';
-  if (!t) { el.textContent = isICloud ? 'Saved to iCloud · Never Backed Up' : 'Never Backed Up'; return; }
+  const prefix = isSynced ? 'Synced · ' : '';
+  if (!t) { el.textContent = isSynced ? 'Synced · Never Backed Up' : 'Never Backed Up'; return; }
   const diff = Date.now() - parseInt(t, 10);
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);

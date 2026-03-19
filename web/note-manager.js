@@ -214,8 +214,7 @@ async function autoSaveNote() {
     return;
   }
 
-  const useICloud = !!(window.electronAPI?.notes ||
-    (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
+  const useSyncStorage = !!window.PowerSyncNoteStorage;
 
   // ── New note (no current file) ─────────────────────────────────────────
   // Create the note using the title as the filename.
@@ -242,7 +241,7 @@ async function autoSaveNote() {
     invalidateScheduleCache();
     if (scheduleContainer.classList.contains('active')) renderSchedule();
     await updateFileList();
-    updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
+    updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
     await checkAttachmentRenames(prevContent, capturedContent, currentFileName);
     return;
   }
@@ -269,7 +268,7 @@ async function autoSaveNote() {
   invalidateScheduleCache();
   if (scheduleContainer.classList.contains('active')) renderSchedule();
   await updateTodoList();
-  updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
+  updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
   await checkAttachmentRenames(prevContent, capturedContent, capturedFileName);
 }
 
@@ -297,8 +296,7 @@ async function applyPendingRename() {
   // Write the new note BEFORE removing the old one so a storage failure
   // cannot result in data loss.
   const content = textarea.value;
-  const useICloud = !!(window.electronAPI?.notes ||
-    (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage?.isICloudEnabled !== false && window.CapacitorNoteStorage));
+  const useSyncStorage = !!window.PowerSyncNoteStorage;
   try {
     await NoteStorage.setNote(newName, content);
   } catch (e) {
@@ -325,7 +323,7 @@ async function applyPendingRename() {
     saveChain();
   }
   await updateFileList();
-  updateStatus(useICloud ? 'Saved to iCloud.' : 'File Saved Successfully.', true);
+  updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
 }
 
 // ── Load / New / Delete ───────────────────────────────────────────────────

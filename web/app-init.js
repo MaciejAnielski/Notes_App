@@ -662,303 +662,103 @@ window.addEventListener('storage', e => {
   }
 });
 
-// ── External file change sync (Desktop/iOS) ──────────────────────────────
-if (window.electronAPI?.notes?.onExternalChange) {
-  let _desktopKnownNames = null;
-  window.electronAPI.notes.onExternalChange(async (data) => {
-    // Skip processing sync events while desktop is inactive (paused)
-    if (window._desktopSyncPaused?.()) return;
+// ── PowerSync reactive sync (Desktop + iOS) ──────────────────────────────
+// PowerSync handles all sync automatically. We just listen for changes
+// and refresh the UI when the local SQLite database is updated.
+if (window.PowerSyncNoteStorage) {
+  let _syncKnownNames = null;
 
-    // Re-apply synced preferences when the preferences note changes via iCloud
-    const changedFile = data?.filename;
-    if (changedFile === '.app_preferences.md' && typeof applySyncedPreferences === 'function') {
+  async function handlePowerSyncChange() {
+    let structuralChanged = false;
+    let contentChanged = false;
+
+    // Re-apply synced preferences if the preferences note changed
+    if (typeof applySyncedPreferences === 'function') {
       applySyncedPreferences();
     }
 
-    let contentChanged = false;
-    const changedNote = changedFile?.endsWith('.md')
-      ? changedFile.slice(0, -3)
-      : null;
     if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && (
-        textarea.value !== _lastSavedContent ||
-        (_lastRemoteContent !== null && _lastSavedContent !== _lastRemoteContent)
-      );
+      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       const content = await NoteStorage.getNote(currentFileName);
       if (content === null) {
         if (textarea.value.trim()) {
           try {
             await NoteStorage.setNote(currentFileName, textarea.value);
             _lastSavedContent = textarea.value;
-            updateStatus('iCloud: Note restored after sync conflict.', true);
+            updateStatus('Sync: Note restored after conflict.', true);
           } catch {
-            updateStatus('iCloud: Note may have been deleted on another device.', false);
+            updateStatus('Sync: Note may have been deleted on another device.', false);
           }
         } else {
           currentFileName = null;
           localStorage.removeItem('current_file');
           if (isPreview) previewDiv.innerHTML = '';
-          updateStatus('iCloud: Current note deleted from another device.', false);
+          updateStatus('Sync: Current note deleted from another device.', false);
         }
       } else if (content !== textarea.value) {
         if (hasUnsavedEdits) {
-          updateStatus('iCloud: Remote change detected — keeping your edits.', true);
-        // Design choice: reject blank remote content to prevent accidental data
-        // loss. If a user intentionally clears a note on another device, this
-        // device will preserve its local content (safer default).
-        } else if (content.trim() === '' && textarea.value.trim() !== '') {
-          try {
-            await NoteStorage.setNote(currentFileName, textarea.value);
-            _lastSavedContent = textarea.value;
-            updateStatus('iCloud: Rejected blank sync — keeping your content.', true);
-          } catch {
-            updateStatus('iCloud: Failed to save after blank sync rejection.', false);
-          }
+          updateStatus('Sync: Remote change detected — keeping your edits.', true);
         } else {
           textarea.value = content;
           _lastSavedContent = content;
           _lastRemoteContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
-          updateStatus('iCloud: Note updated from another device.', true);
+          updateStatus('Sync: Note updated from another device.', true);
           contentChanged = true;
         }
-      } else if (changedNote && changedNote !== currentFileName) {
-        _lastRemoteContent = content;
-        updateStatus(`iCloud: "${changedNote}" synced.`, true);
-      } else if (!changedNote) {
-        // Wildcard event (from force sync): current note is already up to date.
-        _lastRemoteContent = content;
-        updateStatus('iCloud: Up to date.', true);
       }
-    } else if (changedNote) {
-      updateStatus(`iCloud: "${changedNote}" synced.`, true);
-    } else {
-      // Wildcard force sync with no note open and nothing changed.
-      updateStatus('iCloud: Up to date.', true);
     }
+
     const names = await NoteStorage.getAllNoteNames();
     const nameStr = names.slice().sort().join('\n');
-    let structuralChanged = false;
-    if (_desktopKnownNames !== null && _desktopKnownNames !== nameStr) {
+    if (_syncKnownNames !== null && _syncKnownNames !== nameStr) {
       structuralChanged = true;
     }
-    _desktopKnownNames = nameStr;
+    _syncKnownNames = nameStr;
     if (structuralChanged) {
       invalidateScheduleCache();
       await updateFileList();
     } else if (contentChanged) {
       invalidateScheduleCache();
     }
-  });
-}
+  }
 
-// On iOS (Capacitor), check for file changes when app resumes from background
-if (window.Capacitor?.isNativePlatform()) {
-  let _iCloudPollKnownNames = null;
-  async function checkICloudChanges(showStatus) {
+  window.addEventListener('powersync:change', handlePowerSyncChange);
+
+  // On iOS, also refresh on app resume
+  if (window.Capacitor?.isNativePlatform()) {
+    document.addEventListener('resume', () => handlePowerSyncChange());
+  }
+
+  _forceSyncCallback = async (showStatus) => {
     if (showStatus) updateStatus('Syncing\u2026', true, true);
-    let structuralChanged = false;
-    let contentChanged = false;
-    if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && (
-        textarea.value !== _lastSavedContent ||
-        (_lastRemoteContent !== null && _lastSavedContent !== _lastRemoteContent)
-      );
-      const content = await NoteStorage.getNote(currentFileName);
-      if (content === null && NoteStorage._lastGetNoteTimedOut) {
-        // Download timed out (slow network) — do not treat as deletion.
-        if (showStatus) updateStatus('iCloud: Sync timed out — check your connection.', false);
-        return;
-      }
-      if (content === null) {
-        if (textarea.value.trim()) {
-          try {
-            await NoteStorage.setNote(currentFileName, textarea.value);
-            _lastSavedContent = textarea.value;
-            updateStatus('iCloud: Note restored after sync conflict.', true);
-          } catch {
-            updateStatus('iCloud: Note may have been deleted on another device.', false);
-          }
-        } else {
-          currentFileName = null;
-          localStorage.removeItem('current_file');
-          if (isPreview) previewDiv.innerHTML = '';
-          updateStatus('iCloud: Current note deleted from another device.', false);
-        }
-      } else if (content !== textarea.value) {
-        if (hasUnsavedEdits) {
-          if (showStatus) updateStatus('iCloud: Remote change detected — keeping your edits.', true);
-        } else if (content.trim() === '' && textarea.value.trim() !== '') {
-          try {
-            await NoteStorage.setNote(currentFileName, textarea.value);
-            _lastSavedContent = textarea.value;
-            if (showStatus) updateStatus('iCloud: Rejected blank sync — keeping your content.', true);
-          } catch {}
-        } else {
-          textarea.value = content;
-          _lastSavedContent = content;
-          _lastRemoteContent = content;
-          _perNoteSavedContent.set(currentFileName, content);
-          _perNoteRemoteContent.set(currentFileName, content);
-          if (isPreview) renderPreview(); else refreshHighlight();
-          updateStatus('iCloud: Note updated from another device.', true);
-          contentChanged = true;
-        }
-      } else {
-        _lastRemoteContent = content;
-        _perNoteRemoteContent.set(currentFileName, content);
-        if (showStatus) updateStatus('iCloud: Up to date.', true);
-      }
-    } else if (showStatus) {
-      updateStatus('iCloud: Up to date.', true);
+    if (window.PowerSyncNoteStorage.triggerSync) {
+      await window.PowerSyncNoteStorage.triggerSync();
     }
-
-    // ── Background note protection ──────────────────────────────────────────
-    // Check notes we've edited on this device that are not currently open.
-    // If _perNoteSavedContent differs from _perNoteRemoteContent, we have a
-    // local save that hasn't been confirmed by the remote yet.  Read the
-    // remote version and re-assert our saved content if it was overwritten.
-    for (const [bgName, bgSaved] of _perNoteSavedContent) {
-      if (bgName === currentFileName) continue; // already handled above
-      if (!_perNoteRemoteContent.has(bgName)) continue; // never confirmed from remote
-      if (bgSaved === _perNoteRemoteContent.get(bgName)) continue; // already in sync
-
-      const bgContent = await NoteStorage.getNote(bgName);
-      if (bgContent === bgSaved) {
-        // Remote now matches our saved content — mark as confirmed.
-        _perNoteRemoteContent.set(bgName, bgSaved);
-      } else if (bgContent !== null) {
-        // Conflict: remote has different content.  Re-assert our saved version.
-        try {
-          await NoteStorage.setNote(bgName, bgSaved);
-          _perNoteRemoteContent.set(bgName, bgSaved);
-          updateStatus(`iCloud: Remote change to "${bgName}" detected — keeping your edits.`, true);
-          structuralChanged = true;
-        } catch { /* non-fatal — will retry next poll */ }
-      }
-      // bgContent === null: note was deleted remotely; leave maps as-is and
-      // let the user discover this when they next open the note.
-    }
-
-    const names = await NoteStorage.getAllNoteNames();
-    const nameStr = names.slice().sort().join('\n');
-    if (_iCloudPollKnownNames !== null && _iCloudPollKnownNames !== nameStr) {
-      structuralChanged = true;
-    }
-    _iCloudPollKnownNames = nameStr;
-    if (structuralChanged) {
-      invalidateScheduleCache();
-      await updateFileList();
-    } else if (contentChanged) {
-      invalidateScheduleCache();
-    }
-  }
-
-  document.addEventListener('resume', () => {
-    checkICloudChanges(true);
-    if (typeof applySyncedPreferences === 'function') applySyncedPreferences();
-  });
-
-  const IOS_POLL_MS = 15000;
-  let _iosPollTimer = null;
-  function startIOSPoll() {
-    if (_iosPollTimer) return;
-    _iosPollTimer = setInterval(() => checkICloudChanges(false), IOS_POLL_MS);
-  }
-  function stopIOSPoll() {
-    if (_iosPollTimer) { clearInterval(_iosPollTimer); _iosPollTimer = null; }
-  }
-  startIOSPoll();
-  document.addEventListener('resume', startIOSPoll);
-  document.addEventListener('pause', stopIOSPoll);
-
-  _forceSyncCallback = (showStatus) => checkICloudChanges(showStatus);
-
-  // ── iOS inactivity pause: stop polling after 30 min of no user interaction ─
-  {
-    const INACTIVITY_MS = 30 * 60 * 1000;
-    let _inactivityTimer = null;
-    let _iosInactivePaused = false;
-
-    function onIOSActivity() {
-      if (_inactivityTimer) clearTimeout(_inactivityTimer);
-      if (_iosInactivePaused) {
-        _iosInactivePaused = false;
-        startIOSPoll();
-        checkICloudChanges(false);
-      }
-      _inactivityTimer = setTimeout(() => {
-        _iosInactivePaused = true;
-        stopIOSPoll();
-      }, INACTIVITY_MS);
-    }
-
-    document.addEventListener('keydown', onIOSActivity, { passive: true });
-    document.addEventListener('touchstart', onIOSActivity, { passive: true });
-    document.addEventListener('click', onIOSActivity, { passive: true });
-    onIOSActivity();
-  }
+    await handlePowerSyncChange();
+    if (showStatus) updateStatus('Synced.', true);
+  };
 }
 
-// ── Desktop inactivity pause: skip sync processing after 30 min idle ─────────
-if (window.electronAPI?.notes && !window.Capacitor?.isNativePlatform()) {
-  const INACTIVITY_MS = 30 * 60 * 1000;
-  let _desktopInactivityTimer = null;
-  let _desktopInactivePaused = false;
-
-  function onDesktopActivity() {
-    if (_desktopInactivityTimer) clearTimeout(_desktopInactivityTimer);
-    if (_desktopInactivePaused) {
-      _desktopInactivePaused = false;
-      // Trigger a sync check to catch any changes missed while paused
-      if (window.electronAPI?.notes?.forceSync) {
-        window.electronAPI.notes.forceSync();
-      }
-    }
-    _desktopInactivityTimer = setTimeout(() => {
-      _desktopInactivePaused = true;
-    }, INACTIVITY_MS);
-  }
-
-  // Expose paused state so the external change handler can respect it
-  window._desktopSyncPaused = () => _desktopInactivePaused;
-
-  document.addEventListener('mousemove', onDesktopActivity, { passive: true });
-  document.addEventListener('keydown', onDesktopActivity, { passive: true });
-  document.addEventListener('touchstart', onDesktopActivity, { passive: true });
-  document.addEventListener('click', onDesktopActivity, { passive: true });
-  onDesktopActivity();
-}
-
-// ── Clickable status area — force iCloud sync ──────────────────────────────
+// ── Clickable status area — force sync ──────────────────────────────────
 (function setupStatusAreaClick() {
   const bottomArea = document.getElementById('bottom-status-area');
   if (!bottomArea) return;
 
-  const isDesktop = !!window.electronAPI?.notes?.forceSync;
-  const isIOS = !!(window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage);
-
-  if (!isDesktop && !isIOS) return;
+  const hasSyncStorage = !!window.PowerSyncNoteStorage;
+  if (!hasSyncStorage) return;
 
   bottomArea.style.cursor = 'pointer';
   bottomArea.title = 'Tap to sync';
 
   bottomArea.addEventListener('click', async () => {
-    // Flush any pending auto-save before syncing so that hasUnsavedEdits is
-    // false when the sync handler runs.  autoSaveNote is a no-op if the note
-    // has no # title, preserving the "must have title to save" invariant.
     if (autoSaveTimer !== null) {
       clearTimeout(autoSaveTimer);
       autoSaveTimer = null;
       await autoSaveNote();
     }
-    if (isDesktop) {
-      updateStatus('Syncing\u2026', true, true);
-      await window.electronAPI.notes.forceSync();
-      // Do not overwrite status here — onExternalChange sets the final message.
-    } else if (isIOS && _forceSyncCallback) {
+    if (_forceSyncCallback) {
       await _forceSyncCallback(true);
-      // Also trigger calendar sync so it runs alongside the iCloud sync
       if (typeof runCalendarSync === 'function') {
         await runCalendarSync();
       }
@@ -979,12 +779,12 @@ if (savedChain) {
     // startup. Migration must complete before loading the last note (it may
     // have been migrated), but preferences are independent.
     const migrationPromise = (async () => {
-      // Migrate localStorage notes to iCloud on first launch (desktop/iOS only).
-      // Only runs once — uses a flag to prevent re-running if iCloud is transiently
-      // empty (e.g. slow sync on cold start), which would destroy localStorage data.
-      if (window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage)) {
-        const migrationDone = localStorage.getItem('icloud_migration_done');
-        if (!migrationDone) {
+      // Migrate notes to PowerSync on first launch (desktop/iOS only).
+      // Sources: localStorage (web→native upgrade) and legacy iCloud folder (desktop).
+      // Only runs once per source.
+      if (window.PowerSyncNoteStorage) {
+        // 1. Migrate localStorage notes
+        if (!localStorage.getItem('powersync_migration_done')) {
           const lsNotes = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -993,16 +793,38 @@ if (savedChain) {
             }
           }
           if (lsNotes.length > 0) {
-            const iCloudNames = await NoteStorage.getAllNoteNames();
-            if (iCloudNames.length === 0) {
+            const existingNames = await NoteStorage.getAllNoteNames();
+            if (existingNames.length === 0) {
               for (const { name, content } of lsNotes) {
                 await NoteStorage.setNote(name, content);
               }
               lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
-              updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to iCloud.`, true);
+              updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to sync.`, true);
             }
           }
-          localStorage.setItem('icloud_migration_done', '1');
+          localStorage.setItem('powersync_migration_done', '1');
+        }
+        // 2. Desktop: migrate from legacy iCloud CloudDocs folder
+        if (window.electronAPI?.readLegacyNotes && !localStorage.getItem('powersync_icloud_migration_done')) {
+          try {
+            const legacyNotes = await window.electronAPI.readLegacyNotes();
+            if (legacyNotes.length > 0) {
+              const existingNames = new Set(await NoteStorage.getAllNoteNames());
+              let imported = 0;
+              for (const { name, content } of legacyNotes) {
+                if (!existingNames.has(name)) {
+                  await NoteStorage.setNote(name, content);
+                  imported++;
+                }
+              }
+              if (imported > 0) {
+                updateStatus(`Migrated ${imported} note${imported === 1 ? '' : 's'} from iCloud.`, true);
+              }
+            }
+          } catch (e) {
+            console.error('[migration] Legacy iCloud migration failed:', e);
+          }
+          localStorage.setItem('powersync_icloud_migration_done', '1');
         }
       }
     })();

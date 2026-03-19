@@ -186,12 +186,8 @@ async function renderContainerForExport(container) {
 }
 
 async function embedAttachmentsInHtml(container, noteName) {
-  const hasDesktop = !!window.electronAPI?.notes?.readAttachment;
-  const hasIOS     = !!window.CapacitorNoteStorage?.readAttachment;
-  if (!hasDesktop && !hasIOS) return;
-  const readFn = hasDesktop
-    ? (n, f) => window.electronAPI.notes.readAttachment(n, f)
-    : (n, f) => window.CapacitorNoteStorage.readAttachment(n, f);
+  if (typeof NoteStorage.readAttachment !== 'function') return;
+  const readFn = (n, f) => NoteStorage.readAttachment(n, f);
   for (const img of container.querySelectorAll('img[src^="attachment:"]')) {
     const filename = img.getAttribute('src').slice('attachment:'.length);
     const b64 = await readFn(noteName, filename);
@@ -358,8 +354,8 @@ async function exportNote() {
   const markdown = textarea.value;
   const html = await generateHtmlContent(name, markdown, name);
 
-  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-  if (hasICloud) {
+  const hasSyncStorage = !!window.PowerSyncNoteStorage;
+  if (hasSyncStorage) {
     const timestamp = formatTimestamp();
     try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
     catch { updateStatus('Export failed — check storage.', false); return; }
@@ -382,8 +378,8 @@ async function exportAllNotes() {
   entries.sort((a, b) => b.name.localeCompare(a.name));
   const html = await generateNotebookHtml(entries);
 
-  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-  if (hasICloud) {
+  const hasSyncStorage = !!window.PowerSyncNoteStorage;
+  if (hasSyncStorage) {
     const timestamp = formatTimestamp();
     try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
     catch { updateStatus('Export failed — check storage.', false); return; }
@@ -410,8 +406,8 @@ async function exportSelectedNotes() {
   }
   const html = await generateNotebookHtml(entries);
 
-  const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-  if (hasICloud) {
+  const hasSyncStorage = !!window.PowerSyncNoteStorage;
+  if (hasSyncStorage) {
     const timestamp = formatTimestamp();
     try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
     catch { updateStatus('Export failed — check storage.', false); return; }
@@ -450,8 +446,8 @@ async function downloadAllNotes() {
       }
     }
 
-    const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-    if (hasICloud) {
+    const hasSyncStorage = !!window.PowerSyncNoteStorage;
+    if (hasSyncStorage) {
       const timestamp = formatTimestamp();
       const base64 = await zip.generateAsync({ type: 'base64' });
       await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64);
@@ -496,8 +492,8 @@ async function backupSelectedNotes() {
       }
     }
 
-    const hasICloud = !!(window.electronAPI?.notes || (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage));
-    if (hasICloud) {
+    const hasSyncStorage = !!window.PowerSyncNoteStorage;
+    if (hasSyncStorage) {
       const timestamp = formatTimestamp();
       const base64 = await zip.generateAsync({ type: 'base64' });
       await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64);
