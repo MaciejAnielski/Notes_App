@@ -778,6 +778,39 @@ if (savedChain) {
   try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
 
+/**
+ * Migrate notes from localStorage to PowerSync when sync is first activated.
+ * Reads all 'md_*' keys from localStorage and writes any that don't already
+ * exist in the sync database. This prevents data loss when a user enables
+ * sync after having created notes locally.
+ */
+async function migrateLocalNotesToSync() {
+  const localKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('md_')) localKeys.push(key);
+  }
+  if (localKeys.length === 0) return;
+
+  let migrated = 0;
+  for (const key of localKeys) {
+    const noteName = key.slice(3);
+    const localContent = localStorage.getItem(key);
+    if (!localContent) continue;
+    // Only insert notes that don't already exist in the sync database so
+    // that remote notes (synced from other devices) are never overwritten.
+    const existing = await NoteStorage.getNote(noteName);
+    if (existing === null) {
+      await NoteStorage.setNote(noteName, localContent);
+      migrated++;
+    }
+  }
+
+  if (migrated > 0) {
+    console.log(`[sync] Migrated ${migrated} local note(s) to sync storage.`);
+  }
+}
+
 (async () => {
   try {
     // Wait for PowerSync to finish initializing before any NoteStorage operations.
@@ -796,6 +829,7 @@ if (savedChain) {
       });
       if (window.PowerSyncNoteStorage) {
         window.NoteStorage = window.PowerSyncNoteStorage;
+        await migrateLocalNotesToSync();
       }
     }
 
