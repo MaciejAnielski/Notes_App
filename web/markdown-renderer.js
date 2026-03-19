@@ -1314,7 +1314,8 @@ function injectThemeColorPickers(container) {
 
 function injectProjectEmojiPickers(container) {
   // Find the <details> containing the "Projects Note Emojis" heading (h2 or h3).
-  // The section uses ### (h3) as a subsection under ## Theme.
+  // The section is a top-level ## (h2) alongside Sync and Theme; h3 is also
+  // accepted for backwards compatibility with older Settings note content.
   let emojiSection = null;
   for (const details of container.querySelectorAll('details')) {
     const h = details.querySelector('summary h2, summary h3');
