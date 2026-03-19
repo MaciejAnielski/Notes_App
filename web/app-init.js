@@ -694,7 +694,7 @@ async function handlePowerSyncChange() {
 
   // Re-apply synced preferences if the preferences note changed
   if (typeof applySyncedPreferences === 'function') {
-    applySyncedPreferences();
+    await applySyncedPreferences();
   }
 
   if (currentFileName) {

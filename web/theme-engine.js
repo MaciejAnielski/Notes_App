@@ -587,6 +587,7 @@ async function applySyncedPreferences() {
     if (prefs.theme.background !== local.background || prefs.theme.accent !== local.accent) {
       applyTheme(prefs.theme.background, prefs.theme.accent);
       saveTheme(prefs.theme.background, prefs.theme.accent);
+      if (typeof reinitMermaidTheme === 'function') reinitMermaidTheme();
     }
   }
 
@@ -595,6 +596,7 @@ async function applySyncedPreferences() {
     const local = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
     const merged = { ...local, ...prefs.calendarColors };
     localStorage.setItem('calendar_colors', JSON.stringify(merged));
+    if (typeof invalidateScheduleCache === 'function') invalidateScheduleCache();
   }
 
   // Apply synced project emojis
@@ -610,6 +612,7 @@ async function applySyncedPreferences() {
     if (Object.keys(toStore).length > 0) {
       localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
     }
+    if (typeof refreshProjectsNote === 'function') refreshProjectsNote();
   }
 }
 
