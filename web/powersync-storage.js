@@ -79,6 +79,18 @@
   // ── Global sync helpers (available immediately, before PowerSync init) ──
   // The Settings note reads this to show auth state and drive the sign-in flow.
   const syncEnabled = localStorage.getItem('sync_enabled') === 'true';
+
+  // Fetch the local auth-callback URL from the Electron main process.
+  // This is http://127.0.0.1:<port>/auth-callback — used as emailRedirectTo
+  // so magic links open a local page that extracts tokens and posts them back.
+  // Falls back to config.redirectTo (for protocol-handler / iOS use cases).
+  let _authCallbackUrl = config.redirectTo || null;
+  if (isElectron && window.electronAPI?.getAuthCallbackUrl) {
+    window.electronAPI.getAuthCallbackUrl().then(url => {
+      if (url) _authCallbackUrl = url;
+    }).catch(() => {});
+  }
+
   window._syncHelpers = {
     available: true,
     enabled: syncEnabled,
@@ -100,12 +112,17 @@
 
     /**
      * Send a magic link to the given email address.
-     * After the user clicks the link their session is created automatically
-     * (Electron: via the notesapp:// protocol handler; iOS: via appUrlOpen).
+     * On Electron the emailRedirectTo points to the local auth-callback server
+     * so clicking the link in the system browser automatically passes the
+     * tokens back to this app.
      */
     async sendMagicLink(email) {
-      const redirectTo = config.redirectTo;
-      const options = redirectTo ? { emailRedirectTo: redirectTo } : {};
+      // Re-fetch the callback URL right before sending in case the server
+      // wasn't ready when the module first loaded.
+      if (isElectron && window.electronAPI?.getAuthCallbackUrl && !_authCallbackUrl) {
+        _authCallbackUrl = await window.electronAPI.getAuthCallbackUrl().catch(() => null);
+      }
+      const options = _authCallbackUrl ? { emailRedirectTo: _authCallbackUrl } : {};
       const { error } = await supabase.auth.signInWithOtp({ email, options });
       if (error) throw error;
     },
@@ -132,37 +149,46 @@
     onAuthStateChange: (cb) => supabase.auth.onAuthStateChange(cb)
   };
 
-  // ── Magic link URL handler ───────────────────────────────────────────────
-  // Called by the Electron preload (or iOS appUrlOpen) with the deep-link URL
-  // containing the Supabase auth tokens in the hash/query string.
-  window._handleAuthUrl = async function (url) {
+  // ── Magic link token handler ─────────────────────────────────────────────
+  // Accepts either:
+  //   • A raw URL-encoded param string from the local HTTP server POST
+  //     (e.g. "access_token=xxx&refresh_token=yyy&token_type=bearer&…")
+  //   • A full URL from the notesapp:// protocol handler or iOS deep link
+  //     (e.g. "notesapp://auth/callback#access_token=xxx&…")
+  window._handleAuthPayload = async function (payload) {
     try {
-      let paramStr = '';
-      if (url.includes('#')) {
-        paramStr = url.substring(url.indexOf('#') + 1);
-      } else if (url.includes('?')) {
-        paramStr = url.substring(url.indexOf('?') + 1);
+      let paramStr = payload || '';
+      // If it looks like a URL, extract the hash or query portion
+      if (paramStr.includes('://') || paramStr.startsWith('http')) {
+        if (paramStr.includes('#')) {
+          paramStr = paramStr.substring(paramStr.indexOf('#') + 1);
+        } else if (paramStr.includes('?')) {
+          paramStr = paramStr.substring(paramStr.indexOf('?') + 1);
+        }
       }
       const params = new URLSearchParams(paramStr);
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
-      if (accessToken && refreshToken) {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
-        if (error) throw error;
-        // onAuthStateChange(SIGNED_IN) will fire and trigger a reload
+      if (!accessToken || !refreshToken) {
+        console.warn('[powersync] Auth payload missing tokens:', paramStr.slice(0, 40));
+        return;
       }
+      console.log('[powersync] Setting session from auth callback…');
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      if (error) throw error;
+      // onAuthStateChange(SIGNED_IN) will fire and trigger a page reload
     } catch (e) {
-      console.error('[powersync] Failed to handle auth URL:', e);
+      console.error('[powersync] Failed to handle auth payload:', e);
     }
   };
 
   // Register auth callback from Electron (via preload IPC)
   if (isElectron && window.electronAPI?.onAuthCallback) {
-    window.electronAPI.onAuthCallback((url) => {
-      window._handleAuthUrl(url);
+    window.electronAPI.onAuthCallback((payload) => {
+      window._handleAuthPayload(payload);
     });
   }
 
@@ -172,7 +198,7 @@
       const CapApp = window.Capacitor?.Plugins?.App;
       if (CapApp) {
         CapApp.addListener('appUrlOpen', (data) => {
-          if (data?.url) window._handleAuthUrl(data.url);
+          if (data?.url) window._handleAuthPayload(data.url);
         });
       }
     } catch (_) { /* App plugin not available */ }
