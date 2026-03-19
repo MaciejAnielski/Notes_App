@@ -763,11 +763,285 @@ async function renderPreview() {
     setupClickableMathFormulas();
   }
 
-  // Settings note: inject colour pickers for calendar entries and theme pickers
+  // Settings note: inject interactive controls
   if (currentFileName === CALENDARS_NOTE) {
+    injectSyncSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
     injectProjectEmojiPickers(previewDiv);
+  }
+}
+
+// ── Sync settings UI in Settings note preview ────────────────────────────
+// Injects an interactive sign-in / status panel into the "☁️ Sync" section.
+
+function injectSyncSettings(container) {
+  // Find the <details> wrapping the "Sync" h2
+  let syncSection = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Sync')) { syncSection = details; break; }
+  }
+  if (!syncSection) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Sync')) { syncSection = h.parentElement; break; }
+    }
+  }
+  if (!syncSection) return;
+  if (syncSection.querySelector('.sync-controls')) return; // already injected
+
+  const helpers = window._syncHelpers; // set by powersync-storage.js on Desktop/iOS
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sync-controls';
+
+  // ── Web: sync not available ──────────────────────────────────────────────
+  if (!helpers || !helpers.available) {
+    const msg = document.createElement('p');
+    msg.className = 'sync-status-msg';
+    msg.textContent = 'Sync is available in the desktop and iOS apps.';
+    wrap.appendChild(msg);
+    _appendSyncControls(syncSection, wrap);
+    return;
+  }
+
+  // ── Sync enabled + authenticated: show status and sign-out ──────────────
+  if (helpers.enabled && helpers.authenticated) {
+    _buildSignedInView(wrap, helpers);
+    _appendSyncControls(syncSection, wrap);
+    return;
+  }
+
+  // ── Sync enabled but not signed in: show sign-in form ───────────────────
+  if (helpers.enabled && !helpers.authenticated) {
+    _buildSignInForm(wrap, helpers);
+    _appendSyncControls(syncSection, wrap);
+    return;
+  }
+
+  // ── Sync disabled: show enable button ───────────────────────────────────
+  const desc = document.createElement('p');
+  desc.className = 'sync-status-msg';
+  desc.textContent = 'Sync is currently off. Enable it to back up and sync notes across devices.';
+  wrap.appendChild(desc);
+
+  const enableBtn = document.createElement('button');
+  enableBtn.className = 'sync-btn sync-btn-primary';
+  enableBtn.textContent = 'Enable Sync';
+  enableBtn.addEventListener('click', async () => {
+    enableBtn.disabled = true;
+    enableBtn.textContent = 'Enabling\u2026';
+    await helpers.enable(); // reloads the page
+  });
+  wrap.appendChild(enableBtn);
+
+  _appendSyncControls(syncSection, wrap);
+}
+
+function _buildSignedInView(wrap, helpers) {
+  const statusRow = document.createElement('div');
+  statusRow.className = 'sync-status-row';
+
+  const dot = document.createElement('span');
+  dot.className = 'sync-dot sync-dot-active';
+  statusRow.appendChild(dot);
+
+  const label = document.createElement('span');
+  label.className = 'sync-status-label';
+  label.textContent = helpers.userEmail
+    ? `Syncing as ${helpers.userEmail}`
+    : 'Sync active';
+  statusRow.appendChild(label);
+  wrap.appendChild(statusRow);
+
+  const signOutBtn = document.createElement('button');
+  signOutBtn.className = 'sync-btn sync-btn-secondary';
+  signOutBtn.textContent = 'Sign Out & Disable Sync';
+  signOutBtn.addEventListener('click', async () => {
+    signOutBtn.disabled = true;
+    signOutBtn.textContent = 'Signing out\u2026';
+    await helpers.disable(); // signs out + reloads
+  });
+  wrap.appendChild(signOutBtn);
+}
+
+function _buildSignInForm(wrap, helpers) {
+  let pendingEmail = '';
+
+  // --- Email step ---
+  const emailStep = document.createElement('div');
+  emailStep.className = 'sync-step';
+
+  const emailDesc = document.createElement('p');
+  emailDesc.className = 'sync-status-msg';
+  emailDesc.textContent = 'Enter your email to receive a sign-in link.';
+  emailStep.appendChild(emailDesc);
+
+  const emailInput = document.createElement('input');
+  emailInput.type = 'email';
+  emailInput.placeholder = 'you@example.com';
+  emailInput.className = 'sync-email-input';
+  emailInput.autocomplete = 'email';
+  emailStep.appendChild(emailInput);
+
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'sync-btn sync-btn-primary';
+  sendBtn.textContent = 'Send Sign-In Link';
+  emailStep.appendChild(sendBtn);
+
+  const errorEl = document.createElement('p');
+  errorEl.className = 'sync-error';
+  errorEl.style.display = 'none';
+  emailStep.appendChild(errorEl);
+
+  wrap.appendChild(emailStep);
+
+  // --- Waiting step (shown after link is sent) ---
+  const waitStep = document.createElement('div');
+  waitStep.className = 'sync-step';
+  waitStep.style.display = 'none';
+
+  const waitMsg = document.createElement('p');
+  waitMsg.className = 'sync-wait-msg';
+  wrap.appendChild(waitStep);
+
+  const otpToggle = document.createElement('button');
+  otpToggle.className = 'sync-otp-toggle';
+  otpToggle.textContent = 'I have a code instead';
+
+  const otpRow = document.createElement('div');
+  otpRow.className = 'sync-otp-row';
+  otpRow.style.display = 'none';
+
+  const otpInput = document.createElement('input');
+  otpInput.type = 'text';
+  otpInput.placeholder = 'Enter 6-digit code';
+  otpInput.className = 'sync-email-input';
+  otpInput.inputMode = 'numeric';
+  otpInput.maxLength = 6;
+  otpInput.autocomplete = 'one-time-code';
+
+  const verifyBtn = document.createElement('button');
+  verifyBtn.className = 'sync-btn sync-btn-primary';
+  verifyBtn.textContent = 'Verify Code';
+
+  const otpError = document.createElement('p');
+  otpError.className = 'sync-error';
+  otpError.style.display = 'none';
+
+  otpRow.appendChild(otpInput);
+  otpRow.appendChild(verifyBtn);
+  otpRow.appendChild(otpError);
+
+  const resendBtn = document.createElement('button');
+  resendBtn.className = 'sync-otp-toggle';
+  resendBtn.textContent = 'Resend link';
+
+  waitStep.appendChild(waitMsg);
+  waitStep.appendChild(otpToggle);
+  waitStep.appendChild(otpRow);
+  waitStep.appendChild(resendBtn);
+
+  const disableBtn = document.createElement('button');
+  disableBtn.className = 'sync-btn sync-btn-secondary';
+  disableBtn.style.marginTop = '8px';
+  disableBtn.textContent = 'Disable Sync';
+  disableBtn.addEventListener('click', async () => {
+    disableBtn.disabled = true;
+    await helpers.disable();
+  });
+  wrap.appendChild(disableBtn);
+
+  // ── Event handlers ───────────────────────────────────────────────────────
+
+  sendBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    pendingEmail = emailInput.value.trim();
+    if (!pendingEmail) {
+      errorEl.textContent = 'Please enter your email address.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending\u2026';
+    try {
+      await helpers.sendMagicLink(pendingEmail);
+      emailStep.style.display = 'none';
+      waitMsg.textContent = `Check your email (${pendingEmail}) and click the sign-in link. This page will update automatically once you're signed in.`;
+      waitStep.style.display = 'block';
+      // Listen for sign-in event (fired by onAuthStateChange after magic link click)
+      helpers.onAuthStateChange((event, _session) => {
+        if (event === 'SIGNED_IN') {
+          waitMsg.textContent = 'Signed in successfully! Reloading\u2026';
+        }
+      });
+    } catch (e) {
+      errorEl.textContent = e.message || 'Failed to send link. Please try again.';
+      errorEl.style.display = 'block';
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send Sign-In Link';
+    }
+  });
+
+  emailInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+
+  resendBtn.addEventListener('click', async () => {
+    if (!pendingEmail) { waitStep.style.display = 'none'; emailStep.style.display = 'block'; return; }
+    resendBtn.disabled = true;
+    resendBtn.textContent = 'Sending\u2026';
+    try {
+      await helpers.sendMagicLink(pendingEmail);
+      waitMsg.textContent = `Link resent to ${pendingEmail}. Check your email and click the sign-in link.`;
+    } catch (e) {
+      waitMsg.textContent = `Failed to resend: ${e.message || 'please try again.'}`;
+    } finally {
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Resend link';
+    }
+  });
+
+  otpToggle.addEventListener('click', () => {
+    const open = otpRow.style.display !== 'none';
+    otpRow.style.display = open ? 'none' : 'block';
+    otpToggle.textContent = open ? 'I have a code instead' : 'Hide code field';
+    if (!open) otpInput.focus();
+  });
+
+  verifyBtn.addEventListener('click', async () => {
+    otpError.style.display = 'none';
+    const code = otpInput.value.trim();
+    if (!code) {
+      otpError.textContent = 'Please enter the code.';
+      otpError.style.display = 'block';
+      return;
+    }
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verifying\u2026';
+    try {
+      await helpers.verifyOtp(pendingEmail, code);
+      // onAuthStateChange will fire and reload
+    } catch (e) {
+      otpError.textContent = e.message || 'Invalid code. Please try again.';
+      otpError.style.display = 'block';
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify Code';
+    }
+  });
+
+  otpInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') verifyBtn.click();
+  });
+}
+
+function _appendSyncControls(section, wrap) {
+  const lists = section.querySelectorAll('ul, ol, p');
+  const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
+  if (lastEl && lastEl.nextSibling) {
+    section.insertBefore(wrap, lastEl.nextSibling);
+  } else {
+    section.appendChild(wrap);
   }
 }
 

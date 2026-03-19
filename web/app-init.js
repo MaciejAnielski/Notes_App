@@ -778,72 +778,20 @@ if (savedChain) {
   try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
 
-// ── Auth UI handler (desktop/iOS magic link flow) ────────────────────────────
-window.addEventListener('powersync:needs-auth', () => {
-  const modal = document.getElementById('auth-modal');
-  const emailInput = document.getElementById('auth-email');
-  const sendBtn = document.getElementById('auth-send-btn');
-  const otpStep = document.getElementById('auth-otp-step');
-  const emailStep = document.getElementById('auth-email-step');
-  const otpInput = document.getElementById('auth-otp');
-  const verifyBtn = document.getElementById('auth-verify-btn');
-  const otpHint = document.getElementById('auth-otp-hint');
-  const errorEl = document.getElementById('auth-error');
-  if (!modal) return;
-
-  modal.style.display = 'flex';
-  let authEmail = '';
-
-  function showError(msg) {
-    errorEl.textContent = msg;
-    errorEl.style.display = 'block';
-  }
-
-  sendBtn.addEventListener('click', async () => {
-    errorEl.style.display = 'none';
-    authEmail = emailInput.value.trim();
-    if (!authEmail) { showError('Please enter your email.'); return; }
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending\u2026';
-    try {
-      await window._powersyncAuth.sendCode(authEmail);
-      emailStep.style.display = 'none';
-      otpHint.textContent = `Code sent to ${authEmail}`;
-      otpStep.style.display = 'block';
-      otpInput.focus();
-    } catch (e) {
-      showError(e.message || 'Failed to send code.');
-      sendBtn.disabled = false;
-      sendBtn.textContent = 'Send Code';
-    }
-  });
-
-  verifyBtn.addEventListener('click', async () => {
-    errorEl.style.display = 'none';
-    const code = otpInput.value.trim();
-    if (!code) { showError('Please enter the code.'); return; }
-    verifyBtn.disabled = true;
-    verifyBtn.textContent = 'Verifying\u2026';
-    try {
-      await window._powersyncAuth.verifyCode(authEmail, code);
-      modal.style.display = 'none';
-      window.dispatchEvent(new CustomEvent('powersync:auth-complete'));
-    } catch (e) {
-      showError(e.message || 'Invalid code. Please try again.');
-      verifyBtn.disabled = false;
-      verifyBtn.textContent = 'Verify';
-    }
-  });
-});
-
 (async () => {
   try {
     // Wait for PowerSync to finish initializing before any NoteStorage operations.
     // powersync-storage.js is an async IIFE that may still be running when this
-    // script executes. A 5-second timeout falls back to localStorage gracefully.
+    // script executes. Resolves immediately when:
+    //   • powersync:ready   — fully initialized (sync enabled + authenticated)
+    //   • powersync:disabled — sync turned off by user; use localStorage
+    //   • powersync:auth-required — sync enabled but not signed in; use localStorage
+    // A 5-second timeout also falls back to localStorage gracefully.
     if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !window.PowerSyncNoteStorage) {
       await new Promise(resolve => {
         window.addEventListener('powersync:ready', resolve, { once: true });
+        window.addEventListener('powersync:disabled', resolve, { once: true });
+        window.addEventListener('powersync:auth-required', resolve, { once: true });
         setTimeout(resolve, 5000);
       });
       if (window.PowerSyncNoteStorage) {

@@ -58,82 +58,117 @@ text[class*="error"] {
   to { transform: rotate(360deg); }
 }
 
-/* ── Auth modal ── */
-#auth-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  background-color: var(--bg, #1e1e1e);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ── Sync settings UI (Settings note preview) ── */
+.sync-controls {
+  padding: 8px 0 12px;
 }
 
-.auth-content {
-  text-align: center;
-  max-width: 320px;
-  width: 100%;
-  padding: 0 20px;
-}
-
-.auth-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--accent, #a272b0);
-  margin-bottom: 8px;
-  letter-spacing: 0.05em;
-}
-
-.auth-subtitle {
-  font-size: 14px;
-  color: var(--muted, #888);
-  margin-bottom: 24px;
-}
-
-.auth-hint {
+.sync-status-msg {
   font-size: 13px;
   color: var(--muted, #888);
-  margin-bottom: 12px;
+  margin: 0 0 10px;
+  line-height: 1.5;
 }
 
-#auth-modal input {
+.sync-wait-msg {
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.sync-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sync-dot-active {
+  background-color: var(--success, #4caf72);
+}
+
+.sync-status-label {
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+}
+
+.sync-email-input {
+  display: block;
   width: 100%;
-  padding: 10px 12px;
+  max-width: 280px;
+  padding: 8px 10px;
   background: var(--surface, #2e2e2e);
   border: 1px solid var(--border, #444);
   border-radius: 6px;
   color: var(--text, #e8dcf4);
-  font-size: 16px;
-  margin-bottom: 12px;
+  font-size: 14px;
+  margin-bottom: 8px;
   box-sizing: border-box;
-  text-align: center;
 }
 
-#auth-modal input::placeholder {
+.sync-email-input::placeholder {
   color: var(--muted, #888);
 }
 
-#auth-modal button {
-  width: 100%;
-  padding: 10px;
-  background: var(--accent, #a272b0);
-  color: var(--text-on-accent, #fff);
+.sync-btn {
+  display: inline-block;
+  padding: 7px 14px;
   border: none;
   border-radius: 6px;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  margin-bottom: 6px;
 }
 
-#auth-modal button:disabled {
+.sync-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-#auth-error {
+.sync-btn-primary {
+  background: var(--accent, #a272b0);
+  color: var(--text-on-accent, #fff);
+}
+
+.sync-btn-secondary {
+  background: transparent;
+  color: var(--muted, #888);
+  border: 1px solid var(--border, #444);
+}
+
+.sync-otp-toggle {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: var(--link, #9cdcfe);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 8px;
+  text-decoration: underline;
+}
+
+.sync-otp-row {
+  margin-bottom: 6px;
+}
+
+.sync-step {
+  margin-bottom: 4px;
+}
+
+.sync-error {
+  font-size: 12px;
   color: var(--error, #e05c5c);
-  font-size: 13px;
-  margin-top: 12px;
+  margin: 4px 0 0;
 }
 
 /* ── Base ── */

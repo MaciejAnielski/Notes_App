@@ -188,6 +188,19 @@ async function updateWebCalendarSettings(allNotes) {
 
   let content = existing || '# Settings\n';
 
+  // Ensure Sync section (Desktop/iOS only — web has no sync capability)
+  if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## ☁️ Sync')) {
+    // Insert at the top (before the first ## heading), or append
+    const firstSecIdx = content.indexOf('\n## ');
+    if (firstSecIdx !== -1) {
+      content = content.slice(0, firstSecIdx) +
+        '\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n' +
+        content.slice(firstSecIdx);
+    } else {
+      content += '\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n';
+    }
+  }
+
   // Ensure Theme section
   if (!content.includes('## 🎨 Theme')) {
     // Insert before any existing ## heading, or append
