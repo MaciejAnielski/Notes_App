@@ -296,9 +296,20 @@
           if (op.op === 'PUT') {
             data.id = op.id;
             data.user_id = session?.user?.id;
-            const upsertOptions = { onConflict: 'id' };
-            const { error } = await supabase.from(table).upsert(data, upsertOptions);
-            if (error) throw error;
+            const { error } = await supabase.from(table).upsert(data, { onConflict: 'id' });
+            if (error) {
+              // A note with this name already exists under a different UUID (created on
+              // another device). Fall back to updating the existing row by (user_id, name).
+              if (error.code === '23505' && table === 'notes') {
+                const { error: updateErr } = await supabase.from('notes')
+                  .update(data)
+                  .eq('user_id', data.user_id)
+                  .eq('name', data.name);
+                if (updateErr) throw updateErr;
+              } else {
+                throw error;
+              }
+            }
           } else if (op.op === 'PATCH') {
             const { error } = await supabase.from(table).update(data).eq('id', op.id);
             if (error) throw error;
