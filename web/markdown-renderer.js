@@ -93,6 +93,23 @@ function preprocessMarkdown(text) {
     }).join('\n');
   }
 
+  // ── Fix setext headings: insert blank line before "---"/"===" that follow text ──
+  // Without this, "Some text\n---" is parsed as an h2 instead of a horizontal rule.
+  {
+    const lines = text.split('\n');
+    let inFence = false;
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; }
+      if (!inFence && /^[ \t]*(-{3,}|={3,})[ \t]*$/.test(line) && i > 0 && out.length > 0 && out[out.length - 1].trim() !== '') {
+        out.push('');
+      }
+      out.push(line);
+    }
+    text = out.join('\n');
+  }
+
   // ── Wiki links ──
   text = text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
     const display = inner.replace(/_/g, ' ').trim();
