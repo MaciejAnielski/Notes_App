@@ -214,6 +214,22 @@ async function updateWebCalendarSettings(allNotes) {
     }
   }
 
+  // Ensure Projects Note Emojis subsection under Theme
+  if (!content.includes('### Projects Note Emojis')) {
+    // Insert after the Theme section body (before the next ## heading or at end)
+    const themeIdx = content.indexOf('\n## 🎨 Theme');
+    if (themeIdx !== -1) {
+      const afterTheme = themeIdx + '\n## 🎨 Theme'.length;
+      const nextSecIdx = content.indexOf('\n## ', afterTheme);
+      const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
+      content = content.slice(0, insertAt) +
+        '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
+        content.slice(insertAt);
+    } else {
+      content += '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
+    }
+  }
+
   // Clean up any corrupted lines in the Calendars section (e.g. JSON fragments
   // from .calendar_metadata that were erroneously appended in older versions).
   const corruptRe = /^- .+[{}"\[\]].{10,}$/gm;
