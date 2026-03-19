@@ -1,13 +1,33 @@
 const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
 const path = require('path');
 
+// ── Custom protocol — handles magic link auth callbacks ──────────────────────
+// Supabase redirects the magic link to notesapp://auth/callback#access_token=...
+// We register the protocol here so the OS knows to open this app for notesapp:// URLs.
+const PROTOCOL = 'notesapp';
+
+// Must be called before app.whenReady()
+if (!app.isDefaultProtocolClient(PROTOCOL)) {
+  app.setAsDefaultProtocolClient(PROTOCOL);
+}
+
+let mainWindow = null;
+
 // ── IPC handlers ────────────────────────────────────────────────────────────
-// Storage is handled by PowerSync in the renderer process.
-// Only keep utility IPC handlers that need Node.js capabilities.
 function registerHandlers() {
   ipcMain.handle('notes:openExternal', async (_event, url) => {
     await shell.openExternal(url);
   });
+}
+
+// ── Forward a deep-link URL to the renderer ──────────────────────────────────
+function handleDeepLink(url) {
+  if (!url || !url.startsWith(PROTOCOL + '://')) return;
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    mainWindow.webContents.send('auth:callback', url);
+  }
 }
 
 // ── Electron app lifecycle ─────────────────────────────────────────────────
@@ -19,7 +39,7 @@ function getWebPath() {
 }
 
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 400,
@@ -36,23 +56,27 @@ function createWindow() {
   });
 
   // Fallback: show the window if ready-to-show hasn't fired within 3 s.
-  const showFallback = setTimeout(() => win.show(), 3000);
+  const showFallback = setTimeout(() => mainWindow.show(), 3000);
 
-  win.once('ready-to-show', () => {
+  mainWindow.once('ready-to-show', () => {
     clearTimeout(showFallback);
-    win.show();
+    mainWindow.show();
     if (!app.isPackaged) {
-      win.webContents.openDevTools();
+      mainWindow.webContents.openDevTools();
     }
   });
 
-  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[main] Failed to load ${validatedURL || getWebPath()}: ${errorDescription} (${errorCode})`);
     clearTimeout(showFallback);
-    win.show();
+    mainWindow.show();
   });
 
-  win.loadFile(getWebPath());
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  mainWindow.loadFile(getWebPath());
 }
 
 registerHandlers();
@@ -82,7 +106,29 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
+
+  // macOS / Linux: handle protocol URL passed at launch
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleDeepLink(url);
+  });
 });
+
+// Windows: a second instance is launched with the URL as argv — forward to the
+// existing window and quit the new instance.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.find(arg => arg.startsWith(PROTOCOL + '://'));
+    if (url) handleDeepLink(url);
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

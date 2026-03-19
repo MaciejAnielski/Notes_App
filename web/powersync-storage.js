@@ -7,6 +7,13 @@
 // - Attachments: binary data stored in local SQLite (local_data column),
 //   metadata synced via PowerSync, binaries synced to/from Supabase Storage
 //   in the background. All operations succeed offline.
+//
+// Sync Opt-In:
+// - Sync is disabled by default. User enables it via the Settings note.
+// - PowerSync only initializes when sync_enabled=true AND a valid session exists.
+// - Auth uses Supabase magic link (email). User clicks the link in their email.
+// - On Electron, magic links are handled via the 'notesapp://' custom protocol.
+// - On iOS, magic links are handled via Capacitor's App.addListener('appUrlOpen').
 
 (async function () {
   'use strict';
@@ -23,12 +30,14 @@
   const config = window.POWERSYNC_CONFIG;
   if (!config || config.supabaseUrl.includes('YOUR_')) {
     console.warn('[powersync] Config not set — skipping PowerSync init. Using fallback storage.');
+    window.dispatchEvent(new CustomEvent('powersync:disabled'));
     return;
   }
   console.log('[powersync] Config loaded. Supabase URL:', config.supabaseUrl);
 
   if (!window.PowerSync || !window.SupabaseClient) {
-    console.error('[powersync] PowerSync or SupabaseClient globals not found. The vendor bundle may not have loaded correctly.');
+    console.error('[powersync] PowerSync or SupabaseClient globals not found.');
+    window.dispatchEvent(new CustomEvent('powersync:disabled'));
     return;
   }
   console.log('[powersync] Vendor libraries loaded successfully.');
@@ -54,7 +63,6 @@
     created_at: column.text,
     user_id: column.text,
     // Local-only columns (not in Supabase schema or sync stream).
-    // PowerSync stores them locally and leaves them untouched during sync.
     local_data: column.text,   // base64-encoded binary data
     sync_state: column.text    // 'pending' | 'synced' | 'error'
   });
@@ -63,18 +71,128 @@
   const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       persistSession: true,
-      autoRefreshToken: true
+      autoRefreshToken: true,
+      detectSessionInUrl: true
     }
   });
 
-  // ── Magic link auth ─────────────────────────────────────────────────────
+  // ── Global sync helpers (available immediately, before PowerSync init) ──
+  // The Settings note reads this to show auth state and drive the sign-in flow.
+  const syncEnabled = localStorage.getItem('sync_enabled') === 'true';
+  window._syncHelpers = {
+    available: true,
+    enabled: syncEnabled,
+    authenticated: false,
+    userEmail: null,
+
+    /** User chose to enable sync. Sets the flag and reloads. */
+    async enable() {
+      localStorage.setItem('sync_enabled', 'true');
+      window.location.reload();
+    },
+
+    /** User chose to disable sync. Clears session and reloads. */
+    async disable() {
+      localStorage.removeItem('sync_enabled');
+      await supabase.auth.signOut().catch(() => {});
+      window.location.reload();
+    },
+
+    /**
+     * Send a magic link to the given email address.
+     * After the user clicks the link their session is created automatically
+     * (Electron: via the notesapp:// protocol handler; iOS: via appUrlOpen).
+     */
+    async sendMagicLink(email) {
+      const redirectTo = config.redirectTo;
+      const options = redirectTo ? { emailRedirectTo: redirectTo } : {};
+      const { error } = await supabase.auth.signInWithOtp({ email, options });
+      if (error) throw error;
+    },
+
+    /**
+     * Verify a one-time code (for Supabase projects configured for email OTP).
+     * Most Supabase projects send a magic link instead — use sendMagicLink().
+     */
+    async verifyOtp(email, token) {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email, token, type: 'email'
+      });
+      if (error) throw error;
+      return data.session;
+    },
+
+    /** Sign out and reload. */
+    async signOut() {
+      await supabase.auth.signOut().catch(() => {});
+      window.location.reload();
+    },
+
+    getSession: () => supabase.auth.getSession(),
+    onAuthStateChange: (cb) => supabase.auth.onAuthStateChange(cb)
+  };
+
+  // ── Magic link URL handler ───────────────────────────────────────────────
+  // Called by the Electron preload (or iOS appUrlOpen) with the deep-link URL
+  // containing the Supabase auth tokens in the hash/query string.
+  window._handleAuthUrl = async function (url) {
+    try {
+      let paramStr = '';
+      if (url.includes('#')) {
+        paramStr = url.substring(url.indexOf('#') + 1);
+      } else if (url.includes('?')) {
+        paramStr = url.substring(url.indexOf('?') + 1);
+      }
+      const params = new URLSearchParams(paramStr);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if (error) throw error;
+        // onAuthStateChange(SIGNED_IN) will fire and trigger a reload
+      }
+    } catch (e) {
+      console.error('[powersync] Failed to handle auth URL:', e);
+    }
+  };
+
+  // Register auth callback from Electron (via preload IPC)
+  if (isElectron && window.electronAPI?.onAuthCallback) {
+    window.electronAPI.onAuthCallback((url) => {
+      window._handleAuthUrl(url);
+    });
+  }
+
+  // Register auth callback from iOS Capacitor
+  if (isIOS) {
+    try {
+      const CapApp = window.Capacitor?.Plugins?.App;
+      if (CapApp) {
+        CapApp.addListener('appUrlOpen', (data) => {
+          if (data?.url) window._handleAuthUrl(data.url);
+        });
+      }
+    } catch (_) { /* App plugin not available */ }
+  }
+
+  // ── If sync is not enabled by user, bail early ───────────────────────────
+  if (!syncEnabled) {
+    console.log('[powersync] Sync not enabled by user. Using local storage.');
+    window.dispatchEvent(new CustomEvent('powersync:disabled'));
+    return;
+  }
+
+  // ── Check for existing session ───────────────────────────────────────────
   let session = null;
   try {
     const { data } = await supabase.auth.getSession();
     session = data?.session;
 
-    // getSession() returns a locally-cached token that may belong to a
-    // deleted user.  Validate it against the server with getUser().
+    // getSession() may return a cached token belonging to a deleted user.
+    // Validate against the server.
     if (session) {
       const { error: userErr } = await supabase.auth.getUser();
       if (userErr) {
@@ -87,47 +205,38 @@
     console.error('[powersync] Failed to get session:', e);
   }
 
+  // ── If no session, wait for user to sign in via Settings note ────────────
   if (!session) {
-    // No session — prompt user to sign in via magic link (email OTP).
-    // Expose auth helpers so the UI can drive the flow.
-    window._powersyncAuth = {
-      async sendCode(email) {
-        const { error } = await supabase.auth.signInWithOtp({ email });
-        if (error) throw error;
-      },
-      async verifyCode(email, token) {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email, token, type: 'email'
-        });
-        if (error) throw error;
-        session = data.session;
-        return session;
+    console.log('[powersync] Sync enabled but no session. Waiting for sign-in via Settings…');
+    window._syncHelpers.authenticated = false;
+
+    // Listen for sign-in (magic link click or OTP verify)
+    supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (event === 'SIGNED_IN' && newSession) {
+        window._syncHelpers.authenticated = true;
+        window._syncHelpers.userEmail = newSession.user?.email || null;
+        // Reload so PowerSync can fully initialise with the fresh session
+        window.location.reload();
       }
-    };
-
-    // Signal that auth is needed and wait for the UI to resolve it
-    const authPromise = new Promise(resolve => {
-      window.addEventListener('powersync:auth-complete', () => resolve(), { once: true });
     });
-    window.dispatchEvent(new CustomEvent('powersync:needs-auth'));
-    await authPromise;
 
-    // Re-fetch session after auth
-    if (!session) {
-      const { data } = await supabase.auth.getSession();
-      session = data?.session;
-    }
-    if (!session) {
-      console.error('[powersync] Auth completed but no session available.');
-      return;
-    }
+    // Signal to app-init.js to proceed with localStorage (don't wait for PowerSync)
+    window.dispatchEvent(new CustomEvent('powersync:auth-required'));
+    return;
   }
 
-  console.log('[powersync] Authenticated. User ID:', session?.user?.id);
+  // ── Valid session — mark auth state and initialise PowerSync ─────────────
+  window._syncHelpers.authenticated = true;
+  window._syncHelpers.userEmail = session.user?.email || null;
+  console.log('[powersync] Authenticated. User ID:', session.user?.id);
 
-  // Listen for session refresh
+  // Keep session reference in sync with refresh/logout events
   supabase.auth.onAuthStateChange((_event, newSession) => {
     session = newSession;
+    if (window._syncHelpers) {
+      window._syncHelpers.authenticated = !!newSession;
+      window._syncHelpers.userEmail = newSession?.user?.email || null;
+    }
   });
 
   // ── PowerSync connector ─────────────────────────────────────────────────
@@ -159,10 +268,7 @@
           }
 
           if (op.op === 'PUT') {
-            // Upsert: insert or update
             data.id = op.id;
-            // Always use the current session user — stale user_ids from a
-            // previous anonymous session would violate the FK constraint.
             data.user_id = session?.user?.id;
             const { error } = await supabase.from(table).upsert(data);
             if (error) throw error;
@@ -170,7 +276,6 @@
             const { error } = await supabase.from(table).update(data).eq('id', op.id);
             if (error) throw error;
           } else if (op.op === 'DELETE') {
-            // When deleting attachments, also clean up Supabase Storage
             if (table === 'attachments' && data.storage_path) {
               try {
                 await supabase.storage.from('attachments').remove([data.storage_path]);
@@ -184,24 +289,18 @@
         }
         await transaction.complete();
       } catch (e) {
-        // FK constraint violation (23503): the referenced user no longer exists
-        // (e.g. old anonymous user was deleted).  Retrying will never succeed —
-        // discard this transaction so the queue can progress.
         if (e?.code === '23503') {
           console.warn('[powersync] Discarding transaction with orphaned user_id (FK violation):', e.details);
           await transaction.complete();
           return;
         }
         console.error('[powersync] Upload failed:', e);
-        throw e; // PowerSync will retry
+        throw e;
       }
     }
   };
 
   // ── Initialize PowerSync database ───────────────────────────────────────
-  // Worker paths must be specified explicitly so the SDK does not try to
-  // resolve them relative to the bundle via import.meta.url (which would
-  // produce wrong paths and cause db.init() to hang silently).
   console.log('[powersync] Creating PowerSyncDatabase...');
   const db = new PowerSyncDatabase({
     schema: new Schema({ notes, attachments }),
@@ -218,11 +317,10 @@
   await db.init();
   console.log('[powersync] Database initialized.');
 
-console.log('[powersync] Calling db.connect()...');
+  console.log('[powersync] Calling db.connect()...');
   await db.connect(connector);
   console.log('[powersync] Connected to sync service.');
 
-  // Expose for external use (migration, force sync, change watching)
   window._powersyncDB = db;
   window._supabase = supabase;
 
@@ -233,7 +331,6 @@ console.log('[powersync] Calling db.connect()...');
 
   // ── Background attachment sync ──────────────────────────────────────────
 
-  // Chunked base64 encoding — avoids slow character-by-character concatenation.
   function bufferToBase64(buf) {
     const bytes = new Uint8Array(buf);
     let binary = '';
@@ -315,7 +412,6 @@ console.log('[powersync] Calling db.connect()...');
             [b64, 'synced', row.id]
           );
         } catch (e) {
-          // Download failed (likely offline) — will retry on next change event
           console.warn('[powersync] Attachment download deferred:', row.storage_path, e.message);
         }
       }
@@ -324,7 +420,6 @@ console.log('[powersync] Calling db.connect()...');
     }
   }
 
-  // Retry pending uploads and fetch missing data when connectivity is restored
   window.addEventListener('online', () => {
     scheduleSyncPending();
     scheduleDownloadMissing();
@@ -442,7 +537,6 @@ console.log('[powersync] Calling db.connect()...');
             [noteName, filename, storagePath, base64data, 'pending', now, now, userId]
           );
         }
-        // Background upload — non-blocking
         scheduleSyncPending();
         return true;
       } catch (e) {
@@ -461,17 +555,14 @@ console.log('[powersync] Calling db.connect()...');
         ).catch(() => null);
         if (!rec) return null;
 
-        // Fast path: local data available (works offline)
         if (rec.local_data) return rec.local_data;
 
-        // Slow path: synced from another device, binary not yet downloaded
         try {
           const { data, error } = await supabase.storage
             .from('attachments')
             .download(rec.storage_path);
           if (error) throw error;
           const b64 = bufferToBase64(await data.arrayBuffer());
-          // Cache locally for offline access
           await db.execute(
             'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
             [b64, 'synced', rec.id]
@@ -493,12 +584,10 @@ console.log('[powersync] Calling db.connect()...');
       try {
         const newPath = `${userId}/${noteName}/${newFilename}`;
         const now = new Date().toISOString();
-        // Update locally immediately — background sync will handle remote move
         await db.execute(
           'UPDATE attachments SET filename = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
           [newFilename, newPath, 'pending', now, noteName, oldFilename, userId]
         );
-        // Background: move on Supabase Storage, then clean up old path (fire-and-forget)
         const oldPath = `${userId}/${noteName}/${oldFilename}`;
         supabase.storage.from('attachments').move(oldPath, newPath).then(({ error }) => {
           if (!error) {
@@ -507,8 +596,6 @@ console.log('[powersync] Calling db.connect()...');
               ['synced', noteName, newFilename, userId]
             ).catch(() => {});
           } else {
-            // Move failed — syncPendingAttachments will re-upload at the new path.
-            // Clean up the old path to prevent orphans.
             supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
           }
         }).catch(() => {
@@ -525,17 +612,14 @@ console.log('[powersync] Calling db.connect()...');
       const userId = getUserId();
       if (!userId) return;
       try {
-        // Collect remote paths for background cleanup
         const recs = await db.getAll(
           'SELECT storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
           [noteName, userId]
         );
-        // Delete locally immediately
         await db.execute(
           'DELETE FROM attachments WHERE note_name = ? AND user_id = ?',
           [noteName, userId]
         );
-        // Background: clean up Supabase Storage for all remote paths (fire-and-forget)
         const remotePaths = recs.filter(r => r.storage_path).map(r => r.storage_path);
         if (remotePaths.length > 0) {
           supabase.storage.from('attachments').remove(remotePaths).catch(e => {
@@ -558,12 +642,10 @@ console.log('[powersync] Calling db.connect()...');
         for (const rec of recs) {
           const newPath = `${userId}/${newNoteName}/${rec.filename}`;
           const now = new Date().toISOString();
-          // Update locally immediately
           await db.execute(
             'UPDATE attachments SET note_name = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE id = ?',
             [newNoteName, newPath, 'pending', now, rec.id]
           );
-          // Background: move on Supabase Storage (fire-and-forget)
           if (rec.sync_state === 'synced') {
             supabase.storage.from('attachments').move(rec.storage_path, newPath).then(({ error }) => {
               if (!error) {
@@ -590,15 +672,12 @@ console.log('[powersync] Calling db.connect()...');
       return recs.map(r => r.filename);
     },
 
-    // Expose sync-related state
     isSyncEnabled: true,
 
     async triggerSync() {
       try {
-        // Disconnect and reconnect to force a fresh sync
         await db.disconnect();
         await db.connect(connector);
-        // Also process pending attachment uploads and download missing data
         await syncPendingAttachments();
         await downloadMissingAttachments();
       } catch (e) {
@@ -607,13 +686,11 @@ console.log('[powersync] Calling db.connect()...');
     }
   };
 
-  // Signal readiness so storage.js and app-init.js can pick up PowerSyncNoteStorage
+  // Signal readiness
   console.log('[powersync] Ready. NoteStorage overridden with PowerSync implementation.');
   window.dispatchEvent(new CustomEvent('powersync:ready'));
 
   // ── Reactive change notifications ─────────────────────────────────────
-  // Watch the notes table for changes and dispatch a custom event so
-  // app-init.js can refresh the UI reactively.
   const abortController = new AbortController();
   (async () => {
     try {
@@ -625,7 +702,6 @@ console.log('[powersync] Calling db.connect()...');
     }
   })();
 
-  // Watch attachments table — download missing binary data when new metadata arrives
   (async () => {
     try {
       for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
@@ -637,12 +713,12 @@ console.log('[powersync] Calling db.connect()...');
     }
   })();
 
-  // Clean up on page unload
   window.addEventListener('beforeunload', () => {
     abortController.abort();
   });
 
   } catch (err) {
     console.error('[powersync] Initialization failed:', err);
+    window.dispatchEvent(new CustomEvent('powersync:disabled'));
   }
 })();
