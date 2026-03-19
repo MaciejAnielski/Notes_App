@@ -775,6 +775,19 @@ if (savedChain) {
 
 (async () => {
   try {
+    // Wait for PowerSync to finish initializing before any NoteStorage operations.
+    // powersync-storage.js is an async IIFE that may still be running when this
+    // script executes. A 5-second timeout falls back to localStorage gracefully.
+    if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !window.PowerSyncNoteStorage) {
+      await new Promise(resolve => {
+        window.addEventListener('powersync:ready', resolve, { once: true });
+        setTimeout(resolve, 5000);
+      });
+      if (window.PowerSyncNoteStorage) {
+        window.NoteStorage = window.PowerSyncNoteStorage;
+      }
+    }
+
     // Run migration and synced-preferences loading in parallel to speed up
     // startup. Migration must complete before loading the last note (it may
     // have been migrated), but preferences are independent.
