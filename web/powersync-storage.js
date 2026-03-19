@@ -16,11 +16,22 @@
   const isIOS = !!window.Capacitor?.isNativePlatform();
   if (!isElectron && !isIOS) return;
 
+  try { // top-level catch so errors are never silently swallowed
+
+  console.log('[powersync] Detected platform:', isElectron ? 'Electron' : 'iOS (Capacitor)');
+
   const config = window.POWERSYNC_CONFIG;
   if (!config || config.supabaseUrl.includes('YOUR_')) {
     console.warn('[powersync] Config not set — skipping PowerSync init. Using fallback storage.');
     return;
   }
+  console.log('[powersync] Config loaded. Supabase URL:', config.supabaseUrl);
+
+  if (!window.PowerSync || !window.SupabaseClient) {
+    console.error('[powersync] PowerSync or SupabaseClient globals not found. The vendor bundle may not have loaded correctly.');
+    return;
+  }
+  console.log('[powersync] Vendor libraries loaded successfully.');
 
   const { PowerSyncDatabase, column, Schema, Table } = window.PowerSync;
   const { createClient } = window.SupabaseClient;
@@ -75,6 +86,8 @@
       return; // Fall back to default storage
     }
   }
+
+  console.log('[powersync] Authenticated. User ID:', session?.user?.id);
 
   // Listen for session refresh
   supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -146,7 +159,9 @@
   });
 
   await db.init();
+  console.log('[powersync] Database initialized.');
   await db.connect(connector);
+  console.log('[powersync] Connected to sync service.');
 
   // Expose for external use (migration, force sync, change watching)
   window._powersyncDB = db;
@@ -528,6 +543,7 @@
   };
 
   // Signal readiness so storage.js and app-init.js can pick up PowerSyncNoteStorage
+  console.log('[powersync] Ready. NoteStorage overridden with PowerSync implementation.');
   window.dispatchEvent(new CustomEvent('powersync:ready'));
 
   // ── Reactive change notifications ─────────────────────────────────────
@@ -560,4 +576,8 @@
   window.addEventListener('beforeunload', () => {
     abortController.abort();
   });
+
+  } catch (err) {
+    console.error('[powersync] Initialization failed:', err);
+  }
 })();
