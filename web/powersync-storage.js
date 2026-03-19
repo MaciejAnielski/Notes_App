@@ -173,6 +173,14 @@
         }
         await transaction.complete();
       } catch (e) {
+        // FK constraint violation (23503): the referenced user no longer exists
+        // (e.g. old anonymous user was deleted).  Retrying will never succeed —
+        // discard this transaction so the queue can progress.
+        if (e?.code === '23503') {
+          console.warn('[powersync] Discarding transaction with orphaned user_id (FK violation):', e.details);
+          await transaction.complete();
+          return;
+        }
         console.error('[powersync] Upload failed:', e);
         throw e; // PowerSync will retry
       }
@@ -199,21 +207,7 @@
   await db.init();
   console.log('[powersync] Database initialized.');
 
-  // ── Clear stale local data from a previous user (e.g. anonymous → magic link) ──
-  // If the local DB has notes for a different user_id, those records will sit
-  // in the CRUD upload queue and fail with a FK constraint violation (the old
-  // anonymous user no longer exists in auth.users).  Wipe local data so we
-  // start fresh for the new user.
-  try {
-    const stale = await db.getAll('SELECT DISTINCT user_id FROM notes LIMIT 1');
-    if (stale.length > 0 && stale[0].user_id !== session.user.id) {
-      console.warn('[powersync] Local DB belongs to a different user — clearing stale data.');
-      await db.disconnectAndClear();
-      await db.init();
-    }
-  } catch (_) { /* empty DB on first run — nothing to clear */ }
-
-  console.log('[powersync] Calling db.connect()...');
+console.log('[powersync] Calling db.connect()...');
   await db.connect(connector);
   console.log('[powersync] Connected to sync service.');
 
