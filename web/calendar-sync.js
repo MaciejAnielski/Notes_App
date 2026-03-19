@@ -201,7 +201,7 @@ async function updateCalendarsNote() {
   // Update editor if this note is currently open
   if (currentFileName === CALENDARS_NOTE) {
     textarea.value = newContent;
-    if (isPreview) renderPreview(); else refreshHighlight();
+    if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
   }
 }
 
@@ -430,7 +430,7 @@ async function syncCalendarToMarkdown(calendarIds) {
       // Update editor if this note is open
       if (currentFileName === noteName) {
         textarea.value = content;
-        if (isPreview) renderPreview(); else refreshHighlight();
+        if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
       }
     }
   }

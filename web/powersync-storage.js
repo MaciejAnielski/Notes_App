@@ -321,9 +321,14 @@
             if (error) {
               // A note with this name already exists under a different UUID (created on
               // another device). Fall back to updating the existing row by (user_id, name).
+              // Do NOT include `id` in the update — changing the primary key of an
+              // existing row can violate the PK constraint if the new UUID already exists,
+              // causing an infinite retry loop.  PowerSync will reconcile the local UUID
+              // when it receives the next sync snapshot from the server.
               if (error.code === '23505' && table === 'notes') {
+                const { id: _dropId, ...updateData } = data;
                 const { error: updateErr } = await supabase.from('notes')
-                  .update(data)
+                  .update(updateData)
                   .eq('user_id', data.user_id)
                   .eq('name', data.name);
                 if (updateErr) throw updateErr;
