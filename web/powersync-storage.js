@@ -786,23 +786,15 @@
     }
   })();
 
-  if (isIOS) {
-    // On iOS, pagehide fires when the app goes to background. Closing the DB
-    // here would crash the app on resume (handlePowerSyncChange queries the
-    // closed DB). Instead, just pause the sync connection and reconnect when
-    // the app returns to the foreground.
-    const _pauseSync = () => { db.disconnect().catch(() => {}); };
-    const _resumeSync = () => {
-      db.connect(connector).catch(err => {
-        console.error('[powersync] Failed to reconnect after background:', err);
-      });
-    };
-    window.addEventListener('pagehide', _pauseSync);
-    window.addEventListener('pageshow', _resumeSync);
-    // Also handle Capacitor's native pause/resume events as a belt-and-braces.
-    document.addEventListener('pause', _pauseSync);
-    document.addEventListener('resume', _resumeSync);
-  } else {
+  if (!isIOS) {
+    // On desktop (Electron), close the DB when the page unloads so the WASM
+    // worker is cleaned up. On iOS we deliberately skip this: pagehide fires
+    // when the app goes to background, and db.close() destroys the WASM SQLite
+    // worker. When the app returns, any attempt to query the closed DB (e.g.
+    // from the resume handler in app-init.js) causes a native WebContent process
+    // crash. On iOS we leave the DB open — PowerSync reconnects the sync stream
+    // automatically after any network interruption, so no explicit lifecycle
+    // management is needed here.
     window.addEventListener('pagehide', () => {
       abortController.abort();
       db.close({ disconnect: false });
