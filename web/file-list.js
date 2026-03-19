@@ -194,10 +194,10 @@ async function updateWebCalendarSettings(allNotes) {
     const firstSecIdx = content.indexOf('\n## ');
     if (firstSecIdx !== -1) {
       content = content.slice(0, firstSecIdx) +
-        '\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n' +
+        '\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n' +
         content.slice(firstSecIdx);
     } else {
-      content += '\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n';
+      content += '\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n';
     }
   }
 
@@ -207,10 +207,10 @@ async function updateWebCalendarSettings(allNotes) {
     const firstSecIdx = content.indexOf('\n## ');
     if (firstSecIdx !== -1) {
       content = content.slice(0, firstSecIdx) +
-        '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
+        '\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
         content.slice(firstSecIdx);
     } else {
-      content += '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
+      content += '\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
     }
   }
 
@@ -218,8 +218,8 @@ async function updateWebCalendarSettings(allNotes) {
   // from .calendar_metadata that were erroneously appended in older versions).
   const corruptRe = /^- .+[{}"\[\]].{10,}$/gm;
   content = content.replace(corruptRe, '');
-  // Remove resulting blank line runs
-  content = content.replace(/\n{3,}/g, '\n\n');
+  // Remove excessive blank line runs (allow up to 2 blank lines = 3 newlines for section spacing)
+  content = content.replace(/\n{4,}/g, '\n\n\n');
 
   // If no calendar tags, save (Theme section only) and stop
   if (calendarNames.size === 0) {
@@ -259,7 +259,7 @@ async function updateWebCalendarSettings(allNotes) {
 
   // Ensure Calendars section exists
   if (!content.includes('## 📅 Calendars')) {
-    content += '\n\n## 📅 Calendars\n';
+    content += '\n\n\n## 📅 Calendars\n';
   }
 
   // Append new calendar names

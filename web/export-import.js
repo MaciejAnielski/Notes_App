@@ -406,7 +406,10 @@ async function exportSelectedNotes() {
 
 async function createBackupZip(noteEntries, downloadName) {
   const zip = new JSZip();
-  for (const { name, content } of noteEntries) {
+  const total = noteEntries.length;
+  for (let i = 0; i < noteEntries.length; i++) {
+    const { name, content } = noteEntries[i];
+    updateStatus(`Backing Up (${i + 1}/${total})\u2026`, true, true);
     zip.file(name + '.md', content);
     const attFiles = await NoteStorage.listAttachments(name);
     const attDir = noteNameToAttachmentDir(name);
@@ -415,6 +418,7 @@ async function createBackupZip(noteEntries, downloadName) {
       if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
     }
   }
+  updateStatus(`Compressing\u2026`, true, true);
   const blob = await zip.generateAsync({ type: 'blob' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -476,8 +480,10 @@ async function importNotesFromMd(files) {
   try {
     const entries = [];
     for (const file of files) {
-      const content = await file.text();
       const name = file.name.replace(/\.md$/, '');
+      // Skip system/virtual notes — they are auto-generated and should not be imported
+      if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) continue;
+      const content = await file.text();
       entries.push({ name, content });
     }
 
@@ -497,7 +503,10 @@ async function importNotesFromMd(files) {
       }
     }
 
-    for (const { name, content } of entries) {
+    const total = entries.length;
+    for (let i = 0; i < entries.length; i++) {
+      const { name, content } = entries[i];
+      updateStatus(`Importing (${i + 1}/${total})\u2026`, true, true);
       await NoteStorage.setNote(name, content);
     }
     await updateFileList();
@@ -517,7 +526,10 @@ async function importNotesFromZip(file) {
     zip.forEach((relativePath, zipEntry) => {
       if (zipEntry.dir) return;
       if (relativePath.endsWith('.md')) {
-        entries.push({ name: relativePath.replace(/\.md$/, ''), zipEntry });
+        const name = relativePath.replace(/\.md$/, '');
+        // Skip system/virtual notes — they are auto-generated and should not be imported
+        if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) return;
+        entries.push({ name, zipEntry });
       } else if (relativePath.includes('.attachments/')) {
         attachmentEntries.push({ relativePath, zipEntry });
       }
@@ -539,7 +551,10 @@ async function importNotesFromZip(file) {
       }
     }
 
-    for (const { name, zipEntry } of entries) {
+    const total = entries.length;
+    for (let i = 0; i < entries.length; i++) {
+      const { name, zipEntry } = entries[i];
+      updateStatus(`Importing (${i + 1}/${total})\u2026`, true, true);
       const content = await zipEntry.async('string');
       await NoteStorage.setNote(name, content);
     }

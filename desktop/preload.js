@@ -18,5 +18,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // powersync-storage.js calls this to register its handler.
   onAuthCallback: (callback) => {
     ipcRenderer.on('auth:callback', (_event, payload) => callback(payload));
-  }
+  },
+
+  // Write attachment bytes to a temp file and open with the OS default app.
+  openAttachmentFile: (filename, base64data) =>
+    ipcRenderer.invoke('notes:openAttachmentFile', filename, base64data),
+
+  // Open a new application window.
+  newWindow: () => ipcRenderer.invoke('notes:newWindow')
 });
