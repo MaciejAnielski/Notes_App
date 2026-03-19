@@ -17858,7 +17858,7 @@ else {
     // A dedicated worker can be shared externally
     comlink__WEBPACK_IMPORTED_MODULE_2__.expose(openDBShared);
 }
-addEventListener('unload', () => {
+addEventListener('pagehide', () => {
     Array.from(DBMap.values()).forEach(async (dbConnection) => {
         const { db } = dbConnection;
         db.close?.();

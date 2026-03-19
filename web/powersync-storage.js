@@ -348,6 +348,9 @@
     },
     sync: {
       worker: 'vendor/worker/SharedSyncImplementation.umd.js'
+    },
+    flags: {
+      externallyUnload: true
     }
   });
 
@@ -751,8 +754,9 @@
     }
   })();
 
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener('pagehide', () => {
     abortController.abort();
+    db.close({ disconnect: false });
   });
 
   } catch (err) {
