@@ -677,63 +677,76 @@ window.addEventListener('storage', e => {
 // ── PowerSync reactive sync (Desktop + iOS) ──────────────────────────────
 // PowerSync handles all sync automatically. We just listen for changes
 // and refresh the UI when the local SQLite database is updated.
-if (window.PowerSyncNoteStorage) {
-  let _syncKnownNames = null;
+//
+// IMPORTANT: powersync-storage.js is a type="module" script whose async IIFE
+// sets window.PowerSyncNoteStorage *after* several awaits (db.init, db.connect).
+// By the time the synchronous body of this deferred script runs, that value is
+// not yet set.  We therefore wrap the setup in a function and call it either
+// immediately (when already ready, e.g. Electron fast path) or via the
+// powersync:ready event (iOS, where the async init finishes later).
 
-  async function handlePowerSyncChange() {
-    let structuralChanged = false;
-    let contentChanged = false;
+let _syncKnownNames = null;
 
-    // Re-apply synced preferences if the preferences note changed
-    if (typeof applySyncedPreferences === 'function') {
-      applySyncedPreferences();
-    }
+async function handlePowerSyncChange() {
+  if (!window.PowerSyncNoteStorage) return;
+  let structuralChanged = false;
+  let contentChanged = false;
 
-    if (currentFileName) {
-      const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
-      const content = await NoteStorage.getNote(currentFileName);
-      if (content === null) {
-        if (textarea.value.trim()) {
-          try {
-            await NoteStorage.setNote(currentFileName, textarea.value);
-            _lastSavedContent = textarea.value;
-            updateStatus('Note restored after sync conflict.', true);
-          } catch {
-            updateStatus('Note may have been deleted on another device.', false);
-          }
-        } else {
-          currentFileName = null;
-          localStorage.removeItem('current_file');
-          if (isPreview) previewDiv.innerHTML = '';
-          updateStatus('Current note was deleted on another device.', false);
+  // Re-apply synced preferences if the preferences note changed
+  if (typeof applySyncedPreferences === 'function') {
+    applySyncedPreferences();
+  }
+
+  if (currentFileName) {
+    const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
+    const content = await NoteStorage.getNote(currentFileName);
+    if (content === null) {
+      if (textarea.value.trim()) {
+        try {
+          await NoteStorage.setNote(currentFileName, textarea.value);
+          _lastSavedContent = textarea.value;
+          updateStatus('Note restored after sync conflict.', true);
+        } catch {
+          updateStatus('Note may have been deleted on another device.', false);
         }
-      } else if (content !== textarea.value) {
-        if (hasUnsavedEdits) {
-          updateStatus('Remote change detected \u2014 keeping your unsaved edits.', true);
-        } else {
-          textarea.value = content;
-          _lastSavedContent = content;
-          _lastRemoteContent = content;
-          if (isPreview) renderPreview(); else refreshHighlight();
-          updateStatus('Note updated from another device.', true);
-          contentChanged = true;
-        }
+      } else {
+        currentFileName = null;
+        localStorage.removeItem('current_file');
+        if (isPreview || projectsViewActive) previewDiv.innerHTML = '';
+        updateStatus('Current note was deleted on another device.', false);
+      }
+    } else if (content !== textarea.value) {
+      if (hasUnsavedEdits) {
+        updateStatus('Remote change detected \u2014 keeping your unsaved edits.', true);
+      } else {
+        textarea.value = content;
+        _lastSavedContent = content;
+        _lastRemoteContent = content;
+        // projectsViewActive means a read-only note is shown in preview even
+        // when isPreview is false — always re-render in that case too.
+        if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
+        updateStatus('Note updated from another device.', true);
+        contentChanged = true;
       }
     }
-
-    const names = await NoteStorage.getAllNoteNames();
-    const nameStr = names.slice().sort().join('\n');
-    if (_syncKnownNames !== null && _syncKnownNames !== nameStr) {
-      structuralChanged = true;
-    }
-    _syncKnownNames = nameStr;
-    if (structuralChanged) {
-      invalidateScheduleCache();
-      await updateFileList();
-    } else if (contentChanged) {
-      invalidateScheduleCache();
-    }
   }
+
+  const names = await NoteStorage.getAllNoteNames();
+  const nameStr = names.slice().sort().join('\n');
+  if (_syncKnownNames !== null && _syncKnownNames !== nameStr) {
+    structuralChanged = true;
+  }
+  _syncKnownNames = nameStr;
+  if (structuralChanged) {
+    invalidateScheduleCache();
+    await updateFileList();
+  } else if (contentChanged) {
+    invalidateScheduleCache();
+  }
+}
+
+function _setupPowerSyncHandlers() {
+  if (!window.PowerSyncNoteStorage) return;
 
   window.addEventListener('powersync:change', handlePowerSyncChange);
 
@@ -750,33 +763,35 @@ if (window.PowerSyncNoteStorage) {
     await handlePowerSyncChange();
     if (showStatus) updateStatus('Sync Complete.', true);
   };
+
+  // Enable the status-area tap-to-sync button
+  const bottomArea = document.getElementById('bottom-status-area');
+  if (bottomArea) {
+    bottomArea.style.cursor = 'pointer';
+    bottomArea.title = 'Tap to sync';
+    bottomArea.addEventListener('click', async () => {
+      if (autoSaveTimer !== null) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        await autoSaveNote();
+      }
+      if (_forceSyncCallback) {
+        await _forceSyncCallback(true);
+        if (typeof runCalendarSync === 'function') {
+          await runCalendarSync();
+        }
+      }
+    });
+  }
 }
 
-// ── Clickable status area — force sync ──────────────────────────────────
-(function setupStatusAreaClick() {
-  const bottomArea = document.getElementById('bottom-status-area');
-  if (!bottomArea) return;
-
-  const hasSyncStorage = !!window.PowerSyncNoteStorage;
-  if (!hasSyncStorage) return;
-
-  bottomArea.style.cursor = 'pointer';
-  bottomArea.title = 'Tap to sync';
-
-  bottomArea.addEventListener('click', async () => {
-    if (autoSaveTimer !== null) {
-      clearTimeout(autoSaveTimer);
-      autoSaveTimer = null;
-      await autoSaveNote();
-    }
-    if (_forceSyncCallback) {
-      await _forceSyncCallback(true);
-      if (typeof runCalendarSync === 'function') {
-        await runCalendarSync();
-      }
-    }
-  });
-})();
+// Call immediately if PowerSync is already ready (e.g. Electron where the
+// module finishes synchronously), otherwise wait for the ready event (iOS).
+if (window.PowerSyncNoteStorage) {
+  _setupPowerSyncHandlers();
+} else if (window.electronAPI || window.Capacitor?.isNativePlatform()) {
+  window.addEventListener('powersync:ready', _setupPowerSyncHandlers, { once: true });
+}
 
 // ── Async initialization ──────────────────────────────────────────────────
 

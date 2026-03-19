@@ -152,17 +152,20 @@ async function updateCalendarsNote() {
   // Extract existing Projects Note Emojis section to preserve it across rebuilds.
   let emojiBody = '\nCustomise the emojis used in the Projects note.\n';
   if (existing) {
-    const emojiMatch = existing.match(/### Projects Note Emojis([\s\S]*?)(?=\n##|$)/);
+    // Match either ## or ### to handle notes written by older app versions.
+    const emojiMatch = existing.match(/###? Projects Note Emojis([\s\S]*?)(?=\n##|$)/);
     if (emojiMatch) emojiBody = emojiMatch[1];
   }
 
   // Build new note content — Sync, Theme, and Projects Note Emojis sections always present;
   // Calendars section only when the iOS calendar plugin returned at least one calendar.
+  // Projects Note Emojis is a top-level ## section (not nested under Theme) so it is
+  // always rendered as an independent <details> and is never hidden inside a closed parent.
   const lines = [
     '# Settings', '',
     '## ☁️ Sync' + syncBody.trimEnd(), '',
     '## 🎨 Theme' + themeBody.trimEnd(), '',
-    '### Projects Note Emojis' + emojiBody.trimEnd(), ''
+    '## Projects Note Emojis' + emojiBody.trimEnd(), ''
   ];
   if (calendars.length > 0) {
     lines.push('## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', '');
@@ -201,7 +204,7 @@ async function updateCalendarsNote() {
   // Update editor if this note is currently open
   if (currentFileName === CALENDARS_NOTE) {
     textarea.value = newContent;
-    if (isPreview) renderPreview(); else refreshHighlight();
+    if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
   }
 }
 
@@ -430,7 +433,7 @@ async function syncCalendarToMarkdown(calendarIds) {
       // Update editor if this note is open
       if (currentFileName === noteName) {
         textarea.value = content;
-        if (isPreview) renderPreview(); else refreshHighlight();
+        if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
       }
     }
   }

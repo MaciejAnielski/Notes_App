@@ -10,7 +10,7 @@ async function getVisibleNotes(cachedNotes) {
   const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name, content } of allNotes) {
     if (name.startsWith('.')) continue;
-    if (matches(name.toLowerCase(), content.toLowerCase())) {
+    if (matches(name.toLowerCase(), (content || '').toLowerCase())) {
       notes.push(name);
     }
   }
@@ -54,7 +54,7 @@ async function _doUpdateFileList() {
   for (const { name: fileName, content } of allNotes) {
     if (fileName.startsWith('.')) continue;
     if (fileName === PROJECTS_NOTE || fileName === GRAPH_NOTE || fileName === CALENDARS_NOTE) continue;
-    if (matches(fileName.toLowerCase(), content.toLowerCase())) {
+    if (matches(fileName.toLowerCase(), (content || '').toLowerCase())) {
       const li = document.createElement('li');
       const span = document.createElement('span');
       span.textContent = fileName;
