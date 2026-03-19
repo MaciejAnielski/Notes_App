@@ -330,6 +330,13 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     newNote();
   }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
+    e.preventDefault();
+    if (window.electronAPI?.newWindow) {
+      window.electronAPI.newWindow();
+    }
+    return; // don't fall through to regular new note
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
     e.preventDefault();
     toggleView();
@@ -638,21 +645,21 @@ window.addEventListener('storage', e => {
       const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
       if (e.newValue === null) {
         if (textarea.value.trim()) {
-          updateStatus('Note deleted in another window — keeping your content. Save to restore.', false);
+          updateStatus('Note deleted in another window \u2014 keeping your content. Save to restore.', false);
         } else {
           textarea.value = '';
           currentFileName = null;
           localStorage.removeItem('current_file');
           if (isPreview) previewDiv.innerHTML = ''; else refreshHighlight();
-          updateStatus('Note Deleted In Another Window.', false);
+          updateStatus('Note deleted in another window.', false);
         }
       } else if (hasUnsavedEdits) {
-        updateStatus('Note updated in another window — keeping your edits.', true);
+        updateStatus('Note updated in another window \u2014 keeping your unsaved edits.', true);
       } else {
         textarea.value = e.newValue;
         _lastSavedContent = e.newValue;
         if (isPreview) renderPreview(); else refreshHighlight();
-        updateStatus('Note Updated From Another Window.', true);
+        updateStatus('Note updated from another window.', true);
       }
     }
     // Only rebuild the file list for structural changes (note added or deleted).
@@ -690,25 +697,25 @@ if (window.PowerSyncNoteStorage) {
           try {
             await NoteStorage.setNote(currentFileName, textarea.value);
             _lastSavedContent = textarea.value;
-            updateStatus('Sync: Note restored after conflict.', true);
+            updateStatus('Note restored after sync conflict.', true);
           } catch {
-            updateStatus('Sync: Note may have been deleted on another device.', false);
+            updateStatus('Note may have been deleted on another device.', false);
           }
         } else {
           currentFileName = null;
           localStorage.removeItem('current_file');
           if (isPreview) previewDiv.innerHTML = '';
-          updateStatus('Sync: Current note deleted from another device.', false);
+          updateStatus('Current note was deleted on another device.', false);
         }
       } else if (content !== textarea.value) {
         if (hasUnsavedEdits) {
-          updateStatus('Sync: Remote change detected — keeping your edits.', true);
+          updateStatus('Remote change detected \u2014 keeping your unsaved edits.', true);
         } else {
           textarea.value = content;
           _lastSavedContent = content;
           _lastRemoteContent = content;
           if (isPreview) renderPreview(); else refreshHighlight();
-          updateStatus('Sync: Note updated from another device.', true);
+          updateStatus('Note updated from another device.', true);
           contentChanged = true;
         }
       }
@@ -736,12 +743,12 @@ if (window.PowerSyncNoteStorage) {
   }
 
   _forceSyncCallback = async (showStatus) => {
-    if (showStatus) updateStatus('Syncing\u2026', true, true);
+    if (showStatus) updateStatus('Syncing With Cloud\u2026', true, true);
     if (window.PowerSyncNoteStorage.triggerSync) {
       await window.PowerSyncNoteStorage.triggerSync();
     }
     await handlePowerSyncChange();
-    if (showStatus) updateStatus('Synced.', true);
+    if (showStatus) updateStatus('Sync Complete.', true);
   };
 }
 
@@ -836,6 +843,25 @@ async function migrateLocalNotesToSync() {
     // Load synced preferences (theme, calendar colours, project emojis)
     if (typeof applySyncedPreferences === 'function') {
       await applySyncedPreferences();
+    }
+
+    // If sync is active but no notes exist locally yet, the initial sync is still
+    // downloading notes from the remote. Show a status message so the user knows
+    // why notes aren't visible yet, and wait briefly for the first batch.
+    if (window.PowerSyncNoteStorage) {
+      const existingNames = await NoteStorage.getAllNoteNames();
+      if (existingNames.length === 0) {
+        updateStatus('Downloading notes\u2026 This may take a moment on first sync.', true, true);
+        await new Promise(resolve => {
+          const handler = () => {
+            window.removeEventListener('powersync:change', handler);
+            resolve();
+          };
+          window.addEventListener('powersync:change', handler);
+          // Don't block startup longer than 8 seconds
+          setTimeout(resolve, 8000);
+        });
+      }
     }
 
     const initialContent = lastFile ? await NoteStorage.getNote(lastFile) : null;

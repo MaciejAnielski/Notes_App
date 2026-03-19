@@ -541,6 +541,47 @@ function alignTableColumns(container) {
 let _attachmentCache = {};
 let _attachmentCacheNote = null;
 
+// Attach open-in-default-app behaviour to an image element.
+// Desktop: double-click. Mobile (touch): long-press (~500 ms).
+function _attachOpenImageHandler(img, noteName, filename) {
+  async function openImage() {
+    if (window.electronAPI?.openAttachmentFile) {
+      // Desktop: write to temp file and open with OS default app
+      const b64 = await NoteStorage.readAttachment(noteName, filename);
+      if (!b64) { updateStatus('Could not open image.', false); return; }
+      const ok = await window.electronAPI.openAttachmentFile(filename, b64);
+      if (!ok) updateStatus('Could not open image in default app.', false);
+    } else if (window.Capacitor?.isNativePlatform()) {
+      // iOS: reuse share-sheet helper
+      await openAttachmentOnIOS(noteName, filename);
+    }
+  }
+
+  if (window.electronAPI) {
+    img.style.cursor = 'zoom-in';
+    img.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      openImage();
+    });
+  } else if (window.Capacitor?.isNativePlatform()) {
+    let _longPressTimer = null;
+    img.addEventListener('touchstart', () => {
+      _longPressTimer = setTimeout(() => {
+        _longPressTimer = null;
+        openImage();
+      }, 500);
+    }, { passive: true });
+    img.addEventListener('touchend', () => {
+      clearTimeout(_longPressTimer);
+      _longPressTimer = null;
+    }, { passive: true });
+    img.addEventListener('touchmove', () => {
+      clearTimeout(_longPressTimer);
+      _longPressTimer = null;
+    }, { passive: true });
+  }
+}
+
 async function resolveAttachments(container) {
   if (!currentFileName) return;
   const hasAttachments = typeof NoteStorage.readAttachment === 'function';
@@ -566,6 +607,8 @@ async function resolveAttachments(container) {
         img.src = dataUri;
       }
     }
+    // Attach open-in-default-app behaviour (dblclick on desktop, long-press on mobile)
+    _attachOpenImageHandler(img, currentFileName, filename);
   }
 
   for (const link of container.querySelectorAll('a[href^="attachment:"]')) {

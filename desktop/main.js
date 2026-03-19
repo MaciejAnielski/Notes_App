@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
 const http = require('http');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 // ── Custom protocol — handles magic link auth callbacks ──────────────────────
 // Supabase redirects the magic link to notesapp://auth/callback#access_token=...
@@ -126,6 +128,27 @@ function registerHandlers() {
   ipcMain.handle('notes:getAuthCallbackUrl', () => {
     if (!authServerPort) return null;
     return `http://127.0.0.1:${authServerPort}/auth-callback`;
+  });
+
+  // Write a base64-encoded attachment to a temp file and open it with the
+  // system default application (e.g. double-click image in preview).
+  ipcMain.handle('notes:openAttachmentFile', async (_event, filename, base64data) => {
+    try {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notesapp-'));
+      const tmpFile = path.join(tmpDir, filename);
+      const buffer = Buffer.from(base64data, 'base64');
+      fs.writeFileSync(tmpFile, buffer);
+      await shell.openPath(tmpFile);
+      return true;
+    } catch (e) {
+      console.error('[main] openAttachmentFile failed:', e);
+      return false;
+    }
+  });
+
+  // Open a new window
+  ipcMain.handle('notes:newWindow', () => {
+    createWindow();
   });
 }
 
