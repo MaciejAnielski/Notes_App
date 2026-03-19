@@ -610,7 +610,8 @@ async function resolveAttachments(container) {
     _attachmentCacheNote = currentFileName;
   }
 
-  for (const img of container.querySelectorAll('img[data-attachment]')) {
+  const imgEls = [...container.querySelectorAll('img[data-attachment]')];
+  await Promise.all(imgEls.map(async img => {
     const filename = img.getAttribute('data-attachment');
     const cacheKey = currentFileName + '/' + filename;
     if (_attachmentCache[cacheKey]) {
@@ -626,7 +627,7 @@ async function resolveAttachments(container) {
     }
     // Attach open-in-default-app behaviour (dblclick on desktop, long-press on mobile)
     _attachOpenImageHandler(img, currentFileName, filename);
-  }
+  }));
 
   for (const link of container.querySelectorAll('a[href^="attachment:"]')) {
     const filename = link.getAttribute('href').slice('attachment:'.length);
@@ -741,6 +742,11 @@ async function renderMermaidDiagrams(container) {
 let _collapseStateFile = null;
 let _collapseState = {};
 
+// Cache: skip re-parsing when content hasn't changed since last render.
+let _lastRenderedFile = null;
+let _lastRenderedContent = null;
+let _lastRenderedHTML = null;
+
 async function renderPreview() {
   // Reset any overflow override left by graph view so normal notes scroll correctly.
   previewDiv.style.overflow = '';
@@ -767,7 +773,19 @@ async function renderPreview() {
   }
   _collapseStateFile = currentFileName;
 
-  previewDiv.innerHTML = marked.parse(preprocessMarkdown(textarea.value));
+  const _currentContent = textarea.value;
+  if (
+    _lastRenderedFile === currentFileName &&
+    _lastRenderedContent === _currentContent &&
+    _lastRenderedHTML !== null
+  ) {
+    previewDiv.innerHTML = _lastRenderedHTML;
+  } else {
+    _lastRenderedHTML = marked.parse(preprocessMarkdown(_currentContent));
+    _lastRenderedFile = currentFileName;
+    _lastRenderedContent = _currentContent;
+    previewDiv.innerHTML = _lastRenderedHTML;
+  }
   styleTaskListItems(previewDiv);
   // Collapsible headings must be set up BEFORE note-links so that when
   // setupNoteLinks runs, anchor elements inside <summary> already exist
