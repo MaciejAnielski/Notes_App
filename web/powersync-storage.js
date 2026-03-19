@@ -327,10 +327,16 @@
               // when it receives the next sync snapshot from the server.
               if (error.code === '23505' && table === 'notes') {
                 const { id: _dropId, ...updateData } = data;
+                // Coerce SQLite integer booleans to PostgreSQL booleans before sending.
+                if ('deleted' in updateData) updateData.deleted = !!updateData.deleted;
+                // Only update the non-deleted row. Without this filter the UPDATE can
+                // accidentally set deleted=false on a previously-deleted note that shares
+                // the same name, producing two non-deleted rows and re-triggering 23505.
                 const { error: updateErr } = await supabase.from('notes')
                   .update(updateData)
                   .eq('user_id', data.user_id)
-                  .eq('name', data.name);
+                  .eq('name', data.name)
+                  .eq('deleted', false);
                 if (updateErr) throw updateErr;
               } else {
                 throw error;
