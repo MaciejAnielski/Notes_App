@@ -7,25 +7,32 @@
 // All methods are async so platform implementations can use async I/O without
 // blocking. The web implementation returns resolved promises immediately.
 
+// In-memory cache for getAllNoteNames() — invalidated on any write or delete.
+let _noteNamesCache = null;
+
 window.NoteStorage = {
   async getNote(name) {
     return localStorage.getItem('md_' + name);
   },
 
   async setNote(name, content) {
+    _noteNamesCache = null;
     localStorage.setItem('md_' + name, content);
   },
 
   async removeNote(name) {
+    _noteNamesCache = null;
     localStorage.removeItem('md_' + name);
   },
 
   async trashNote(name) {
     // Web (localStorage) has no trash — just remove the note.
+    _noteNamesCache = null;
     localStorage.removeItem('md_' + name);
   },
 
   async getAllNoteNames() {
+    if (_noteNamesCache !== null) return _noteNamesCache.slice();
     const names = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -33,7 +40,8 @@ window.NoteStorage = {
         names.push(key.slice(3));
       }
     }
-    return names;
+    _noteNamesCache = names;
+    return names.slice();
   },
 
   async getAllNotes() {
@@ -48,6 +56,7 @@ window.NoteStorage = {
   },
 
   async clear() {
+    _noteNamesCache = null;
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);

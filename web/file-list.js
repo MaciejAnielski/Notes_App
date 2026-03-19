@@ -3,11 +3,11 @@
 // Manages the notes sidebar list with search filtering, the tasks panel
 // with checkbox toggling, and preview task checkbox interaction.
 
-async function getVisibleNotes() {
+async function getVisibleNotes(cachedNotes) {
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
   const notes = [];
-  const allNotes = await NoteStorage.getAllNotes();
+  const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name, content } of allNotes) {
     if (name.startsWith('.')) continue;
     if (matches(name.toLowerCase(), content.toLowerCase())) {
