@@ -757,10 +757,24 @@ async function renderPreview() {
     return;
   }
 
-  // Snapshot open/closed state of collapsible sections before wiping the DOM.
-  // Only restore the snapshot if we are re-rendering the same note (e.g. a
-  // checkbox toggle). When the note changes, start fresh so the markdown's
-  // default collapse markers take effect on every new open.
+  const _currentContent = textarea.value;
+
+  // Cache hit: the previewDiv DOM is already fully built (it was hidden, not
+  // destroyed, when the user switched to edit mode). Event listeners, MathJax
+  // typesetting, and resolved attachments are all still intact — return early
+  // so toggling back to view is instantaneous for unchanged content.
+  if (
+    _lastRenderedFile === currentFileName &&
+    _lastRenderedContent === _currentContent &&
+    _lastRenderedHTML !== null
+  ) {
+    return;
+  }
+
+  // Cache miss: snapshot open/closed state of collapsible sections before
+  // wiping the DOM. Only restore the snapshot if we are re-rendering the same
+  // note (e.g. a checkbox toggle). When the note changes, start fresh so the
+  // markdown's default collapse markers take effect on every new open.
   if (_collapseStateFile === currentFileName) {
     _collapseState = {};
     let _csIdx = 0;
@@ -773,19 +787,10 @@ async function renderPreview() {
   }
   _collapseStateFile = currentFileName;
 
-  const _currentContent = textarea.value;
-  if (
-    _lastRenderedFile === currentFileName &&
-    _lastRenderedContent === _currentContent &&
-    _lastRenderedHTML !== null
-  ) {
-    previewDiv.innerHTML = _lastRenderedHTML;
-  } else {
-    _lastRenderedHTML = marked.parse(preprocessMarkdown(_currentContent));
-    _lastRenderedFile = currentFileName;
-    _lastRenderedContent = _currentContent;
-    previewDiv.innerHTML = _lastRenderedHTML;
-  }
+  _lastRenderedHTML = marked.parse(preprocessMarkdown(_currentContent));
+  _lastRenderedFile = currentFileName;
+  _lastRenderedContent = _currentContent;
+  previewDiv.innerHTML = _lastRenderedHTML;
   styleTaskListItems(previewDiv);
   // Collapsible headings must be set up BEFORE note-links so that when
   // setupNoteLinks runs, anchor elements inside <summary> already exist
