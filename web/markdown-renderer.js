@@ -1271,8 +1271,11 @@ function injectThemeColorPickers(container) {
   resetBtn.textContent = 'Reset to Default';
   controls.appendChild(resetBtn);
 
-  // Insert controls after the list items or at end of section
-  const lists = themeSection.querySelectorAll('ul, ol, p');
+  // Insert controls after the last direct-child block element in the section.
+  // querySelectorAll without :scope> would include descendants inside nested
+  // <details>, whose nextSibling is not a child of themeSection and would
+  // throw a NotFoundError on insertBefore.
+  const lists = themeSection.querySelectorAll(':scope > ul, :scope > ol, :scope > p');
   const lastList = lists.length > 0 ? lists[lists.length - 1] : null;
   if (lastList && lastList.nextSibling) {
     themeSection.insertBefore(controls, lastList.nextSibling);
@@ -1466,8 +1469,8 @@ function injectProjectEmojiPickers(container) {
   });
   controls.appendChild(resetBtn);
 
-  // Insert controls after the list items or at end of section
-  const lists = emojiSection.querySelectorAll('ul, ol, p');
+  // Insert after the last direct-child block element (same :scope > fix as theme pickers).
+  const lists = emojiSection.querySelectorAll(':scope > ul, :scope > ol, :scope > p');
   const lastList = lists.length > 0 ? lists[lists.length - 1] : null;
   if (lastList && lastList.nextSibling) {
     emojiSection.insertBefore(controls, lastList.nextSibling);
