@@ -154,26 +154,47 @@
   //   • A raw URL-encoded param string from the local HTTP server POST
   //     (e.g. "access_token=xxx&refresh_token=yyy&token_type=bearer&…")
   //   • A full URL from the notesapp:// protocol handler or iOS deep link
-  //     (e.g. "notesapp://auth/callback#access_token=xxx&…")
+  //     (e.g. "notesapp://auth/callback#access_token=xxx&…"  — implicit flow)
+  //     (e.g. "notesapp://auth/callback?code=xxx&…"          — PKCE flow)
+  //
+  // Supabase projects created after 2024 default to PKCE flow, which sends a
+  // ?code= parameter that must be exchanged for a session via
+  // exchangeCodeForSession(). Older projects use implicit flow with tokens in
+  // the URL hash. Both are handled here.
   window._handleAuthPayload = async function (payload) {
     try {
-      let paramStr = payload || '';
+      let fullUrl = payload || '';
+      let paramStr = fullUrl;
+
       // If it looks like a URL, extract the hash or query portion
-      if (paramStr.includes('://') || paramStr.startsWith('http')) {
-        if (paramStr.includes('#')) {
-          paramStr = paramStr.substring(paramStr.indexOf('#') + 1);
-        } else if (paramStr.includes('?')) {
-          paramStr = paramStr.substring(paramStr.indexOf('?') + 1);
+      if (fullUrl.includes('://') || fullUrl.startsWith('http')) {
+        if (fullUrl.includes('#')) {
+          paramStr = fullUrl.substring(fullUrl.indexOf('#') + 1);
+        } else if (fullUrl.includes('?')) {
+          paramStr = fullUrl.substring(fullUrl.indexOf('?') + 1);
         }
       }
+
       const params = new URLSearchParams(paramStr);
+
+      // ── PKCE flow: exchange authorization code for session ────────────────
+      const code = params.get('code');
+      if (code) {
+        console.log('[powersync] Exchanging auth code for session (PKCE)…');
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        // onAuthStateChange(SIGNED_IN) will fire and trigger a page reload
+        return;
+      }
+
+      // ── Implicit flow: set session directly from tokens ───────────────────
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
       if (!accessToken || !refreshToken) {
-        console.warn('[powersync] Auth payload missing tokens:', paramStr.slice(0, 40));
+        console.warn('[powersync] Auth payload missing tokens or code:', paramStr.slice(0, 80));
         return;
       }
-      console.log('[powersync] Setting session from auth callback…');
+      console.log('[powersync] Setting session from auth callback (implicit flow)…');
       const { error } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken

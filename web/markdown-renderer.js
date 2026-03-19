@@ -1308,15 +1308,16 @@ function injectThemeColorPickers(container) {
 // ── Project emoji pickers in Settings note preview ──────────────────────────
 
 function injectProjectEmojiPickers(container) {
-  // Find the <details> containing the "Projects Note Emojis" h2
+  // Find the <details> containing the "Projects Note Emojis" heading (h2 or h3).
+  // The section uses ### (h3) as a subsection under ## Theme.
   let emojiSection = null;
   for (const details of container.querySelectorAll('details')) {
-    const h = details.querySelector('summary h2');
+    const h = details.querySelector('summary h2, summary h3');
     if (h && h.textContent.includes('Projects Note Emojis')) { emojiSection = details; break; }
   }
-  // Fall back to plain h2 if not collapsible
+  // Fall back to plain h2/h3 if not collapsible
   if (!emojiSection) {
-    for (const h of container.querySelectorAll('h2')) {
+    for (const h of container.querySelectorAll('h2, h3')) {
       if (h.textContent.includes('Projects Note Emojis')) { emojiSection = h.parentElement; break; }
     }
   }

@@ -342,6 +342,31 @@ ${sections}
 </html>`;
 }
 
+// ── Download helper ────────────────────────────────────────────────────────
+// On iOS (WKWebView) the `download` attribute on anchor tags is not honoured
+// and blob URL clicks are silently ignored. Use navigator.share() instead,
+// which opens the native iOS share sheet so the user can save to Files,
+// send via Mail, etc. Falls back to the standard link.click() on all other
+// platforms where it works reliably.
+
+async function triggerDownload(blob, filename) {
+  if (window.Capacitor?.isNativePlatform()) {
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+      return;
+    }
+    // Fallback: shouldn't normally be reached on iOS 15+
+    updateStatus('Share not supported on this device.', false);
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 // ── Export operations ──────────────────────────────────────────────────────
 
 async function exportNote() {
@@ -353,14 +378,8 @@ async function exportNote() {
   updateStatus(`Exporting\u2026`, true, true);
   const markdown = textarea.value;
   const html = await generateHtmlContent(name, markdown, name);
-
   const blob = new Blob([html], { type: 'text/html' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = name + '.html';
-  link.click();
-  URL.revokeObjectURL(link.href);
-
+  await triggerDownload(blob, name + '.html');
   updateStatus(`Exported "${name}".`, true);
 }
 
@@ -370,14 +389,8 @@ async function exportAllNotes() {
   updateStatus(`Exporting\u2026`, true, true);
   entries.sort((a, b) => b.name.localeCompare(a.name));
   const html = await generateNotebookHtml(entries);
-
   const blob = new Blob([html], { type: 'text/html' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'notes_notebook.html';
-  link.click();
-  URL.revokeObjectURL(link.href);
-
+  await triggerDownload(blob, 'notes_notebook.html');
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
@@ -391,14 +404,8 @@ async function exportSelectedNotes() {
     if (content !== null) entries.push({ name, content });
   }
   const html = await generateNotebookHtml(entries);
-
   const blob = new Blob([html], { type: 'text/html' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'notes_notebook.html';
-  link.click();
-  URL.revokeObjectURL(link.href);
-
+  await triggerDownload(blob, 'notes_notebook.html');
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
@@ -420,11 +427,7 @@ async function createBackupZip(noteEntries, downloadName) {
   }
   updateStatus(`Compressing\u2026`, true, true);
   const blob = await zip.generateAsync({ type: 'blob' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = downloadName;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  await triggerDownload(blob, downloadName);
 }
 
 async function downloadAllNotes() {

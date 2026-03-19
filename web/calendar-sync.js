@@ -135,6 +135,13 @@ async function updateCalendarsNote() {
     }
   }
 
+  // Extract existing Sync section body to preserve it across rebuilds.
+  let syncBody = '\nSync notes across devices using your email address.\n';
+  if (existing) {
+    const syncMatch = existing.match(/## ☁️ Sync([\s\S]*?)(?=\n##|$)/);
+    if (syncMatch) syncBody = syncMatch[1];
+  }
+
   // Extract existing Theme section content to preserve it across rebuilds.
   let themeBody = '\nCustomise the app\'s background and accent colours.\n';
   if (existing) {
@@ -149,9 +156,14 @@ async function updateCalendarsNote() {
     if (emojiMatch) emojiBody = emojiMatch[1];
   }
 
-  // Build new note content — Theme section always present; Projects Note Emojis section always present;
+  // Build new note content — Sync, Theme, and Projects Note Emojis sections always present;
   // Calendars section only when the iOS calendar plugin returned at least one calendar.
-  const lines = ['# Settings', '', '## 🎨 Theme' + themeBody.trimEnd(), '', '### Projects Note Emojis' + emojiBody.trimEnd(), ''];
+  const lines = [
+    '# Settings', '',
+    '## ☁️ Sync' + syncBody.trimEnd(), '',
+    '## 🎨 Theme' + themeBody.trimEnd(), '',
+    '### Projects Note Emojis' + emojiBody.trimEnd(), ''
+  ];
   if (calendars.length > 0) {
     lines.push('## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', '');
     calendars
@@ -160,6 +172,25 @@ async function updateCalendarsNote() {
         const checked = selectedIds.has(cal.id) ? 'x' : ' ';
         lines.push(`[${checked}] ${cal.title} {${cal.id}}`);
       });
+  }
+
+  // Seed native iOS calendar colors into localStorage for calendars that don't
+  // already have a user-customized color. This ensures each calendar displays
+  // its native iOS color in the Settings note and schedule view on first use.
+  if (calendars.length > 0) {
+    try {
+      const existingColors = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
+      let colorsUpdated = false;
+      for (const cal of calendars) {
+        if (cal.color && cal.color !== '#888888' && !existingColors[cal.title]) {
+          existingColors[cal.title] = cal.color;
+          colorsUpdated = true;
+        }
+      }
+      if (colorsUpdated) {
+        localStorage.setItem('calendar_colors', JSON.stringify(existingColors));
+      }
+    } catch { /* non-fatal */ }
   }
 
   const newContent = lines.join('\n') + '\n';

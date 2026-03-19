@@ -9,12 +9,19 @@ window.POWERSYNC_CONFIG = {
   // From PowerSync Dashboard → your instance
   powersyncUrl: 'https://YOUR_INSTANCE.powersync.journeyapps.com',
 
-  // Magic link redirect URL (optional).
-  // On Desktop (Electron): set to 'notesapp://auth/callback' to have magic
-  // links re-open the app automatically after email confirmation.
-  // You must also add 'notesapp://auth/callback' to Supabase's list of
-  // allowed redirect URLs (Auth → URL Configuration → Redirect URLs).
-  // On iOS: set to your app's deep link URL (e.g. 'com.example.notes://auth').
-  // Leave undefined to use Supabase's default redirect (opens in a browser).
+  // Magic link redirect URL.
+  // Set this so clicking the sign-in email link re-opens the app directly.
+  //
+  // Desktop (Electron): use 'notesapp://auth/callback'
+  //   • Also add 'notesapp://auth/callback' to Supabase →
+  //     Auth → URL Configuration → Redirect URLs.
+  //
+  // iOS (Capacitor): use 'notesapp://auth/callback'
+  //   • Register the 'notesapp' URL scheme in Xcode:
+  //     Target → Info → URL Types → add item with URL Schemes = "notesapp"
+  //   • Also add 'notesapp://auth/callback' to Supabase →
+  //     Auth → URL Configuration → Redirect URLs.
+  //
+  // Leave undefined to fall back to OTP code entry (no deep-link needed).
   redirectTo: undefined
 };
