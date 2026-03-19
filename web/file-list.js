@@ -41,14 +41,14 @@ async function updateFileList() {
 
 async function _doUpdateFileList() {
   invalidateScheduleCache();
-  await refreshProjectsNote();
+  const allNotes = await NoteStorage.getAllNotes();
+  await refreshProjectsNote(allNotes);
   await refreshGraphNote();
   fileList.innerHTML = '';
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
 
   const noteMap = {};
-  const allNotes = await NoteStorage.getAllNotes();
 
   const todayNote = getFormattedDate() + ' Daily Note';
   for (const { name: fileName, content } of allNotes) {
@@ -284,7 +284,6 @@ async function updateWebCalendarSettings(allNotes) {
 }
 
 async function updateTodoList(cachedNotes) {
-  invalidateScheduleCache();
   todoList.innerHTML = '';
 
   const query = searchTasksBox.value.trim().toLowerCase();
@@ -370,7 +369,7 @@ async function updateTodoList(cachedNotes) {
   if (window.MathJax?.typesetPromise) {
     MathJax.typesetPromise([todoList]);
   }
-  renderSchedule();
+  renderSchedule(cachedNotes);
 }
 
 function setupPreviewTaskCheckboxes() {
@@ -399,6 +398,7 @@ function setupPreviewTaskCheckboxes() {
           _lastSavedContent = textarea.value;
         }
         if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
+        invalidateScheduleCache();
         await updateTodoList();
       }
     };
@@ -450,5 +450,6 @@ async function toggleTaskStatus(fileName, lineIndex) {
       if (isPreview) renderPreview(); else refreshHighlight();
     }
   }
+  invalidateScheduleCache();
   await updateTodoList();
 }

@@ -44,7 +44,7 @@ async function handleRenameAfterReplace(noteName, newContent) {
 
 // ── Projects note ─────────────────────────────────────────────────────────
 
-async function generateProjectsNoteContent() {
+async function generateProjectsNoteContent(cachedNotes) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const currentFullYear = today.getFullYear();
@@ -77,7 +77,9 @@ async function generateProjectsNoteContent() {
   }
 
   const active = {}, completed = {};
-  const allNames = await NoteStorage.getAllNoteNames();
+  const allNames = cachedNotes
+    ? cachedNotes.map(n => n.name)
+    : await NoteStorage.getAllNoteNames();
   for (const name of allNames) {
     if (name === PROJECTS_NOTE) continue;
     const match = name.match(/^(\d{2})(\d{2})(\d{2}) Project .+$/);
@@ -149,8 +151,8 @@ async function refreshGraphNote() {
   await NoteStorage.setNote(GRAPH_NOTE, '# Note Graph\n');
 }
 
-async function refreshProjectsNote() {
-  const newContent = await generateProjectsNoteContent();
+async function refreshProjectsNote(cachedNotes) {
+  const newContent = await generateProjectsNoteContent(cachedNotes);
   const existing = await NoteStorage.getNote(PROJECTS_NOTE);
   if (existing === newContent) return;
   await NoteStorage.setNote(PROJECTS_NOTE, newContent);
