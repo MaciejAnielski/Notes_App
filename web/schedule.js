@@ -9,7 +9,7 @@
 // ── Schedule cache ────────────────────────────────────────────────────────
 let _scheduleCache = null;
 
-async function _buildScheduleCache() {
+async function _buildScheduleCache(cachedNotes) {
   const cache = {};
   cache._multiday = [];
 
@@ -17,7 +17,7 @@ async function _buildScheduleCache() {
   const reMultiDay = />\s*(\d{6})\s+(\d{6})(?:\s+@(\S+))?\s*$/;
   const reAllDay   = />\s*(\d{6})(?:\s+@(\S+))?\s*$/;
 
-  const allNotes = await NoteStorage.getAllNotes();
+  const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name: fileName, content } of allNotes) {
     if (!content) continue;
     content.split(/\n/).forEach((line, idx) => {
@@ -89,8 +89,8 @@ function invalidateScheduleCache() {
   _scheduleCache = null;
 }
 
-async function getScheduleCache() {
-  if (!_scheduleCache) _scheduleCache = await _buildScheduleCache();
+async function getScheduleCache(cachedNotes) {
+  if (!_scheduleCache) _scheduleCache = await _buildScheduleCache(cachedNotes);
   return _scheduleCache;
 }
 
@@ -345,7 +345,7 @@ function _makeScheduleBlock(item, extraClass) {
 let _renderScheduleRunning = false;
 let _renderScheduleQueued = false;
 
-async function renderSchedule() {
+async function renderSchedule(cachedNotes) {
   // Serialize concurrent calls to prevent timer interleaving
   if (_renderScheduleRunning) {
     _renderScheduleQueued = true;
@@ -353,7 +353,7 @@ async function renderSchedule() {
   }
   _renderScheduleRunning = true;
   try {
-    await _doRenderSchedule();
+    await _doRenderSchedule(cachedNotes);
   } finally {
     _renderScheduleRunning = false;
     if (_renderScheduleQueued) {
@@ -363,9 +363,13 @@ async function renderSchedule() {
   }
 }
 
-async function _doRenderSchedule() {
+async function _doRenderSchedule(cachedNotes) {
   if (!scheduleGrid) return;
   if (scheduleNowTimer) { clearInterval(scheduleNowTimer); scheduleNowTimer = null; }
+  // Seed the schedule cache from pre-fetched notes if provided, so that
+  // renderWeekRow and getScheduleItems below share the same data without
+  // issuing additional getAllNotes() calls.
+  await getScheduleCache(cachedNotes);
   await renderWeekRow();
   scheduleGrid.innerHTML = '';
   scheduleDateLabel.textContent = formatScheduleDate(scheduleDate);
