@@ -369,41 +369,6 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     alert('File not found.');
     return;
   }
-  // Ensure Settings note has the Theme section (migration / cross-device sync)
-  if (name === CALENDARS_NOTE && !content.includes('## 🎨 Theme')) {
-    const insertPos = content.indexOf('\n## ');
-    if (insertPos !== -1) {
-      content = content.slice(0, insertPos) +
-        '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
-        content.slice(insertPos);
-    } else {
-      content += '\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
-    }
-    await NoteStorage.setNote(name, content);
-  }
-  // Migrate old ### Projects Note Emojis to ## (top-level section)
-  if (name === CALENDARS_NOTE && content.includes('### Projects Note Emojis')) {
-    content = content.replace('### Projects Note Emojis', '## Projects Note Emojis');
-    await NoteStorage.setNote(name, content);
-  }
-  // Ensure Settings note has the Projects Note Emojis section
-  if (name === CALENDARS_NOTE && !content.includes('## Projects Note Emojis')) {
-    const themeIdx = content.indexOf('## 🎨 Theme');
-    if (themeIdx !== -1) {
-      // Insert after the Theme section (before the next ## heading, or at end)
-      const nextSecIdx = content.indexOf('\n## ', themeIdx + 1);
-      if (nextSecIdx !== -1) {
-        content = content.slice(0, nextSecIdx) +
-          '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
-          content.slice(nextSecIdx);
-      } else {
-        content += '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
-      }
-    } else {
-      content += '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
-    }
-    await NoteStorage.setNote(name, content);
-  }
   textarea.value = content;
   _lastSavedContent = content;
   _lastRemoteContent = content;

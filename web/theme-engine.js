@@ -471,9 +471,9 @@ function getThemeCalendarColorByHash(name) {
   return _hslToHex(hue, sat, lit);
 }
 
-// ── Cross-device preferences sync via iCloud ────────────────────────────
+// ── Cross-device preferences sync ────────────────────────────────────────
 // Stores theme + calendar colours in a hidden note (.app_preferences) that
-// syncs alongside regular notes through iCloud.
+// syncs alongside regular notes through PowerSync.
 
 const PREFS_NOTE = '.app_preferences';
 

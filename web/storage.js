@@ -2,9 +2,9 @@
 //
 // Default (web) implementation: delegates to localStorage with 'md_' key prefix.
 // Desktop (Electron) and iOS (Capacitor) override this at load time to use
-// file-system-backed iCloud storage via IPC or Capacitor Filesystem.
+// PowerSync + Supabase via powersync-storage.js.
 //
-// All methods are async so platform implementations can use file I/O without
+// All methods are async so platform implementations can use async I/O without
 // blocking. The web implementation returns resolved promises immediately.
 
 window.NoteStorage = {
@@ -21,7 +21,7 @@ window.NoteStorage = {
   },
 
   async trashNote(name) {
-    // Web (localStorage) has no iCloud trash — just remove the note.
+    // Web (localStorage) has no trash — just remove the note.
     localStorage.removeItem('md_' + name);
   },
 
@@ -56,10 +56,6 @@ window.NoteStorage = {
     keys.forEach(k => localStorage.removeItem(k));
     return keys.length;
   },
-
-  // Backup/export to iCloud stubs — overridden by desktop/iOS implementations
-  async writeBackup(filename, data) {},
-  async writeExport(filename, data) {},
 
   // Attachment stubs — no-ops on web (localStorage has no binary file support)
   async writeAttachment(noteName, filename, base64data) { return false; },

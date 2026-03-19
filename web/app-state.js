@@ -89,18 +89,16 @@ let linkedNoteChain = [];
 // Track the last content that was saved or loaded from storage so we can
 // detect whether the user has unsaved edits when a sync event arrives.
 let _lastSavedContent = null;
-// Track the last content received FROM iCloud/remote (distinct from
+// Track the last content received from remote (distinct from
 // _lastSavedContent which tracks what we last *wrote*).  Updated only on
 // remote reads, not on local saves.  Lets sync handlers detect that a local
-// save hasn't been confirmed by the remote yet, preventing silent overwrites
-// of iOS edits that have already been auto-saved.
+// save hasn't been confirmed by the remote yet, preventing silent overwrites.
 let _lastRemoteContent = null;
-// Per-note Maps used by the iOS sync poller to protect notes that are not
+// Per-note Maps used by the sync watcher to protect notes that are not
 // currently open in the editor.  Keyed by note name (same as currentFileName).
-//   _perNoteSavedContent  — last content this device wrote to iCloud for the note
-//   _perNoteRemoteContent — last content confirmed as received FROM iCloud
-// When the two differ, the note has unconfirmed local saves: the poller reads
-// the remote version and re-asserts the local one if they conflict.
+//   _perNoteSavedContent  — last content this device wrote for the note
+//   _perNoteRemoteContent — last content confirmed as received from remote
+// When the two differ, the note has unconfirmed local saves.
 // Only populated for notes the user has actually opened on this device.
 const _perNoteSavedContent = new Map();
 const _perNoteRemoteContent = new Map();

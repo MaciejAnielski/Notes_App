@@ -1,5 +1,5 @@
 // PowerSync + Supabase NoteStorage implementation
-// Replaces iCloud file-based sync on Desktop (Electron) and iOS (Capacitor).
+// Provides sync on Desktop (Electron) and iOS (Capacitor).
 // Web (plain browser) never loads this file — it keeps using localStorage.
 //
 // Architecture: LOCAL-FIRST
@@ -67,7 +67,7 @@
     }
   });
 
-  // ── Anonymous auth ──────────────────────────────────────────────────────
+  // ── Magic link auth ─────────────────────────────────────────────────────
   let session = null;
   try {
     const { data } = await supabase.auth.getSession();
@@ -77,13 +77,38 @@
   }
 
   if (!session) {
-    try {
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error) throw error;
-      session = data.session;
-    } catch (e) {
-      console.error('[powersync] Anonymous sign-in failed:', e);
-      return; // Fall back to default storage
+    // No session — prompt user to sign in via magic link (email OTP).
+    // Expose auth helpers so the UI can drive the flow.
+    window._powersyncAuth = {
+      async sendCode(email) {
+        const { error } = await supabase.auth.signInWithOtp({ email });
+        if (error) throw error;
+      },
+      async verifyCode(email, token) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email, token, type: 'email'
+        });
+        if (error) throw error;
+        session = data.session;
+        return session;
+      }
+    };
+
+    // Signal that auth is needed and wait for the UI to resolve it
+    const authPromise = new Promise(resolve => {
+      window.addEventListener('powersync:auth-complete', () => resolve(), { once: true });
+    });
+    window.dispatchEvent(new CustomEvent('powersync:needs-auth'));
+    await authPromise;
+
+    // Re-fetch session after auth
+    if (!session) {
+      const { data } = await supabase.auth.getSession();
+      session = data?.session;
+    }
+    if (!session) {
+      console.error('[powersync] Auth completed but no session available.');
+      return;
     }
   }
 
@@ -186,13 +211,33 @@
 
   // ── Background attachment sync ──────────────────────────────────────────
 
+  // Chunked base64 encoding — avoids slow character-by-character concatenation.
+  function bufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunk = 8192;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
   let _syncDebounceTimer = null;
+  let _downloadDebounceTimer = null;
 
   function scheduleSyncPending() {
     if (_syncDebounceTimer) return;
     _syncDebounceTimer = setTimeout(() => {
       _syncDebounceTimer = null;
       syncPendingAttachments();
+    }, 1000);
+  }
+
+  function scheduleDownloadMissing() {
+    if (_downloadDebounceTimer) return;
+    _downloadDebounceTimer = setTimeout(() => {
+      _downloadDebounceTimer = null;
+      downloadMissingAttachments();
     }, 1000);
   }
 
@@ -242,13 +287,7 @@
             .from('attachments')
             .download(row.storage_path);
           if (error) throw error;
-          const buf = await data.arrayBuffer();
-          const binary = new Uint8Array(buf);
-          let base64 = '';
-          for (let i = 0; i < binary.length; i++) {
-            base64 += String.fromCharCode(binary[i]);
-          }
-          const b64 = btoa(base64);
+          const b64 = bufferToBase64(await data.arrayBuffer());
           await db.execute(
             'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
             [b64, 'synced', row.id]
@@ -265,8 +304,8 @@
 
   // Retry pending uploads and fetch missing data when connectivity is restored
   window.addEventListener('online', () => {
-    syncPendingAttachments();
-    downloadMissingAttachments();
+    scheduleSyncPending();
+    scheduleDownloadMissing();
   });
 
   // ── NoteStorage implementation ──────────────────────────────────────────
@@ -357,14 +396,6 @@
       return notes.length;
     },
 
-    // ── Backup/Export stubs ─────────────────────────────────────────────
-    // Backups and exports are stored in Supabase Storage, not in the
-    // synced SQLite database. For now, these are no-ops that match the
-    // web localStorage behavior. Full Supabase Storage integration for
-    // backups/exports can be added as a follow-up.
-    async writeBackup(filename, data) {},
-    async writeExport(filename, data) {},
-
     // ── Attachments — local-first with background sync ────────────────
 
     async writeAttachment(noteName, filename, base64data) {
@@ -417,13 +448,7 @@
             .from('attachments')
             .download(rec.storage_path);
           if (error) throw error;
-          const buf = await data.arrayBuffer();
-          const binary = new Uint8Array(buf);
-          let base64 = '';
-          for (let i = 0; i < binary.length; i++) {
-            base64 += String.fromCharCode(binary[i]);
-          }
-          const b64 = btoa(base64);
+          const b64 = bufferToBase64(await data.arrayBuffer());
           // Cache locally for offline access
           await db.execute(
             'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
@@ -451,7 +476,7 @@
           'UPDATE attachments SET filename = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
           [newFilename, newPath, 'pending', now, noteName, oldFilename, userId]
         );
-        // Background: move on Supabase Storage (fire-and-forget)
+        // Background: move on Supabase Storage, then clean up old path (fire-and-forget)
         const oldPath = `${userId}/${noteName}/${oldFilename}`;
         supabase.storage.from('attachments').move(oldPath, newPath).then(({ error }) => {
           if (!error) {
@@ -459,8 +484,14 @@
               'UPDATE attachments SET sync_state = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
               ['synced', noteName, newFilename, userId]
             ).catch(() => {});
+          } else {
+            // Move failed — syncPendingAttachments will re-upload at the new path.
+            // Clean up the old path to prevent orphans.
+            supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
           }
-        }).catch(() => {});
+        }).catch(() => {
+          supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
+        });
         return true;
       } catch (e) {
         console.error('[powersync] renameAttachment failed:', e);
@@ -482,10 +513,10 @@
           'DELETE FROM attachments WHERE note_name = ? AND user_id = ?',
           [noteName, userId]
         );
-        // Background: clean up Supabase Storage for synced files (fire-and-forget)
-        const syncedPaths = recs.filter(r => r.sync_state === 'synced').map(r => r.storage_path);
-        if (syncedPaths.length > 0) {
-          supabase.storage.from('attachments').remove(syncedPaths).catch(e => {
+        // Background: clean up Supabase Storage for all remote paths (fire-and-forget)
+        const remotePaths = recs.filter(r => r.storage_path).map(r => r.storage_path);
+        if (remotePaths.length > 0) {
+          supabase.storage.from('attachments').remove(remotePaths).catch(e => {
             console.warn('[powersync] Storage cleanup on remove failed (non-fatal):', e.message);
           });
         }
@@ -560,7 +591,7 @@
 
   // ── Reactive change notifications ─────────────────────────────────────
   // Watch the notes table for changes and dispatch a custom event so
-  // app-init.js can refresh the UI (replaces iCloud polling/file watcher).
+  // app-init.js can refresh the UI reactively.
   const abortController = new AbortController();
   (async () => {
     try {
@@ -576,7 +607,7 @@
   (async () => {
     try {
       for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
-        downloadMissingAttachments();
+        scheduleDownloadMissing();
         window.dispatchEvent(new CustomEvent('powersync:change'));
       }
     } catch (e) {

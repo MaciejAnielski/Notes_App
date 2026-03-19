@@ -125,33 +125,27 @@ async function updateCalendarsNote() {
   const calendars = result.calendars || [];
 
   // Read existing note to preserve user selections and Theme section content.
-  // Fall back to the old "Calendars" note for one-time migration.
   const existing = await NoteStorage.getNote(CALENDARS_NOTE);
-  const oldCalendarsNote = existing ? null : await NoteStorage.getNote('Calendars');
   const selectedIds = new Set();
-  const selSource = existing || oldCalendarsNote || '';
-  if (selSource) {
+  if (existing) {
     const re = /^\[([xX])\]\s+(.+?)\s*\{([^}]+)\}\s*$/;
-    for (const line of selSource.split('\n')) {
+    for (const line of existing.split('\n')) {
       const m = line.match(re);
       if (m) selectedIds.add(m[3]);
     }
   }
-  // Delete the old "Calendars" note after migrating its selections
-  if (oldCalendarsNote) await NoteStorage.removeNote('Calendars');
 
   // Extract existing Theme section content to preserve it across rebuilds.
-  // Matches everything between the Theme heading and the next ## heading (or EOF).
   let themeBody = '\nCustomise the app\'s background and accent colours.\n';
-  if (selSource) {
-    const themeMatch = selSource.match(/## 🎨 Theme([\s\S]*?)(?=\n##|$)/);
+  if (existing) {
+    const themeMatch = existing.match(/## 🎨 Theme([\s\S]*?)(?=\n##|$)/);
     if (themeMatch) themeBody = themeMatch[1];
   }
 
   // Extract existing Projects Note Emojis section to preserve it across rebuilds.
   let emojiBody = '\nCustomise the emojis used in the Projects note.\n';
-  if (selSource) {
-    const emojiMatch = selSource.match(/### Projects Note Emojis([\s\S]*?)(?=\n##|$)/);
+  if (existing) {
+    const emojiMatch = existing.match(/### Projects Note Emojis([\s\S]*?)(?=\n##|$)/);
     if (emojiMatch) emojiBody = emojiMatch[1];
   }
 
@@ -169,7 +163,7 @@ async function updateCalendarsNote() {
   }
 
   const newContent = lines.join('\n') + '\n';
-  // Only write if content has actually changed to avoid triggering iCloud sync
+  // Only write if content has actually changed to avoid unnecessary sync
   if (newContent === (existing || '')) return;
   await NoteStorage.setNote(CALENDARS_NOTE, newContent);
 
@@ -277,40 +271,6 @@ async function loadMetadataStore() {
 
 async function saveMetadataStore(store) {
   await NoteStorage.setNote(CALENDAR_METADATA_NOTE, JSON.stringify(store));
-}
-
-// One-time migration: strip legacy <!-- calendar_events: ... --> comments from
-// daily notes and move their data into the centralised store.
-async function migrateInlineMetadata(store) {
-  const allNotes = await NoteStorage.getAllNotes();
-  for (const { name, content } of allNotes) {
-    if (name.startsWith('.')) continue;
-    if (!CALENDAR_META_RE.test(content)) continue;
-
-    const lines = content.split('\n');
-    const commentIdx = lines.findIndex(l => CALENDAR_META_RE.test(l));
-
-    if (!store[name]) {
-      const meta = parseCalendarMetadata(content);
-      if (meta) {
-        // Removing the comment line shifts all subsequent lines up by one.
-        for (const evt of meta.events) {
-          if (evt.lineIndex != null && evt.lineIndex > commentIdx) {
-            evt.lineIndex -= 1;
-          }
-        }
-        store[name] = meta;
-      }
-    }
-
-    lines.splice(commentIdx, 1);
-    const cleanedContent = lines.join('\n');
-    await NoteStorage.setNote(name, cleanedContent);
-    if (currentFileName === name) {
-      textarea.value = cleanedContent;
-      if (isPreview) renderPreview(); else refreshHighlight();
-    }
-  }
 }
 
 // ── Sync: Calendar → Markdown ────────────────────────────────────────────────
@@ -463,7 +423,7 @@ async function syncMarkdownToCalendar(calendarIds) {
   const plugin = getCalendarPlugin();
   if (!plugin || calendarIds.length === 0) return;
 
-  // Always write new events into the dedicated "Notes App Events" iCloud calendar.
+  // Always write new events into the dedicated "Notes App Events" calendar.
   const notesAppCalendarId = await getOrCreateNotesAppCalendarId();
 
   // Build calendar title → ID lookup for @CalendarName routing
@@ -647,58 +607,6 @@ async function syncMarkdownToCalendar(calendarIds) {
   if (storeModified) await saveMetadataStore(store);
 }
 
-// ── One-time migration: "YYMMDD Daily Notes" → "YYMMDD Daily Note" ──────────
-// Also fixes the "# Title" heading inside each note to match the new name.
-
-const MIGRATION_KEY = 'calendar_daily_notes_migrated';
-
-async function migrateDailyNoteNames() {
-  if (localStorage.getItem(MIGRATION_KEY)) return;
-
-  const allNotes = await NoteStorage.getAllNotes();
-  const oldRe = /^(\d{6}) Daily Notes$/;
-
-  for (const { name, content } of allNotes) {
-    const m = name.match(oldRe);
-    if (!m) continue;
-
-    const dateStr = m[1];
-    const newName = dateStr + ' Daily Note';
-
-    // Check whether the new name already exists
-    const existing = await NoteStorage.getNote(newName);
-
-    let finalContent;
-    if (existing) {
-      // Merge: append old content (minus its heading) into the existing note
-      const oldBody = content.replace(/^#\s+.*\n?/, '');
-      finalContent = existing.trimEnd() + '\n' + oldBody;
-    } else {
-      finalContent = content;
-    }
-
-    // Fix the heading to match the new filename
-    if (/^#\s/.test(finalContent)) {
-      finalContent = finalContent.replace(/^#\s+.*/, `# ${newName}`);
-    } else {
-      finalContent = `# ${newName}\n` + finalContent;
-    }
-
-    await NoteStorage.setNote(newName, finalContent);
-    await NoteStorage.removeNote(name);
-
-    // If the user currently has the old note open, switch to the new one
-    if (currentFileName === name) {
-      currentFileName = newName;
-      localStorage.setItem('current_file', newName);
-      textarea.value = finalContent;
-      if (isPreview) renderPreview(); else refreshHighlight();
-    }
-  }
-
-  localStorage.setItem(MIGRATION_KEY, '1');
-}
-
 // ── Main sync orchestrator ───────────────────────────────────────────────────
 
 async function runCalendarSync() {
@@ -716,16 +624,7 @@ async function runCalendarSync() {
     } catch { return; }
     if (!access.granted) return;
 
-    // One-time rename: "YYMMDD Daily Notes" → "YYMMDD Daily Note"
-    await migrateDailyNoteNames();
-
-    // One-time migration: move inline <!-- calendar_events: ... --> comments
-    // out of daily notes and into the centralised .calendar_metadata store.
-    const metaStore = await loadMetadataStore();
-    await migrateInlineMetadata(metaStore);
-    await saveMetadataStore(metaStore);
-
-    // Ensure Settings note exists (and migrate old "Calendars" note if present)
+    // Ensure Settings note exists and calendar list is up to date
     await updateCalendarsNote();
 
     // Get selected calendars
@@ -800,7 +699,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     yymmddToDate, dateToYYMMDD, hhmmToTime, dailyNoteName,
     parseMarkdownEvents, parseCalendarMetadata, updateCalendarMetadata,
-    loadMetadataStore, saveMetadataStore, migrateInlineMetadata,
+    loadMetadataStore, saveMetadataStore,
     syncMarkdownToCalendar, syncCalendarToMarkdown,
     getCalendarsByTitle,
     // Resets module-level caches; call in beforeEach to isolate tests

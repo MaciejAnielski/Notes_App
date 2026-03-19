@@ -1,8 +1,8 @@
 // export-import.js — Export, backup, and import operations.
 //
 // Handles exporting notes as HTML (single or notebook), backing up as ZIP,
-// and importing from ZIP files. Supports both web (browser download) and
-// iCloud (desktop/iOS) save paths.
+// and importing from ZIP or markdown files. All platforms trigger a browser
+// download for exports and backups.
 
 // ── Export rendering helpers ───────────────────────────────────────────────
 
@@ -354,19 +354,12 @@ async function exportNote() {
   const markdown = textarea.value;
   const html = await generateHtmlContent(name, markdown, name);
 
-  const hasSyncStorage = !!window.PowerSyncNoteStorage;
-  if (hasSyncStorage) {
-    const timestamp = formatTimestamp();
-    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
-    catch { updateStatus('Export failed — check storage.', false); return; }
-  } else {
-    const blob = new Blob([html], { type: 'text/html' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = name + '.html';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = name + '.html';
+  link.click();
+  URL.revokeObjectURL(link.href);
 
   updateStatus(`Exported "${name}".`, true);
 }
@@ -378,19 +371,12 @@ async function exportAllNotes() {
   entries.sort((a, b) => b.name.localeCompare(a.name));
   const html = await generateNotebookHtml(entries);
 
-  const hasSyncStorage = !!window.PowerSyncNoteStorage;
-  if (hasSyncStorage) {
-    const timestamp = formatTimestamp();
-    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
-    catch { updateStatus('Export failed — check storage.', false); return; }
-  } else {
-    const blob = new Blob([html], { type: 'text/html' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'notes_notebook.html';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'notes_notebook.html';
+  link.click();
+  URL.revokeObjectURL(link.href);
 
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
@@ -406,24 +392,36 @@ async function exportSelectedNotes() {
   }
   const html = await generateNotebookHtml(entries);
 
-  const hasSyncStorage = !!window.PowerSyncNoteStorage;
-  if (hasSyncStorage) {
-    const timestamp = formatTimestamp();
-    try { await NoteStorage.writeExport(`${timestamp}_Export.html`, html); }
-    catch { updateStatus('Export failed — check storage.', false); return; }
-  } else {
-    const blob = new Blob([html], { type: 'text/html' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'notes_notebook.html';
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'notes_notebook.html';
+  link.click();
+  URL.revokeObjectURL(link.href);
 
   updateStatus(`Exported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
 }
 
 // ── Backup operations ─────────────────────────────────────────────────────
+
+async function createBackupZip(noteEntries, downloadName) {
+  const zip = new JSZip();
+  for (const { name, content } of noteEntries) {
+    zip.file(name + '.md', content);
+    const attFiles = await NoteStorage.listAttachments(name);
+    const attDir = noteNameToAttachmentDir(name);
+    for (const filename of attFiles) {
+      const b64 = await NoteStorage.readAttachment(name, filename);
+      if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
+    }
+  }
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = downloadName;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
 
 async function downloadAllNotes() {
   updateStatus(`Backing Up\u2026`, true, true);
@@ -435,32 +433,9 @@ async function downloadAllNotes() {
   }
 
   try {
-    const zip = new JSZip();
-    for (const { name, content } of allNotes) {
-      zip.file(name + '.md', content);
-      const attFiles = await NoteStorage.listAttachments(name);
-      const attDir = noteNameToAttachmentDir(name);
-      for (const filename of attFiles) {
-        const b64 = await NoteStorage.readAttachment(name, filename);
-        if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
-      }
-    }
-
-    const hasSyncStorage = !!window.PowerSyncNoteStorage;
-    if (hasSyncStorage) {
-      const timestamp = formatTimestamp();
-      const base64 = await zip.generateAsync({ type: 'base64' });
-      await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64);
-    } else {
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'all_notes.zip';
-      link.click();
-      URL.revokeObjectURL(link.href);
-    }
+    await createBackupZip(allNotes, 'all_notes.zip');
   } catch {
-    updateStatus('Backup failed — check storage.', false);
+    updateStatus('Backup failed.', false);
     return;
   }
 
@@ -478,35 +453,14 @@ async function backupSelectedNotes() {
   }
 
   try {
-    const zip = new JSZip();
+    const entries = [];
     for (const name of notes) {
       const content = await NoteStorage.getNote(name);
-      if (content !== null) {
-        zip.file(name + '.md', content);
-        const attFiles = await NoteStorage.listAttachments(name);
-        const attDir = noteNameToAttachmentDir(name);
-        for (const filename of attFiles) {
-          const b64 = await NoteStorage.readAttachment(name, filename);
-          if (b64) zip.file(`${attDir}/${filename}`, b64, { base64: true });
-        }
-      }
+      if (content !== null) entries.push({ name, content });
     }
-
-    const hasSyncStorage = !!window.PowerSyncNoteStorage;
-    if (hasSyncStorage) {
-      const timestamp = formatTimestamp();
-      const base64 = await zip.generateAsync({ type: 'base64' });
-      await NoteStorage.writeBackup(`${timestamp}_Backup.zip`, base64);
-    } else {
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'selected_notes.zip';
-      link.click();
-      URL.revokeObjectURL(link.href);
-    }
+    await createBackupZip(entries, 'selected_notes.zip');
   } catch {
-    updateStatus('Backup failed — check storage.', false);
+    updateStatus('Backup failed.', false);
     return;
   }
 
@@ -516,6 +470,43 @@ async function backupSelectedNotes() {
 }
 
 // ── Import ────────────────────────────────────────────────────────────────
+
+async function importNotesFromMd(files) {
+  updateStatus(`Importing\u2026`, true, true);
+  try {
+    const entries = [];
+    for (const file of files) {
+      const content = await file.text();
+      const name = file.name.replace(/\.md$/, '');
+      entries.push({ name, content });
+    }
+
+    // Check for existing notes that would be overwritten
+    const existingNames = [];
+    for (const { name } of entries) {
+      if (await NoteStorage.getNote(name) !== null) existingNames.push(name);
+    }
+    if (existingNames.length > 0) {
+      const list = existingNames.length <= 5
+        ? existingNames.map(n => `"${n}"`).join(', ')
+        : existingNames.slice(0, 5).map(n => `"${n}"`).join(', ') + ` and ${existingNames.length - 5} more`;
+      if (!confirm(`Import will overwrite ${existingNames.length} existing note${existingNames.length === 1 ? '' : 's'}: ${list}. Continue?`)) {
+        updateStatus('Import cancelled.', false);
+        importZipInput.value = '';
+        return;
+      }
+    }
+
+    for (const { name, content } of entries) {
+      await NoteStorage.setNote(name, content);
+    }
+    await updateFileList();
+    importZipInput.value = '';
+    updateStatus(`Imported ${entries.length} Note${entries.length === 1 ? '' : 's'}.`, true);
+  } catch (err) {
+    updateStatus('Import failed: ' + err.message, false);
+  }
+}
 
 async function importNotesFromZip(file) {
   updateStatus(`Importing\u2026`, true, true);
