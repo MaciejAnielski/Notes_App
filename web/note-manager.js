@@ -153,9 +153,13 @@ async function refreshGraphNote() {
 
 async function refreshProjectsNote(cachedNotes) {
   const newContent = await generateProjectsNoteContent(cachedNotes);
-  const existing = await NoteStorage.getNote(PROJECTS_NOTE);
+  // Store locally only — the Projects note is generated from local note names and
+  // preferences, so syncing its full rendered content wastes bandwidth and can
+  // cause conflicts. localStorage is used directly to bypass PowerSync.
+  const localKey = 'md_' + PROJECTS_NOTE;
+  const existing = localStorage.getItem(localKey);
   if (existing === newContent) return;
-  await NoteStorage.setNote(PROJECTS_NOTE, newContent);
+  localStorage.setItem(localKey, newContent);
   if (currentFileName === PROJECTS_NOTE) {
     textarea.value = newContent;
     renderPreview();
@@ -363,6 +367,12 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     saveChain();
   }
   let content = prefetchedContent !== null ? prefetchedContent : await NoteStorage.getNote(name);
+  // Projects note: stored in localStorage only (not in sync database). Fall back to
+  // generating it fresh if localStorage doesn't have it yet (e.g. first run on Desktop/iOS).
+  if (content === null && name === PROJECTS_NOTE) {
+    content = localStorage.getItem('md_' + PROJECTS_NOTE) || await generateProjectsNoteContent();
+    localStorage.setItem('md_' + PROJECTS_NOTE, content);
+  }
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
   if (content === null && name === CALENDARS_NOTE) {
     content = '# Settings\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
