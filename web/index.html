@@ -242,7 +242,15 @@
   </div>
 
   <script src="theme-engine.js"></script>
-  <script>if (!window.electronAPI) document.write('<script defer src="icloud-bridge.js"><\/script>');</script>
+  <script>
+    // On Desktop (Electron) or iOS (Capacitor), load PowerSync + Supabase for cloud sync.
+    // On plain web, skip these — localStorage is used instead (no sync).
+    if (window.electronAPI || window.Capacitor?.isNativePlatform()) {
+      document.write('<script src="powersync-config.js"><\/script>');
+      document.write('<script type="module" src="vendor/powersync-bundle.min.js"><\/script>');
+      document.write('<script defer src="powersync-storage.js"><\/script>');
+    }
+  </script>
   <script defer src="storage.js"></script>
   <script defer src="app-state.js"></script>
   <script defer src="markdown-renderer.js"></script>

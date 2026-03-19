@@ -395,7 +395,9 @@ async function setupNoteLinks(container = previewDiv) {
         a.addEventListener('click', e => {
           e.preventDefault();
           e.stopPropagation();
-          window.electronAPI.notes.openExternal(href);
+          if (window.electronAPI?.openExternal) {
+            window.electronAPI.openExternal(href);
+          }
         });
       } else if (window.Capacitor) {
         // iOS (Capacitor): use App.openUrl so the default browser opens.
@@ -523,9 +525,8 @@ let _attachmentCacheNote = null;
 
 async function resolveAttachments(container) {
   if (!currentFileName) return;
-  const hasDesktop = !!window.electronAPI?.notes?.readAttachment;
-  const hasIOS     = !!window.CapacitorNoteStorage?.readAttachment;
-  if (!hasDesktop && !hasIOS) return;
+  const hasAttachments = typeof NoteStorage.readAttachment === 'function';
+  if (!hasAttachments) return;
 
   // Invalidate cache when switching notes
   if (_attachmentCacheNote !== currentFileName) {
@@ -533,28 +534,18 @@ async function resolveAttachments(container) {
     _attachmentCacheNote = currentFileName;
   }
 
-  if (hasDesktop && _notesDirCache === null) {
-    const info = await window.electronAPI.notes.getDir();
-    _notesDirCache = info?.path || '';
-  }
-
   for (const img of container.querySelectorAll('img[src^="attachment:"]')) {
     const filename = img.getAttribute('src').slice('attachment:'.length);
-    if (hasDesktop && _notesDirCache) {
-      const attDir = noteNameToAttachmentDir(currentFileName);
-      img.src = encodeURI(`file://${_notesDirCache}/${attDir}/${filename}`);
-    } else if (hasIOS) {
-      const cacheKey = currentFileName + '/' + filename;
-      if (_attachmentCache[cacheKey]) {
-        img.src = _attachmentCache[cacheKey];
-      } else {
-        const b64 = await window.CapacitorNoteStorage.readAttachment(currentFileName, filename);
-        if (b64) {
-          const ext = filename.split('.').pop();
-          const dataUri = `data:${mimeForExtension(ext)};base64,${b64}`;
-          _attachmentCache[cacheKey] = dataUri;
-          img.src = dataUri;
-        }
+    const cacheKey = currentFileName + '/' + filename;
+    if (_attachmentCache[cacheKey]) {
+      img.src = _attachmentCache[cacheKey];
+    } else {
+      const b64 = await NoteStorage.readAttachment(currentFileName, filename);
+      if (b64) {
+        const ext = filename.split('.').pop();
+        const dataUri = `data:${mimeForExtension(ext)};base64,${b64}`;
+        _attachmentCache[cacheKey] = dataUri;
+        img.src = dataUri;
       }
     }
   }
@@ -562,25 +553,30 @@ async function resolveAttachments(container) {
   for (const link of container.querySelectorAll('a[href^="attachment:"]')) {
     const filename = link.getAttribute('href').slice('attachment:'.length);
     const noteName = currentFileName;
-    if (hasDesktop) {
-      link.href = '#';
-      link.addEventListener('click', e => {
-        e.preventDefault();
-        window.electronAPI.notes.openAttachment(noteName, filename);
-      });
-    } else if (hasIOS) {
-      link.href = '#';
-      link.addEventListener('click', e => {
-        e.preventDefault();
-        openAttachmentOnIOS(noteName, filename);
-      });
-    }
+    link.href = '#';
+    link.addEventListener('click', async e => {
+      e.preventDefault();
+      // On iOS, use the share sheet to open attachments
+      if (window.Capacitor?.isNativePlatform()) {
+        await openAttachmentOnIOS(noteName, filename);
+      } else {
+        // On desktop, download via data URI
+        const b64 = await NoteStorage.readAttachment(noteName, filename);
+        if (b64) {
+          const ext = filename.split('.').pop();
+          const a = document.createElement('a');
+          a.href = `data:${mimeForExtension(ext)};base64,${b64}`;
+          a.download = filename;
+          a.click();
+        }
+      }
+    });
   }
 }
 
 async function openAttachmentOnIOS(noteName, filename) {
   try {
-    const b64 = await window.CapacitorNoteStorage.readAttachment(noteName, filename);
+    const b64 = await NoteStorage.readAttachment(noteName, filename);
     if (!b64) { updateStatus('File not found.', false); return; }
     const ext = filename.split('.').pop();
     const mime = mimeForExtension(ext);

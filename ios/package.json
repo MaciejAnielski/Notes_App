@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Notes App - iOS (Capacitor)",
   "scripts": {
-    "build": "cp -r ../web/* www/ && cp icloud-bridge.js www/",
+    "build": "cp -r ../web/* www/",
     "sync": "npx cap sync ios",
     "open": "npx cap open ios",
     "start": "npm run build && npm run sync && npm run open",
@@ -14,7 +14,6 @@
     "@capacitor/filesystem": "^6.0.0",
     "@capacitor/ios": "^6.2.1",
     "@capacitor/local-notifications": "^6.0.0",
-    "capacitor-icloud": "file:plugins/capacitor-icloud",
     "capacitor-calendar": "file:plugins/capacitor-calendar"
   },
   "devDependencies": {

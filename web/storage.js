@@ -70,44 +70,11 @@ window.NoteStorage = {
   async listAttachments(noteName) { return []; }
 };
 
-// ── Desktop (Electron) override ──
-// When running inside the Electron shell, the preload script exposes
-// window.electronAPI.notes which proxies to ipcMain handlers that
-// read/write .md files in the iCloud Drive folder.
-if (window.electronAPI?.notes) {
-  const api = window.electronAPI.notes;
-  window.NoteStorage = {
-    async getNote(name)            { return api.get(name); },
-    async setNote(name, content)   { return api.set(name, content); },
-    async removeNote(name)         { return api.remove(name); },
-    async trashNote(name)          { return api.trash(name); },
-    async getAllNoteNames()         { return api.list(); },
-    async getAllNotes() {
-      const names = await api.list();
-      const results = await Promise.all(
-        names.map(async name => {
-          const content = await api.get(name);
-          return content !== null ? { name, content } : null;
-        })
-      );
-      return results.filter(Boolean);
-    },
-    async clear()                  { return api.clear(); },
-    async writeBackup(filename, data) { return api.writeBackup(filename, data); },
-    async writeExport(filename, data) { return api.writeExport(filename, data); },
-    async writeAttachment(noteName, filename, data) { return api.writeAttachment(noteName, filename, data); },
-    async readAttachment(noteName, filename) { return api.readAttachment(noteName, filename); },
-    async renameAttachment(noteName, oldF, newF) { return api.renameAttachment(noteName, oldF, newF); },
-    async removeAttachmentDir(noteName) { return api.removeAttachmentDir(noteName); },
-    async renameAttachmentDir(oldN, newN) { return api.renameAttachmentDir(oldN, newN); },
-    async listAttachments(noteName) { return api.listAttachments(noteName); }
-  };
-}
-
-// ── iOS (Capacitor) override ──
-// When running as a native iOS app, Capacitor's isNativePlatform() returns
-// true. The icloud-bridge.js script (loaded before this file on iOS) sets
-// window.CapacitorNoteStorage with a Filesystem-backed implementation.
-if (window.Capacitor?.isNativePlatform() && window.CapacitorNoteStorage) {
-  window.NoteStorage = window.CapacitorNoteStorage;
+// ── PowerSync override (Desktop + iOS) ──
+// When running on Desktop (Electron) or iOS (Capacitor), powersync-storage.js
+// sets window.PowerSyncNoteStorage with a PowerSync-backed implementation
+// that syncs via Supabase. Falls back to the localStorage default above
+// if PowerSync initialization failed (e.g. config not set).
+if (window.PowerSyncNoteStorage) {
+  window.NoteStorage = window.PowerSyncNoteStorage;
 }

@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'www',
   server: {
     // Allow loading from local files (CDN scripts)
-    allowNavigation: ['cdn.jsdelivr.net']
+    allowNavigation: ['cdn.jsdelivr.net', '*.supabase.co', '*.powersync.journeyapps.com']
   },
   ios: {
     // Let the webview extend edge-to-edge (under notch and home indicator).
