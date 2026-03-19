@@ -1,6 +1,12 @@
 // PowerSync + Supabase NoteStorage implementation
 // Replaces iCloud file-based sync on Desktop (Electron) and iOS (Capacitor).
 // Web (plain browser) never loads this file — it keeps using localStorage.
+//
+// Architecture: LOCAL-FIRST
+// - Notes: stored in local SQLite via PowerSync, synced automatically.
+// - Attachments: binary data stored in local SQLite (local_data column),
+//   metadata synced via PowerSync, binaries synced to/from Supabase Storage
+//   in the background. All operations succeed offline.
 
 (async function () {
   'use strict';
@@ -35,7 +41,11 @@
     storage_path: column.text,
     updated_at: column.text,
     created_at: column.text,
-    user_id: column.text
+    user_id: column.text,
+    // Local-only columns (not in Supabase schema or sync stream).
+    // PowerSync stores them locally and leaves them untouched during sync.
+    local_data: column.text,   // base64-encoded binary data
+    sync_state: column.text    // 'pending' | 'synced' | 'error'
   });
 
   // ── Supabase client ─────────────────────────────────────────────────────
@@ -93,6 +103,12 @@
           const table = op.table;
           const data = { ...op.opData };
 
+          // Strip local-only columns before sending to Supabase
+          if (table === 'attachments') {
+            delete data.local_data;
+            delete data.sync_state;
+          }
+
           if (op.op === 'PUT') {
             // Upsert: insert or update
             data.id = op.id;
@@ -103,6 +119,14 @@
             const { error } = await supabase.from(table).update(data).eq('id', op.id);
             if (error) throw error;
           } else if (op.op === 'DELETE') {
+            // When deleting attachments, also clean up Supabase Storage
+            if (table === 'attachments' && data.storage_path) {
+              try {
+                await supabase.storage.from('attachments').remove([data.storage_path]);
+              } catch (storageErr) {
+                console.warn('[powersync] Storage cleanup on delete failed (non-fatal):', storageErr);
+              }
+            }
             const { error } = await supabase.from(table).delete().eq('id', op.id);
             if (error) throw error;
           }
@@ -132,6 +156,91 @@
   function getUserId() {
     return session?.user?.id || null;
   }
+
+  // ── Background attachment sync ──────────────────────────────────────────
+
+  let _syncDebounceTimer = null;
+
+  function scheduleSyncPending() {
+    if (_syncDebounceTimer) return;
+    _syncDebounceTimer = setTimeout(() => {
+      _syncDebounceTimer = null;
+      syncPendingAttachments();
+    }, 1000);
+  }
+
+  async function syncPendingAttachments() {
+    const userId = getUserId();
+    if (!userId) return;
+    try {
+      const pending = await db.getAll(
+        'SELECT id, storage_path, local_data FROM attachments WHERE sync_state = ? AND user_id = ? AND local_data IS NOT NULL',
+        ['pending', userId]
+      );
+      for (const row of pending) {
+        try {
+          const bytes = Uint8Array.from(atob(row.local_data), c => c.charCodeAt(0));
+          const { error } = await supabase.storage
+            .from('attachments')
+            .upload(row.storage_path, bytes, { upsert: true });
+          if (error) throw error;
+          await db.execute(
+            'UPDATE attachments SET sync_state = ? WHERE id = ?',
+            ['synced', row.id]
+          );
+        } catch (e) {
+          console.warn('[powersync] Attachment upload failed (will retry):', row.storage_path, e.message);
+          await db.execute(
+            'UPDATE attachments SET sync_state = ? WHERE id = ?',
+            ['error', row.id]
+          ).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error('[powersync] syncPendingAttachments error:', e);
+    }
+  }
+
+  async function downloadMissingAttachments() {
+    const userId = getUserId();
+    if (!userId) return;
+    try {
+      const missing = await db.getAll(
+        'SELECT id, storage_path FROM attachments WHERE local_data IS NULL AND storage_path IS NOT NULL AND user_id = ?',
+        [userId]
+      );
+      for (const row of missing) {
+        try {
+          const { data, error } = await supabase.storage
+            .from('attachments')
+            .download(row.storage_path);
+          if (error) throw error;
+          const buf = await data.arrayBuffer();
+          const binary = new Uint8Array(buf);
+          let base64 = '';
+          for (let i = 0; i < binary.length; i++) {
+            base64 += String.fromCharCode(binary[i]);
+          }
+          const b64 = btoa(base64);
+          await db.execute(
+            'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
+            [b64, 'synced', row.id]
+          );
+        } catch (e) {
+          // Download failed (likely offline) — will retry on next change event
+          console.warn('[powersync] Attachment download deferred:', row.storage_path, e.message);
+        }
+      }
+    } catch (e) {
+      console.error('[powersync] downloadMissingAttachments error:', e);
+    }
+  }
+
+  // Retry pending uploads and fetch missing data when connectivity is restored
+  window.addEventListener('online', () => {
+    syncPendingAttachments();
+    downloadMissingAttachments();
+  });
 
   // ── NoteStorage implementation ──────────────────────────────────────────
   window.PowerSyncNoteStorage = {
@@ -229,19 +338,13 @@
     async writeBackup(filename, data) {},
     async writeExport(filename, data) {},
 
-    // ── Attachments via Supabase Storage ────────────────────────────────
+    // ── Attachments — local-first with background sync ────────────────
+
     async writeAttachment(noteName, filename, base64data) {
       const userId = getUserId();
       if (!userId) return false;
       try {
         const storagePath = `${userId}/${noteName}/${filename}`;
-        const bytes = Uint8Array.from(atob(base64data), c => c.charCodeAt(0));
-        const { error: uploadError } = await supabase.storage
-          .from('attachments')
-          .upload(storagePath, bytes, { upsert: true });
-        if (uploadError) throw uploadError;
-
-        // Upsert attachment record
         const now = new Date().toISOString();
         const existing = await db.get(
           'SELECT id FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
@@ -250,15 +353,17 @@
 
         if (existing) {
           await db.execute(
-            'UPDATE attachments SET storage_path = ?, updated_at = ? WHERE id = ?',
-            [storagePath, now, existing.id]
+            'UPDATE attachments SET storage_path = ?, local_data = ?, sync_state = ?, updated_at = ? WHERE id = ?',
+            [storagePath, base64data, 'pending', now, existing.id]
           );
         } else {
           await db.execute(
-            'INSERT INTO attachments (id, note_name, filename, storage_path, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, ?, ?, ?, ?)',
-            [noteName, filename, storagePath, now, now, userId]
+            'INSERT INTO attachments (id, note_name, filename, storage_path, local_data, sync_state, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?)',
+            [noteName, filename, storagePath, base64data, 'pending', now, now, userId]
           );
         }
+        // Background upload — non-blocking
+        scheduleSyncPending();
         return true;
       } catch (e) {
         console.error('[powersync] writeAttachment failed:', e);
@@ -271,22 +376,37 @@
       if (!userId) return null;
       try {
         const rec = await db.get(
-          'SELECT storage_path FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
+          'SELECT id, storage_path, local_data FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
           [noteName, filename, userId]
         ).catch(() => null);
         if (!rec) return null;
 
-        const { data, error } = await supabase.storage
-          .from('attachments')
-          .download(rec.storage_path);
-        if (error) throw error;
-        const buf = await data.arrayBuffer();
-        const binary = new Uint8Array(buf);
-        let base64 = '';
-        for (let i = 0; i < binary.length; i++) {
-          base64 += String.fromCharCode(binary[i]);
+        // Fast path: local data available (works offline)
+        if (rec.local_data) return rec.local_data;
+
+        // Slow path: synced from another device, binary not yet downloaded
+        try {
+          const { data, error } = await supabase.storage
+            .from('attachments')
+            .download(rec.storage_path);
+          if (error) throw error;
+          const buf = await data.arrayBuffer();
+          const binary = new Uint8Array(buf);
+          let base64 = '';
+          for (let i = 0; i < binary.length; i++) {
+            base64 += String.fromCharCode(binary[i]);
+          }
+          const b64 = btoa(base64);
+          // Cache locally for offline access
+          await db.execute(
+            'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
+            [b64, 'synced', rec.id]
+          ).catch(() => {});
+          return b64;
+        } catch (dlErr) {
+          console.warn('[powersync] readAttachment download deferred (offline?):', dlErr.message);
+          return null;
         }
-        return btoa(base64);
       } catch (e) {
         console.error('[powersync] readAttachment failed:', e);
         return null;
@@ -297,18 +417,23 @@
       const userId = getUserId();
       if (!userId) return false;
       try {
-        const oldPath = `${userId}/${noteName}/${oldFilename}`;
         const newPath = `${userId}/${noteName}/${newFilename}`;
-        const { error } = await supabase.storage
-          .from('attachments')
-          .move(oldPath, newPath);
-        if (error) throw error;
-
         const now = new Date().toISOString();
+        // Update locally immediately — background sync will handle remote move
         await db.execute(
-          'UPDATE attachments SET filename = ?, storage_path = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
-          [newFilename, newPath, now, noteName, oldFilename, userId]
+          'UPDATE attachments SET filename = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
+          [newFilename, newPath, 'pending', now, noteName, oldFilename, userId]
         );
+        // Background: move on Supabase Storage (fire-and-forget)
+        const oldPath = `${userId}/${noteName}/${oldFilename}`;
+        supabase.storage.from('attachments').move(oldPath, newPath).then(({ error }) => {
+          if (!error) {
+            db.execute(
+              'UPDATE attachments SET sync_state = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
+              ['synced', noteName, newFilename, userId]
+            ).catch(() => {});
+          }
+        }).catch(() => {});
         return true;
       } catch (e) {
         console.error('[powersync] renameAttachment failed:', e);
@@ -320,18 +445,23 @@
       const userId = getUserId();
       if (!userId) return;
       try {
+        // Collect remote paths for background cleanup
         const recs = await db.getAll(
-          'SELECT storage_path FROM attachments WHERE note_name = ? AND user_id = ?',
+          'SELECT storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
           [noteName, userId]
         );
-        if (recs.length > 0) {
-          const paths = recs.map(r => r.storage_path);
-          await supabase.storage.from('attachments').remove(paths);
-        }
+        // Delete locally immediately
         await db.execute(
           'DELETE FROM attachments WHERE note_name = ? AND user_id = ?',
           [noteName, userId]
         );
+        // Background: clean up Supabase Storage for synced files (fire-and-forget)
+        const syncedPaths = recs.filter(r => r.sync_state === 'synced').map(r => r.storage_path);
+        if (syncedPaths.length > 0) {
+          supabase.storage.from('attachments').remove(syncedPaths).catch(e => {
+            console.warn('[powersync] Storage cleanup on remove failed (non-fatal):', e.message);
+          });
+        }
       } catch (e) {
         console.error('[powersync] removeAttachmentDir failed:', e);
       }
@@ -342,17 +472,28 @@
       if (!userId) return;
       try {
         const recs = await db.getAll(
-          'SELECT id, filename, storage_path FROM attachments WHERE note_name = ? AND user_id = ?',
+          'SELECT id, filename, storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
           [oldNoteName, userId]
         );
         for (const rec of recs) {
           const newPath = `${userId}/${newNoteName}/${rec.filename}`;
-          await supabase.storage.from('attachments').move(rec.storage_path, newPath);
           const now = new Date().toISOString();
+          // Update locally immediately
           await db.execute(
-            'UPDATE attachments SET note_name = ?, storage_path = ?, updated_at = ? WHERE id = ?',
-            [newNoteName, newPath, now, rec.id]
+            'UPDATE attachments SET note_name = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE id = ?',
+            [newNoteName, newPath, 'pending', now, rec.id]
           );
+          // Background: move on Supabase Storage (fire-and-forget)
+          if (rec.sync_state === 'synced') {
+            supabase.storage.from('attachments').move(rec.storage_path, newPath).then(({ error }) => {
+              if (!error) {
+                db.execute(
+                  'UPDATE attachments SET sync_state = ? WHERE id = ?',
+                  ['synced', rec.id]
+                ).catch(() => {});
+              }
+            }).catch(() => {});
+          }
         }
       } catch (e) {
         console.error('[powersync] renameAttachmentDir failed:', e);
@@ -377,11 +518,17 @@
         // Disconnect and reconnect to force a fresh sync
         await db.disconnect();
         await db.connect(connector);
+        // Also process pending attachment uploads and download missing data
+        await syncPendingAttachments();
+        await downloadMissingAttachments();
       } catch (e) {
         console.error('[powersync] triggerSync failed:', e);
       }
     }
   };
+
+  // Signal readiness so storage.js and app-init.js can pick up PowerSyncNoteStorage
+  window.dispatchEvent(new CustomEvent('powersync:ready'));
 
   // ── Reactive change notifications ─────────────────────────────────────
   // Watch the notes table for changes and dispatch a custom event so
@@ -394,6 +541,18 @@
       }
     } catch (e) {
       if (e.name !== 'AbortError') console.error('[powersync] watch error:', e);
+    }
+  })();
+
+  // Watch attachments table — download missing binary data when new metadata arrives
+  (async () => {
+    try {
+      for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
+        downloadMissingAttachments();
+        window.dispatchEvent(new CustomEvent('powersync:change'));
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('[powersync] attachments watch error:', e);
     }
   })();
 

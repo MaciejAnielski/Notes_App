@@ -75,6 +75,16 @@ window.NoteStorage = {
 // sets window.PowerSyncNoteStorage with a PowerSync-backed implementation
 // that syncs via Supabase. Falls back to the localStorage default above
 // if PowerSync initialization failed (e.g. config not set).
+//
+// Because powersync-storage.js is an async IIFE, it may not have finished
+// initializing by the time this script runs. Listen for the 'powersync:ready'
+// event as a fallback.
 if (window.PowerSyncNoteStorage) {
   window.NoteStorage = window.PowerSyncNoteStorage;
+} else {
+  window.addEventListener('powersync:ready', () => {
+    if (window.PowerSyncNoteStorage) {
+      window.NoteStorage = window.PowerSyncNoteStorage;
+    }
+  }, { once: true });
 }
