@@ -7,9 +7,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   openExternal: (url) => ipcRenderer.invoke('notes:openExternal', url),
 
-  // Magic link auth callback: main process forwards the notesapp:// URL here.
+  // Returns the local auth-callback URL (http://127.0.0.1:<port>/auth-callback).
+  // powersync-storage.js passes this as emailRedirectTo so magic links open
+  // the local server page, which extracts the tokens and sends them back here.
+  getAuthCallbackUrl: () => ipcRenderer.invoke('notes:getAuthCallbackUrl'),
+
+  // Magic link auth callback: main process forwards either
+  //   • the raw token param-string from the local HTTP server POST, or
+  //   • a notesapp:// deep-link URL (protocol handler fallback).
   // powersync-storage.js calls this to register its handler.
   onAuthCallback: (callback) => {
-    ipcRenderer.on('auth:callback', (_event, url) => callback(url));
+    ipcRenderer.on('auth:callback', (_event, payload) => callback(payload));
   }
 });
