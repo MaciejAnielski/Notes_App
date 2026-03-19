@@ -296,9 +296,7 @@
           if (op.op === 'PUT') {
             data.id = op.id;
             data.user_id = session?.user?.id;
-            const upsertOptions = table === 'notes'
-              ? { onConflict: 'user_id,name' }
-              : {};
+            const upsertOptions = { onConflict: 'id' };
             const { error } = await supabase.from(table).upsert(data, upsertOptions);
             if (error) throw error;
           } else if (op.op === 'PATCH') {
