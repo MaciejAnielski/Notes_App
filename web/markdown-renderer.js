@@ -752,7 +752,12 @@ async function renderPreview() {
   previewDiv.style.overflow = '';
 
   // Note Graph: delegate entirely to graph-view.js renderer.
+  // Invalidate the render cache because renderNoteGraph() clears previewDiv.innerHTML;
+  // without this, returning to a previously-rendered note would hit the stale cache
+  // and leave previewDiv blank.
   if (currentFileName === GRAPH_NOTE) {
+    _lastRenderedHTML = null;
+    _lastRenderedFile = null;
     await renderNoteGraph();
     return;
   }
