@@ -2,7 +2,7 @@
 //
 // This module is loaded last and wires up all event handlers, sets up the
 // toolbar overflow menu, panel cycling, mobile swipe navigation,
-// cross-window/iCloud sync, and the async startup sequence.
+// cross-device sync, and the async startup sequence.
 
 // ── Button event registrations ────────────────────────────────────────────
 
@@ -51,8 +51,13 @@ exportSelectedBtn.addEventListener('click', withBusyGuard(exportSelectedNotes));
 importZipBtn.addEventListener('click', () => importZipInput.click());
 findBtn.addEventListener('click', openGlobalSearch);
 importZipInput.addEventListener('change', withBusyGuard(async (e) => {
-  if (e.target.files.length > 0) {
-    await importNotesFromZip(e.target.files[0]);
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
+  const mdFiles = files.filter(f => f.name.endsWith('.md'));
+  const zipFiles = files.filter(f => f.name.endsWith('.zip'));
+  if (mdFiles.length > 0) await importNotesFromMd(mdFiles);
+  if (zipFiles.length > 0) {
+    for (const zf of zipFiles) await importNotesFromZip(zf);
   }
 }));
 
@@ -773,6 +778,64 @@ if (savedChain) {
   try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
 
+// ── Auth UI handler (desktop/iOS magic link flow) ────────────────────────────
+window.addEventListener('powersync:needs-auth', () => {
+  const modal = document.getElementById('auth-modal');
+  const emailInput = document.getElementById('auth-email');
+  const sendBtn = document.getElementById('auth-send-btn');
+  const otpStep = document.getElementById('auth-otp-step');
+  const emailStep = document.getElementById('auth-email-step');
+  const otpInput = document.getElementById('auth-otp');
+  const verifyBtn = document.getElementById('auth-verify-btn');
+  const otpHint = document.getElementById('auth-otp-hint');
+  const errorEl = document.getElementById('auth-error');
+  if (!modal) return;
+
+  modal.style.display = 'flex';
+  let authEmail = '';
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    authEmail = emailInput.value.trim();
+    if (!authEmail) { showError('Please enter your email.'); return; }
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending\u2026';
+    try {
+      await window._powersyncAuth.sendCode(authEmail);
+      emailStep.style.display = 'none';
+      otpHint.textContent = `Code sent to ${authEmail}`;
+      otpStep.style.display = 'block';
+      otpInput.focus();
+    } catch (e) {
+      showError(e.message || 'Failed to send code.');
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send Code';
+    }
+  });
+
+  verifyBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    const code = otpInput.value.trim();
+    if (!code) { showError('Please enter the code.'); return; }
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Verifying\u2026';
+    try {
+      await window._powersyncAuth.verifyCode(authEmail, code);
+      modal.style.display = 'none';
+      window.dispatchEvent(new CustomEvent('powersync:auth-complete'));
+    } catch (e) {
+      showError(e.message || 'Invalid code. Please try again.');
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify';
+    }
+  });
+});
+
 (async () => {
   try {
     // Wait for PowerSync to finish initializing before any NoteStorage operations.
@@ -788,65 +851,10 @@ if (savedChain) {
       }
     }
 
-    // Run migration and synced-preferences loading in parallel to speed up
-    // startup. Migration must complete before loading the last note (it may
-    // have been migrated), but preferences are independent.
-    const migrationPromise = (async () => {
-      // Migrate notes to PowerSync on first launch (desktop/iOS only).
-      // Sources: localStorage (web→native upgrade) and legacy iCloud folder (desktop).
-      // Only runs once per source.
-      if (window.PowerSyncNoteStorage) {
-        // 1. Migrate localStorage notes
-        if (!localStorage.getItem('powersync_migration_done')) {
-          const lsNotes = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('md_')) {
-              lsNotes.push({ name: key.slice(3), content: localStorage.getItem(key) });
-            }
-          }
-          if (lsNotes.length > 0) {
-            const existingNames = await NoteStorage.getAllNoteNames();
-            if (existingNames.length === 0) {
-              for (const { name, content } of lsNotes) {
-                await NoteStorage.setNote(name, content);
-              }
-              lsNotes.forEach(({ name }) => localStorage.removeItem('md_' + name));
-              updateStatus(`Migrated ${lsNotes.length} note${lsNotes.length === 1 ? '' : 's'} to sync.`, true);
-            }
-          }
-          localStorage.setItem('powersync_migration_done', '1');
-        }
-        // 2. Desktop: migrate from legacy iCloud CloudDocs folder
-        if (window.electronAPI?.readLegacyNotes && !localStorage.getItem('powersync_icloud_migration_done')) {
-          try {
-            const legacyNotes = await window.electronAPI.readLegacyNotes();
-            if (legacyNotes.length > 0) {
-              const existingNames = new Set(await NoteStorage.getAllNoteNames());
-              let imported = 0;
-              for (const { name, content } of legacyNotes) {
-                if (!existingNames.has(name)) {
-                  await NoteStorage.setNote(name, content);
-                  imported++;
-                }
-              }
-              if (imported > 0) {
-                updateStatus(`Migrated ${imported} note${imported === 1 ? '' : 's'} from iCloud.`, true);
-              }
-            }
-          } catch (e) {
-            console.error('[migration] Legacy iCloud migration failed:', e);
-          }
-          localStorage.setItem('powersync_icloud_migration_done', '1');
-        }
-      }
-    })();
-
-    const prefsPromise = (typeof applySyncedPreferences === 'function')
-      ? applySyncedPreferences()
-      : Promise.resolve();
-
-    await Promise.all([migrationPromise, prefsPromise]);
+    // Load synced preferences (theme, calendar colours, project emojis)
+    if (typeof applySyncedPreferences === 'function') {
+      await applySyncedPreferences();
+    }
 
     const initialContent = lastFile ? await NoteStorage.getNote(lastFile) : null;
     if (initialContent !== null) {

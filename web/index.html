@@ -132,6 +132,24 @@
       </div>
     </div>
 
+    <!-- Auth modal: shown when PowerSync needs authentication (desktop/iOS only) -->
+    <div id="auth-modal" style="display:none;">
+      <div class="auth-content">
+        <div class="auth-title">Sign In</div>
+        <p class="auth-subtitle">Enter your email to sync notes across devices.</p>
+        <div id="auth-email-step">
+          <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email">
+          <button id="auth-send-btn">Send Code</button>
+        </div>
+        <div id="auth-otp-step" style="display:none;">
+          <p class="auth-hint" id="auth-otp-hint">Check your email for a 6-digit code.</p>
+          <input type="text" id="auth-otp" placeholder="Enter code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+          <button id="auth-verify-btn">Verify</button>
+        </div>
+        <p id="auth-error" style="display:none;"></p>
+      </div>
+    </div>
+
     <div id="button-container" class="storage-controls">
 
         <div class="button-group">
@@ -153,7 +171,7 @@
         </div>
         <div class="button-group tools-collapsible">
             <button id="import-zip">Import</button>
-            <input type="file" id="import-zip-input" accept=".zip" style="display:none;">
+            <input type="file" id="import-zip-input" accept=".zip,.md" multiple style="display:none;">
         </div>
         <div class="button-group tools-collapsible">
             <button id="download-all">Backup</button>

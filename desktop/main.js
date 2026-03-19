@@ -1,42 +1,12 @@
 const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
 const path = require('path');
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const os = require('os');
 
 // ── IPC handlers ────────────────────────────────────────────────────────────
-// Storage is now handled by PowerSync in the renderer process.
+// Storage is handled by PowerSync in the renderer process.
 // Only keep utility IPC handlers that need Node.js capabilities.
 function registerHandlers() {
   ipcMain.handle('notes:openExternal', async (_event, url) => {
     await shell.openExternal(url);
-  });
-
-  // Legacy migration: read notes from the old iCloud CloudDocs folder
-  // so the renderer can import them into PowerSync on first launch.
-  ipcMain.handle('notes:readLegacyNotes', async () => {
-    if (process.platform !== 'darwin') return [];
-    const ICLOUD_ROOT = path.join(os.homedir(), 'Library', 'Mobile Documents');
-    const dirs = [
-      path.join(ICLOUD_ROOT, 'com~apple~CloudDocs', 'Notes App', '000_Notes'),
-      path.join(ICLOUD_ROOT, 'iCloud~com~notesapp~ios', 'Documents', '000_Notes'),
-    ];
-    const notes = new Map();
-    for (const dir of dirs) {
-      try {
-        const files = await fs.readdir(dir);
-        for (const file of files) {
-          if (!file.endsWith('.md')) continue;
-          const name = file.slice(0, -3);
-          if (notes.has(name)) continue;
-          try {
-            const content = await fs.readFile(path.join(dir, file), 'utf-8');
-            notes.set(name, content);
-          } catch { /* skip unreadable */ }
-        }
-      } catch { /* dir doesn't exist */ }
-    }
-    return Array.from(notes, ([name, content]) => ({ name, content }));
   });
 }
 
