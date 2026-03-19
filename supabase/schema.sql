@@ -29,5 +29,9 @@ ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own_notes" ON notes FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "own_attachments" ON attachments FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+-- Grant table access to authenticated users (covers anonymous auth users too)
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE notes TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE attachments TO authenticated;
+
 -- PowerSync publication
 CREATE PUBLICATION powersync FOR TABLE notes, attachments;
