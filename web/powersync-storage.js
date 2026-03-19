@@ -72,6 +72,17 @@
   try {
     const { data } = await supabase.auth.getSession();
     session = data?.session;
+
+    // getSession() returns a locally-cached token that may belong to a
+    // deleted user.  Validate it against the server with getUser().
+    if (session) {
+      const { error: userErr } = await supabase.auth.getUser();
+      if (userErr) {
+        console.warn('[powersync] Cached session is invalid — signing out:', userErr.message);
+        await supabase.auth.signOut();
+        session = null;
+      }
+    }
   } catch (e) {
     console.error('[powersync] Failed to get session:', e);
   }
