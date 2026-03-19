@@ -4,6 +4,24 @@
 // highlight syntax, indentation, footnotes, note links, table alignment,
 // attachment resolution, and the preview toggle.
 
+// Custom marked renderer: prevent CSP violations for attachment: images.
+// Instead of <img src="attachment:file">, emit <img data-attachment="file" src="">
+// so the browser doesn't try to load the unsupported scheme. resolveAttachments()
+// then fills in the real data URI.
+{
+  const renderer = new marked.Renderer();
+  const defaultImage = renderer.image.bind(renderer);
+  renderer.image = function({ href, title, text }) {
+    if (href && href.startsWith('attachment:')) {
+      const filename = href.slice('attachment:'.length);
+      const titleAttr = title ? ` title="${title}"` : '';
+      return `<img data-attachment="${filename}" alt="${text || ''}"${titleAttr} src="">`;
+    }
+    return defaultImage({ href, title, text });
+  };
+  marked.use({ renderer });
+}
+
 function styleTaskListItems(container = previewDiv) {
   container.querySelectorAll('li').forEach(li => {
     li.classList.remove('task-item', 'bullet-item');
@@ -534,8 +552,8 @@ async function resolveAttachments(container) {
     _attachmentCacheNote = currentFileName;
   }
 
-  for (const img of container.querySelectorAll('img[src^="attachment:"]')) {
-    const filename = img.getAttribute('src').slice('attachment:'.length);
+  for (const img of container.querySelectorAll('img[data-attachment]')) {
+    const filename = img.getAttribute('data-attachment');
     const cacheKey = currentFileName + '/' + filename;
     if (_attachmentCache[cacheKey]) {
       img.src = _attachmentCache[cacheKey];
