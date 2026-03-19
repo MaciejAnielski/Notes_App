@@ -153,13 +153,25 @@
   };
 
   // ── Initialize PowerSync database ───────────────────────────────────────
+  // Worker paths must be specified explicitly so the SDK does not try to
+  // resolve them relative to the bundle via import.meta.url (which would
+  // produce wrong paths and cause db.init() to hang silently).
+  console.log('[powersync] Creating PowerSyncDatabase...');
   const db = new PowerSyncDatabase({
     schema: new Schema({ notes, attachments }),
-    database: { dbFilename: 'notes-app.db' }
+    database: {
+      dbFilename: 'notes-app.db',
+      worker: 'vendor/worker/WASQLiteDB.umd.js'
+    },
+    sync: {
+      worker: 'vendor/worker/SharedSyncImplementation.umd.js'
+    }
   });
 
+  console.log('[powersync] Calling db.init()...');
   await db.init();
   console.log('[powersync] Database initialized.');
+  console.log('[powersync] Calling db.connect()...');
   await db.connect(connector);
   console.log('[powersync] Connected to sync service.');
 
