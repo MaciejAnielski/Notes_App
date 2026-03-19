@@ -785,6 +785,13 @@ if (savedChain) {
   try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
 
+function setLoadingProgress(pct, label) {
+  const bar = document.getElementById('loading-progress-bar');
+  const lbl = document.getElementById('loading-progress-label');
+  if (bar) bar.style.width = pct + '%';
+  if (lbl) lbl.textContent = label;
+}
+
 /**
  * Migrate notes from localStorage to PowerSync when sync is first activated.
  * Reads all 'md_*' keys from localStorage and writes any that don't already
@@ -820,6 +827,8 @@ async function migrateLocalNotesToSync() {
 
 (async () => {
   try {
+    setLoadingProgress(5, 'Starting\u2026');
+
     // Wait for PowerSync to finish initializing before any NoteStorage operations.
     // powersync-storage.js is an async IIFE that may still be running when this
     // script executes. Resolves immediately when:
@@ -828,6 +837,7 @@ async function migrateLocalNotesToSync() {
     //   • powersync:auth-required — sync enabled but not signed in; use localStorage
     // A 5-second timeout also falls back to localStorage gracefully.
     if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !window.PowerSyncNoteStorage) {
+      setLoadingProgress(10, 'Connecting\u2026');
       await new Promise(resolve => {
         window.addEventListener('powersync:ready', resolve, { once: true });
         window.addEventListener('powersync:disabled', resolve, { once: true });
@@ -841,6 +851,7 @@ async function migrateLocalNotesToSync() {
     }
 
     // Load synced preferences (theme, calendar colours, project emojis)
+    setLoadingProgress(25, 'Loading preferences\u2026');
     if (typeof applySyncedPreferences === 'function') {
       await applySyncedPreferences();
     }
@@ -851,6 +862,7 @@ async function migrateLocalNotesToSync() {
     if (window.PowerSyncNoteStorage) {
       const existingNames = await NoteStorage.getAllNoteNames();
       if (existingNames.length === 0) {
+        setLoadingProgress(35, 'Downloading notes\u2026');
         updateStatus('Downloading notes\u2026 This may take a moment on first sync.', true, true);
         await new Promise(resolve => {
           const handler = () => {
@@ -864,16 +876,24 @@ async function migrateLocalNotesToSync() {
       }
     }
 
+    setLoadingProgress(50, 'Loading note\u2026');
     const initialContent = lastFile ? await NoteStorage.getNote(lastFile) : null;
     if (initialContent !== null) {
+      setLoadingProgress(65, 'Opening note\u2026');
       await loadNote(lastFile, true, initialContent);
     } else {
+      setLoadingProgress(65, 'Creating note\u2026');
       await newNote();
     }
 
+    setLoadingProgress(90, 'Almost ready\u2026');
     if (savedPreview && !isPreview) {
       await toggleView();
     }
+
+    setLoadingProgress(100, 'Ready');
+    // Brief pause so the filled bar is visible before fading out
+    await new Promise(resolve => setTimeout(resolve, 150));
   } finally {
     // Always dismiss loading screen, even if initialisation threw an error
     const loadingScreen = document.getElementById('loading-screen');
