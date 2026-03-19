@@ -824,6 +824,9 @@ async function migrateLocalNotesToSync() {
   let migrated = 0;
   for (const key of localKeys) {
     const noteName = key.slice(3);
+    // Skip virtual notes — they are generated locally from synced note names
+    // and preferences, and should never be written to the sync database.
+    if (noteName === PROJECTS_NOTE || noteName === GRAPH_NOTE) continue;
     const localContent = localStorage.getItem(key);
     if (!localContent) continue;
     // Only insert notes that don't already exist in the sync database so

@@ -214,19 +214,24 @@ async function updateWebCalendarSettings(allNotes) {
     }
   }
 
-  // Ensure Projects Note Emojis subsection under Theme
-  if (!content.includes('### Projects Note Emojis')) {
-    // Insert after the Theme section body (before the next ## heading or at end)
+  // Remove any old ### Projects Note Emojis section (was nested under Theme in older versions).
+  // Emoji preferences live in localStorage/.app_preferences, not in this body text.
+  if (content.includes('\n### Projects Note Emojis')) {
+    content = content.replace(/\n### Projects Note Emojis[\s\S]*?(?=\n## |$)/, '');
+  }
+
+  // Ensure top-level ## Projects Note Emojis section (not nested under Theme)
+  if (!content.includes('## Projects Note Emojis')) {
     const themeIdx = content.indexOf('\n## 🎨 Theme');
     if (themeIdx !== -1) {
       const afterTheme = themeIdx + '\n## 🎨 Theme'.length;
       const nextSecIdx = content.indexOf('\n## ', afterTheme);
       const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
       content = content.slice(0, insertAt) +
-        '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
+        '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
         content.slice(insertAt);
     } else {
-      content += '\n\n### Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
+      content += '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
     }
   }
 
