@@ -13,12 +13,16 @@ import { column, Schema, Table } from '@powersync/web';
 import { createClient } from '@supabase/supabase-js';
 import { SQLiteDBConnection } from '@capacitor-community/sqlite';
 
-// ── Fix: Convert Uint8Array to plain Array before WKWebView bridge ──────────
+// ── Fix: Convert Uint8Array to indexed Object before WKWebView bridge ───────
 // On iOS, WKWebView's structured clone serializes Uint8Array as a dictionary
-// {"0": NSNumber, "1": NSNumber, ...} which the Swift plugin can't reliably
-// parse back to bytes. By converting to a plain Array<number> before the call,
-// the structured clone sends a simple NSArray of NSNumbers that Swift handles
-// correctly via its existing [String: Any] → extract sorted values path.
+// {"0": NSNumber, "1": NSNumber, ...} with internal NSNumber types that
+// Swift can't reliably cast to Int. Converting to a plain JS Array doesn't
+// help either — Swift receives it as Array<JSValue> which isn't a SQL type.
+//
+// Solution: explicitly convert to a plain JS Object {"0": n, "1": n, ...}
+// with standard JS numbers. This way WKWebView sends [String: Any] with
+// clean NSNumber values, and the Swift run() method's dictionary branch
+// (patched with NSNumber.uint8Value) handles it correctly.
 const _origRun = SQLiteDBConnection.prototype.run;
 SQLiteDBConnection.prototype.run = function (
   statement: string,
@@ -28,9 +32,14 @@ SQLiteDBConnection.prototype.run = function (
   isSQL92?: boolean
 ) {
   if (values && values.length > 0) {
-    values = values.map((v: any) =>
-      v instanceof Uint8Array ? Array.from(v) : v
-    );
+    values = values.map((v: any) => {
+      if (v instanceof Uint8Array) {
+        const obj: Record<string, number> = {};
+        for (let i = 0; i < v.length; i++) obj[String(i)] = v[i];
+        return obj;
+      }
+      return v;
+    });
   }
   return _origRun.call(this, statement, values, transaction, returnMode, isSQL92);
 };
