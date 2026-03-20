@@ -582,6 +582,22 @@
         }
       },
 
+      // Rename a note in-place by updating the name column directly.
+      // This generates a single PATCH CRUD op (UPDATE name = ?) which
+      // uploads as a single UPDATE to Supabase — more reliable than the
+      // delete-then-insert pattern which can race against the sync stream.
+      async renameNote(oldName, newName, content) {
+        const userId = getUserId();
+        if (!userId) return;
+        _noteCache.delete(oldName);
+        _noteCache.set(newName, content);
+        const now = new Date().toISOString();
+        await db.execute(
+          'UPDATE notes SET name = ?, content = ?, updated_at = ? WHERE name = ? AND user_id = ? AND deleted = 0',
+          [newName, content, now, oldName, userId]
+        );
+      },
+
       async removeNote(name) {
         _noteCache.delete(name);
         const userId = getUserId();
