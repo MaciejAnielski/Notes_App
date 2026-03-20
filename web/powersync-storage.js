@@ -371,20 +371,25 @@
   };
 
   // ── Initialize PowerSync database ───────────────────────────────────────
+  // WKWebView (iOS/Capacitor) does not support SharedWorker, so omit the sync
+  // worker on iOS. PowerSync will run sync in-process instead, which works in
+  // all environments. The SharedWorker is only used on desktop (Electron) where
+  // it allows multiple windows to share a single sync connection.
   console.log('[powersync] Creating PowerSyncDatabase...');
-  const db = new PowerSyncDatabase({
+  const dbConfig = {
     schema: new Schema({ notes, attachments }),
     database: {
       dbFilename: 'notes-app.db',
       worker: 'vendor/worker/WASQLiteDB.umd.js'
     },
-    sync: {
-      worker: 'vendor/worker/SharedSyncImplementation.umd.js'
-    },
     flags: {
       externallyUnload: true
     }
-  });
+  };
+  if (!isIOS) {
+    dbConfig.sync = { worker: 'vendor/worker/SharedSyncImplementation.umd.js' };
+  }
+  const db = new PowerSyncDatabase(dbConfig);
 
   console.log('[powersync] Calling db.init()...');
   await db.init();
