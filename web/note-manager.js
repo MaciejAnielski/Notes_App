@@ -425,16 +425,6 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
 
   const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE || name === GRAPH_NOTE;
 
-  // If the stored note's first-line header doesn't match its name (e.g. after
-  // an import or a legacy data issue), queue a rename so the invariant is
-  // restored on the user's next commit (View toggle, note switch, new note).
-  if (!isReadOnlyNote) {
-    const headerTitle = getNoteTitle();
-    if (headerTitle && headerTitle !== name) {
-      _pendingRename = headerTitle;
-    }
-  }
-
   if (isReadOnlyNote) {
     textarea.readOnly = true;
     toggleViewBtn.disabled = true;
@@ -459,6 +449,35 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
 
   // Skip file list rebuild if another loadNote() has started during rendering.
   if (gen !== _loadNoteGeneration) return;
+
+  // If the stored note's first-line header doesn't match its stored name
+  // (e.g. after an import or a sync mismatch), rename it immediately so the
+  // note list always shows the correct name right away.
+  if (!isReadOnlyNote) {
+    const headerTitle = getNoteTitle();
+    if (headerTitle && headerTitle !== currentFileName) {
+      const targetExists = await NoteStorage.getNote(headerTitle) !== null;
+      if (gen !== _loadNoteGeneration) return;
+      if (!targetExists) {
+        const capturedName = currentFileName;
+        await NoteStorage.renameNote(capturedName, headerTitle, content);
+        if (gen !== _loadNoteGeneration) return;
+        _perNoteSavedContent.delete(capturedName);
+        _perNoteRemoteContent.delete(capturedName);
+        _perNoteSavedContent.set(headerTitle, content);
+        _perNoteRemoteContent.set(headerTitle, content);
+        currentFileName = headerTitle;
+        localStorage.setItem('current_file', headerTitle);
+        const chainIdx = linkedNoteChain.indexOf(capturedName);
+        if (chainIdx !== -1) {
+          linkedNoteChain[chainIdx] = headerTitle;
+          saveChain();
+        }
+        await updateFileList();
+        return;
+      }
+    }
+  }
 
   // Instead of a full file-list rebuild (which re-fetches all notes and
   // rebuilds the entire DOM), just update which item is highlighted.
