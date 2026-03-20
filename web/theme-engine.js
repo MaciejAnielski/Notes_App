@@ -424,8 +424,9 @@ function applyTheme(bg, accent) {
   if (meta) meta.setAttribute('content', bg);
 }
 
-function saveTheme(bg, accent) {
+function saveTheme(bg, accent, recordTs = true) {
   localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify({ background: bg, accent: accent }));
+  if (recordTs) localStorage.setItem(THEME_TS_KEY, Date.now().toString());
 }
 
 function loadSavedTheme() {
@@ -477,6 +478,13 @@ function getThemeCalendarColorByHash(name) {
 
 const PREFS_NOTE = '.app_preferences';
 
+// Timestamps (ms since epoch) recording when each setting was last edited
+// locally.  Used by applySyncedPreferences() to implement "latest edit wins"
+// so the most-recently-changed device's value propagates to all others.
+const THEME_TS_KEY = 'app_theme_ts';
+const EMOJI_TS_KEY = 'project_emojis_ts';
+const CAL_COLORS_TS_KEY = 'calendar_colors_ts';
+
 // ── Project emoji preferences ────────────────────────────────────────────────
 
 const PROJECT_EMOJI_STORAGE_KEY = 'project_emojis';
@@ -516,6 +524,7 @@ function setProjectEmoji(type, emoji) {
     }
   }
   localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
+  localStorage.setItem(EMOJI_TS_KEY, Date.now().toString());
   syncProjectEmojisToNote();
   if (typeof refreshProjectsNote === 'function') {
     refreshProjectsNote();
@@ -524,6 +533,7 @@ function setProjectEmoji(type, emoji) {
 
 function resetProjectEmojis() {
   localStorage.removeItem(PROJECT_EMOJI_STORAGE_KEY);
+  localStorage.setItem(EMOJI_TS_KEY, Date.now().toString());
   syncProjectEmojisToNote();
   if (typeof refreshProjectsNote === 'function') {
     refreshProjectsNote();
@@ -552,13 +562,15 @@ async function saveSyncedPreferences(prefs) {
 
 async function syncThemeToNote() {
   const theme = getCurrentTheme();
-  await saveSyncedPreferences({ theme });
+  const ts = parseInt(localStorage.getItem(THEME_TS_KEY) || '0', 10);
+  await saveSyncedPreferences({ theme, themeTs: ts });
 }
 
 async function syncCalendarColorsToNote() {
   try {
     const colors = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
-    await saveSyncedPreferences({ calendarColors: colors });
+    const ts = parseInt(localStorage.getItem(CAL_COLORS_TS_KEY) || '0', 10);
+    await saveSyncedPreferences({ calendarColors: colors, calendarColorsTs: ts });
   } catch {}
 }
 
@@ -571,9 +583,10 @@ async function syncProjectEmojisToNote() {
         toStore[key] = emojis[key];
       }
     }
-    if (Object.keys(toStore).length > 0) {
-      await saveSyncedPreferences({ projectEmojis: toStore });
-    }
+    // Always save (even empty) so that "reset to defaults" propagates to other
+    // devices, and always include the timestamp so latest-edit wins.
+    const ts = parseInt(localStorage.getItem(EMOJI_TS_KEY) || '0', 10);
+    await saveSyncedPreferences({ projectEmojis: toStore, projectEmojisTs: ts });
   } catch {}
 }
 
@@ -581,38 +594,59 @@ async function applySyncedPreferences() {
   const prefs = await loadSyncedPreferences();
   if (!prefs) return;
 
-  // Apply synced theme if different from local
+  // "Latest edit wins": compare timestamps stored alongside each preference.
+  // A missing timestamp (legacy data or first sync) is treated as 0, so synced
+  // values always win over a device that has never locally edited that setting.
+
+  // Apply synced theme
   if (prefs.theme) {
-    const local = getCurrentTheme();
-    if (prefs.theme.background !== local.background || prefs.theme.accent !== local.accent) {
-      applyTheme(prefs.theme.background, prefs.theme.accent);
-      saveTheme(prefs.theme.background, prefs.theme.accent);
-      if (typeof reinitMermaidTheme === 'function') reinitMermaidTheme();
+    const localTs  = parseInt(localStorage.getItem(THEME_TS_KEY) || '0', 10);
+    const syncedTs = prefs.themeTs || 0;
+    if (syncedTs >= localTs) {
+      const local = getCurrentTheme();
+      if (prefs.theme.background !== local.background || prefs.theme.accent !== local.accent) {
+        applyTheme(prefs.theme.background, prefs.theme.accent);
+        // Pass false so we don't overwrite the local edit timestamp with now
+        saveTheme(prefs.theme.background, prefs.theme.accent, false);
+        if (typeof reinitMermaidTheme === 'function') reinitMermaidTheme();
+      }
     }
   }
 
   // Apply synced calendar colours
   if (prefs.calendarColors) {
-    const local = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
-    const merged = { ...local, ...prefs.calendarColors };
-    localStorage.setItem('calendar_colors', JSON.stringify(merged));
-    if (typeof invalidateScheduleCache === 'function') invalidateScheduleCache();
+    const localTs  = parseInt(localStorage.getItem(CAL_COLORS_TS_KEY) || '0', 10);
+    const syncedTs = prefs.calendarColorsTs || 0;
+    if (syncedTs >= localTs) {
+      // Merge: local-only calendar entries are preserved; synced values win for
+      // shared keys so iOS native colours propagate to desktop.
+      const local  = JSON.parse(localStorage.getItem('calendar_colors') || '{}');
+      const merged = { ...local, ...prefs.calendarColors };
+      localStorage.setItem('calendar_colors', JSON.stringify(merged));
+      if (typeof invalidateScheduleCache === 'function') invalidateScheduleCache();
+    }
   }
 
   // Apply synced project emojis
-  if (prefs.projectEmojis) {
-    const current = getProjectEmojis();
-    const merged = { ...current, ...prefs.projectEmojis };
-    const toStore = {};
-    for (const key of Object.keys(merged)) {
-      if (merged[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
-        toStore[key] = merged[key];
+  if (prefs.projectEmojis !== undefined) {
+    const localTs  = parseInt(localStorage.getItem(EMOJI_TS_KEY) || '0', 10);
+    const syncedTs = prefs.projectEmojisTs || 0;
+    if (syncedTs >= localTs) {
+      // Replace local emojis with the synced set (don't merge) so that a
+      // "reset to defaults" on one device propagates cleanly to all others.
+      const toStore = {};
+      for (const key of Object.keys(prefs.projectEmojis)) {
+        if (prefs.projectEmojis[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
+          toStore[key] = prefs.projectEmojis[key];
+        }
       }
+      if (Object.keys(toStore).length > 0) {
+        localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
+      } else {
+        localStorage.removeItem(PROJECT_EMOJI_STORAGE_KEY);
+      }
+      if (typeof refreshProjectsNote === 'function') refreshProjectsNote();
     }
-    if (Object.keys(toStore).length > 0) {
-      localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
-    }
-    if (typeof refreshProjectsNote === 'function') refreshProjectsNote();
   }
 }
 

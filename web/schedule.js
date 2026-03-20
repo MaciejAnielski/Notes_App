@@ -122,6 +122,7 @@ function setCalendarColor(name, color) {
   const colors = getCalendarColors();
   colors[name] = color;
   localStorage.setItem('calendar_colors', JSON.stringify(colors));
+  localStorage.setItem('calendar_colors_ts', Date.now().toString());
   // Sync calendar colours for cross-device consistency
   if (typeof syncCalendarColorsToNote === 'function') syncCalendarColorsToNote();
 }
