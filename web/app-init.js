@@ -769,6 +769,7 @@ function _setupPowerSyncHandlers() {
   if (bottomArea) {
     bottomArea.style.cursor = 'pointer';
     bottomArea.title = 'Tap to sync';
+    updateBackupStatus(); // Refresh to show "· Tap to Sync" hint on iOS
     bottomArea.addEventListener('click', async () => {
       if (autoSaveTimer !== null) {
         clearTimeout(autoSaveTimer);
