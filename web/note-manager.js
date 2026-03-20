@@ -257,16 +257,41 @@ async function autoSaveNote() {
   }
 
   // ── Existing note ──────────────────────────────────────────────────────
-  // Save content under the CURRENT filename — do not rename while the user
-  // is mid-typing.  If the title has changed, record the desired new name in
-  // _pendingRename so the actual filesystem rename happens only when the user
-  // commits by pressing View or switching to another note.
   if (name !== capturedFileName) {
-    _pendingRename = name;
-  } else {
+    // Title changed — rename immediately so the note list updates right away.
+    if (await NoteStorage.getNote(name) !== null) {
+      updateStatus(`File Not Saved. A File Named "${name}" Already Exists. Please Rename.`, false);
+      return;
+    }
+    try {
+      await NoteStorage.renameNote(capturedFileName, name, capturedContent);
+    } catch (e) {
+      updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
+      return;
+    }
+    _lastSavedContent = capturedContent;
+    _perNoteSavedContent.delete(capturedFileName);
+    _perNoteRemoteContent.delete(capturedFileName);
+    _perNoteSavedContent.set(name, capturedContent);
+    _perNoteRemoteContent.set(name, capturedContent);
     _pendingRename = null;
+    try {
+      await NoteStorage.renameAttachmentDir(capturedFileName, name);
+    } catch (e) {
+      console.error('Attachment dir rename failed:', e);
+    }
+    currentFileName = name;
+    localStorage.setItem('current_file', name);
+    invalidateScheduleCache();
+    if (scheduleContainer.classList.contains('active')) renderSchedule();
+    await updateTodoList();
+    await updateFileList();
+    updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
+    await checkAttachmentRenames(prevContent, capturedContent, currentFileName);
+    return;
   }
 
+  _pendingRename = null;
   try {
     await NoteStorage.setNote(capturedFileName, capturedContent);
   } catch (e) {
