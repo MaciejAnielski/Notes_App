@@ -855,13 +855,8 @@
     // calls handlePowerSyncChange() explicitly, and calendar sync handles its own
     // note updates.
     console.log('[powersync] iOS: sync is manual-only (tap to sync). Watches skipped to avoid main-thread pressure.');
-    // Fire settled immediately so calendar sync can start (no sync stream to wait for).
-    setTimeout(() => {
-      if (!_hasFiredSettled) {
-        _hasFiredSettled = true;
-        window.dispatchEvent(new CustomEvent('powersync:settled'));
-      }
-    }, 3000);
+    // Calendar sync on iOS is now lazy (started on first user-triggered sync),
+    // so there is no need to fire powersync:settled on a timer.
   } else {
     // Desktop: workers handle the heavy lifting, start watches immediately.
     _startWatches();

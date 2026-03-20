@@ -717,27 +717,21 @@ function stopCalendarSync() {
 // ── Auto-start on iOS ────────────────────────────────────────────────────────
 
 if (window.Capacitor?.isNativePlatform()) {
-  // Wait for PowerSync's initial sync to settle before starting calendar sync.
-  // Starting too early while PowerSync is still downloading data causes a storm
-  // of concurrent DB operations that can crash the iOS WebContent process.
-  // powersync:settled fires once changes stop arriving for 3 seconds after
-  // the initial sync batch, signalling it is safe to start calendar work.
-  // Falls back to a 15-second timeout if PowerSync is disabled or takes too long.
-  window.addEventListener('load', () => {
-    let started = false;
-    const start = () => {
-      if (started) return;
-      started = true;
-      startCalendarSync();
-    };
-    window.addEventListener('powersync:settled', start, { once: true });
-    window.addEventListener('powersync:disabled', () => setTimeout(start, 3000), { once: true });
-    window.addEventListener('powersync:auth-required', () => setTimeout(start, 3000), { once: true });
-    setTimeout(start, 15000); // ultimate fallback
-  });
+  // iOS: do NOT auto-start calendar sync on launch.  The WKWebView WebContent
+  // process crashes (segfault, reason=Crash) when calendar plugin native calls
+  // run shortly after PowerSync WASM SQLite init.  Instead, calendar sync is
+  // started lazily — the first manual "tap to sync" triggers it, or the user
+  // opening the schedule panel.  This keeps startup lightweight and avoids the
+  // WASM + Capacitor bridge collision that crashes WebContent.
+  let _calendarStarted = false;
+  window._startCalendarSyncIfNeeded = () => {
+    if (_calendarStarted) return;
+    _calendarStarted = true;
+    startCalendarSync();
+  };
 
   document.addEventListener('resume', () => {
-    setTimeout(runCalendarSync, 1000);
+    if (_calendarStarted) setTimeout(runCalendarSync, 1000);
   });
   document.addEventListener('pause', stopCalendarSync);
 }
