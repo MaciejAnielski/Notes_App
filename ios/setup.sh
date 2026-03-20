@@ -1,44 +1,28 @@
 #!/bin/bash
 # Setup script for the iOS Capacitor app.
-# Copies web files into www/ and initializes the Capacitor iOS project.
-#
-# Native iCloud plugin (CapacitorICloud / capacitor-icloud):
-#   The local plugin at plugins/capacitor-icloud is listed in package.json as
-#   "capacitor-icloud": "file:plugins/capacitor-icloud".  After `npm install`
-#   it appears in node_modules/ and Capacitor CLI automatically discovers it
-#   (via the "capacitor" field in its package.json) and adds it to the iOS
-#   Podfile as a local CocoaPods pod when you run `cap add ios` / `cap sync`.
-#   No manual Xcode project editing is required.
+# Builds the PowerSync Capacitor bundle, copies web files into www/,
+# and initializes the Capacitor iOS project.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Remove previous ios app folder.
-
 rm -rf ios
 
-# Install npm dependencies (also links the local capacitor-icloud and
-# capacitor-calendar plugins).
+# Install npm dependencies (also links the local capacitor-calendar plugin).
 npm install
 
 # Fix any npm issues
-
 npm audit fix
 
-# Copy web files to www/
-mkdir -p www
-cp -r ../web/* www/
-# icloud-bridge.js lives in ios/ (not web/) so it must be copied separately.
-# It provides window.CapacitorNoteStorage and is loaded by index.html on all
-# platforms but is a no-op outside of a native iOS Capacitor environment.
-cp icloud-bridge.js www/
+# Build web files + PowerSync Capacitor bundle into www/
+# (runs esbuild, copies web/, overlays www-override/ with native SQLite bundle)
+npm run build
 
 # Add the iOS platform (generates the ios/ native project inside this directory).
-# Capacitor CLI discovers capacitor-icloud in node_modules and adds
-# CapacitorICloud to the Podfile automatically during this step.
 npx cap add ios
 
-# Sync web files and run `pod install` to pull in CapacitorICloud.
+# Sync web files and native plugins.
 npx cap sync ios
 
 # ── Info.plist: make iCloud container visible in Files app ──
