@@ -7,7 +7,7 @@
     "sync": "npx cap sync ios",
     "open": "npx cap open ios",
     "start": "npm run build && npm run sync && npm run open",
-    "postinstall": "node patches/fix-native-run-simulator.js && node patches/fix-sqlite-biometric.js"
+    "postinstall": "node patches/fix-native-run-simulator.js && node patches/fix-sqlite-biometric.js && node patches/fix-sqlite-buffer-parsing.js"
   },
   "dependencies": {
     "@capacitor/app": "^7.0.0",
