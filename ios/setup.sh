@@ -24,6 +24,22 @@ npm run build
 # @capacitor-community/sqlite do not ship Package.swift files yet.
 npx cap add ios --packagemanager CocoaPods
 
+# ── Disable User Script Sandboxing (Xcode 15+ default breaks CocoaPods) ──
+# CocoaPods embed/copy-frameworks scripts need file-read access that the
+# sandbox denies. Set ENABLE_USER_SCRIPT_SANDBOXING = NO for all configs.
+PBXPROJ="$SCRIPT_DIR/ios/App/App.xcodeproj/project.pbxproj"
+if [ -f "$PBXPROJ" ]; then
+  if grep -q "ENABLE_USER_SCRIPT_SANDBOXING" "$PBXPROJ"; then
+    sed -i '' 's/ENABLE_USER_SCRIPT_SANDBOXING = YES/ENABLE_USER_SCRIPT_SANDBOXING = NO/g' "$PBXPROJ"
+  else
+    # Insert the setting into every buildSettings block
+    sed -i '' '/buildSettings = {/a\
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+' "$PBXPROJ"
+  fi
+  echo "Xcode project updated: User Script Sandboxing disabled for CocoaPods"
+fi
+
 # Sync web files and native plugins (runs pod install).
 npx cap sync ios
 
