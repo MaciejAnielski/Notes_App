@@ -402,9 +402,14 @@
   await db.init();
   console.log('[powersync] Database initialized.');
 
-  console.log('[powersync] Calling db.connect()...');
-  await db.connect(connector);
-  console.log('[powersync] Connected to sync service.');
+  // On iOS, defer db.connect() so the UI can load from cached local data
+  // before sync starts consuming main-thread resources (WASM SQLite runs
+  // in-process).  On Electron, connect immediately (workers handle the load).
+  if (!isIOS) {
+    console.log('[powersync] Calling db.connect()...');
+    await db.connect(connector);
+    console.log('[powersync] Connected to sync service.');
+  }
 
   window._powersyncDB = db;
   window._supabase = supabase;
@@ -777,7 +782,7 @@
     }
   };
 
-  // Signal readiness
+  // Signal readiness — UI can now query local data via NoteStorage
   console.log('[powersync] Ready. NoteStorage overridden with PowerSync implementation.');
   window.dispatchEvent(new CustomEvent('powersync:ready'));
 
@@ -805,28 +810,50 @@
     }, isIOS ? 500 : 100);
   }
 
-  (async () => {
-    try {
-      for await (const _update of db.watch('SELECT COUNT(*) as c FROM notes WHERE deleted = 0', [], { signal: abortController.signal })) {
-        _scheduleChange();
+  function _startWatches() {
+    (async () => {
+      try {
+        for await (const _update of db.watch('SELECT COUNT(*) as c FROM notes WHERE deleted = 0', [], { signal: abortController.signal })) {
+          _scheduleChange();
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error('[powersync] watch error:', e);
       }
-    } catch (e) {
-      if (e.name !== 'AbortError') console.error('[powersync] watch error:', e);
-    }
-  })();
+    })();
 
-  (async () => {
-    try {
-      for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
-        scheduleDownloadMissing();
-        _scheduleChange();
+    (async () => {
+      try {
+        for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
+          scheduleDownloadMissing();
+          _scheduleChange();
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error('[powersync] attachments watch error:', e);
       }
-    } catch (e) {
-      if (e.name !== 'AbortError') console.error('[powersync] attachments watch error:', e);
-    }
-  })();
+    })();
+  }
 
-  if (!isIOS) {
+  if (isIOS) {
+    // iOS staged startup: the UI is already live with local data. Wait 5 s
+    // for the WebContent process to stabilise, then start sync + watches.
+    // Running db.connect() + db.watch() immediately on the main thread
+    // (where WASM SQLite also runs) overwhelms the ~400 MB process limit.
+    setTimeout(async () => {
+      try {
+        console.log('[powersync] iOS: deferred db.connect()...');
+        await db.connect(connector);
+        console.log('[powersync] iOS: connected to sync service.');
+        // Start watches AFTER connect so the initial query doesn't compete
+        // with sync-stream processing on the main thread.
+        _startWatches();
+      } catch (e) {
+        console.error('[powersync] iOS: deferred connect failed:', e);
+      }
+    }, 5000);
+  } else {
+    // Desktop: workers handle the heavy lifting, start watches immediately.
+    _startWatches();
+
     // On desktop (Electron), close the DB when the page unloads so the WASM
     // worker is cleaned up. On iOS we deliberately skip this: pagehide fires
     // when the app goes to background, and db.close() destroys the WASM SQLite
