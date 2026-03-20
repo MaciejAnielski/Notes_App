@@ -792,6 +792,11 @@ async function renderPreview() {
   }
   _collapseStateFile = currentFileName;
 
+  // Capture the note name and generation at the start of rendering so we can
+  // detect if the user navigated away during any of the async steps below.
+  const _renderTarget = currentFileName;
+  const _renderGen = _loadNoteGeneration;
+
   _lastRenderedHTML = marked.parse(preprocessMarkdown(_currentContent));
   _lastRenderedFile = currentFileName;
   _lastRenderedContent = _currentContent;
@@ -803,6 +808,10 @@ async function renderPreview() {
   // (cloneNode used inside setupCollapsibleHeadings does not copy listeners.)
   setupCollapsibleHeadings(previewDiv);
   await setupNoteLinks(previewDiv);
+
+  // If the user navigated to a different note while we were awaiting async
+  // operations, stop updating the DOM to prevent "back and forth" flicker.
+  if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
 
   // H1 title: clicking navigates back to the previously accessed note (breadcrumb).
   previewDiv.querySelectorAll('h1').forEach(h1 => {
@@ -834,6 +843,10 @@ async function renderPreview() {
   setupPreviewTaskCheckboxes();
   setupPlainCheckboxes(previewDiv);
   await resolveAttachments(previewDiv);
+
+  // Staleness check after attachment resolution (can be slow for many images).
+  if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
+
   await renderMermaidDiagrams(previewDiv);
   // Lazy-load MathJax only when the note contains math syntax.
   // Check for typesetPromise (not just window.MathJax) because window.MathJax
@@ -847,6 +860,7 @@ async function renderPreview() {
     // Await typesetting so setupClickableMathFormulas runs after the mjx-container
     // elements exist, and doesn't race against isPreview being set by the caller.
     await MathJax.typesetPromise([previewDiv]);
+    if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
     markOverflowingMathContainers();
     setupClickableMathFormulas();
   }

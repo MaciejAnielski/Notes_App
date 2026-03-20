@@ -335,6 +335,10 @@ async function applyPendingRename() {
 // ── Load / New / Delete ───────────────────────────────────────────────────
 
 async function loadNote(name, fromLink = false, prefetchedContent = null) {
+  // Increment generation counter so any in-flight loadNote() can detect it
+  // has been superseded and bail out, preventing the "back and forth" flicker.
+  const gen = ++_loadNoteGeneration;
+
   clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
 
@@ -350,6 +354,9 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     }
     await applyPendingRename();
   }
+
+  // A newer loadNote() was called while we were flushing — abort this one.
+  if (gen !== _loadNoteGeneration) return;
 
   // If reloading the same note that is already open, flush any pending edits
   // to storage first so that changes (e.g. adding/removing ">" on a heading)
@@ -367,6 +374,10 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     saveChain();
   }
   let content = prefetchedContent !== null ? prefetchedContent : await NoteStorage.getNote(name);
+
+  // Abort if superseded while fetching content.
+  if (gen !== _loadNoteGeneration) return;
+
   // Projects note: stored in localStorage only (not in sync database). Fall back to
   // generating it fresh if localStorage doesn't have it yet (e.g. first run on Desktop/iOS).
   if (content === null && name === PROJECTS_NOTE) {
@@ -381,6 +392,10 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     alert('File not found.');
     return;
   }
+
+  // Final staleness check before touching the DOM.
+  if (gen !== _loadNoteGeneration) return;
+
   textarea.value = content;
   _lastSavedContent = content;
   _lastRemoteContent = content;
@@ -414,6 +429,8 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     if (isPreview) await renderPreview();
   }
 
+  // Skip file list rebuild if another loadNote() has started during rendering.
+  if (gen !== _loadNoteGeneration) return;
   await updateFileList();
 }
 

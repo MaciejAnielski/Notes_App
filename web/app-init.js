@@ -689,6 +689,12 @@ let _syncKnownNames = null;
 
 async function handlePowerSyncChange() {
   if (!window.PowerSyncNoteStorage) return;
+
+  // Capture the current loadNote generation so we can detect if the user
+  // navigates to a different note while this handler is running.  If they
+  // do, we bail out early to avoid overwriting the newly-loaded note.
+  const gen = _loadNoteGeneration;
+
   let structuralChanged = false;
   let contentChanged = false;
 
@@ -697,9 +703,16 @@ async function handlePowerSyncChange() {
     await applySyncedPreferences();
   }
 
+  // Abort if the user navigated away during the async preference apply.
+  if (gen !== _loadNoteGeneration) return;
+
   if (currentFileName) {
     const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
     const content = await NoteStorage.getNote(currentFileName);
+
+    // Abort if navigated away while we were fetching the note content.
+    if (gen !== _loadNoteGeneration) return;
+
     if (content === null) {
       if (textarea.value.trim()) {
         try {
@@ -730,6 +743,8 @@ async function handlePowerSyncChange() {
       }
     }
   }
+
+  if (gen !== _loadNoteGeneration) return;
 
   const names = await NoteStorage.getAllNoteNames();
   const nameStr = names.slice().sort().join('\n');
