@@ -431,7 +431,12 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
 
   // Skip file list rebuild if another loadNote() has started during rendering.
   if (gen !== _loadNoteGeneration) return;
-  await updateFileList();
+
+  // Instead of a full file-list rebuild (which re-fetches all notes and
+  // rebuilds the entire DOM), just update which item is highlighted.
+  // A full rebuild only happens on structural changes (add/delete/rename)
+  // via sync handlers or explicit calls.
+  _refreshFileListActiveState();
 }
 
 async function newNote() {

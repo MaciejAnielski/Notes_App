@@ -516,22 +516,37 @@
     scheduleDownloadMissing();
   });
 
+  // ── In-memory note content cache ──────────────────────────────────────
+  // Eliminates SQLite round-trips when switching between notes. Populated
+  // on first getAllNotes() call (during loading screen) and kept in sync
+  // by setNote/removeNote/trashNote and the sync change watcher.
+  // When _noteCacheReady is true, getNote() and getAllNotes() resolve from
+  // memory instead of hitting the database.
+  let _noteCache = new Map();       // name → content
+  let _noteCacheReady = false;
+
   // ── NoteStorage builder (called after db.init) ─────────────────────────
   function _buildNoteStorage() {
     window.PowerSyncNoteStorage = {
       async getNote(name) {
+        if (_noteCacheReady && _noteCache.has(name)) {
+          return _noteCache.get(name);
+        }
         const userId = getUserId();
         if (!userId) return null;
         const result = await db.get(
           'SELECT content FROM notes WHERE name = ? AND user_id = ? AND deleted = 0',
           [name, userId]
         ).catch(() => null);
-        return result?.content ?? null;
+        const content = result?.content ?? null;
+        if (content !== null) _noteCache.set(name, content);
+        return content;
       },
 
       async setNote(name, content) {
         const userId = getUserId();
         if (!userId) return;
+        _noteCache.set(name, content);
         const now = new Date().toISOString();
         const existing = await db.get(
           'SELECT id FROM notes WHERE name = ? AND user_id = ? AND deleted = 0',
@@ -552,6 +567,7 @@
       },
 
       async removeNote(name) {
+        _noteCache.delete(name);
         const userId = getUserId();
         if (!userId) return;
         await db.execute(
@@ -561,6 +577,7 @@
       },
 
       async trashNote(name) {
+        _noteCache.delete(name);
         const userId = getUserId();
         if (!userId) return;
         const now = new Date().toISOString();
@@ -571,6 +588,7 @@
       },
 
       async getAllNoteNames() {
+        if (_noteCacheReady) return Array.from(_noteCache.keys());
         const userId = getUserId();
         if (!userId) return [];
         const results = await db.getAll(
@@ -581,16 +599,47 @@
       },
 
       async getAllNotes() {
+        if (_noteCacheReady) {
+          const out = [];
+          for (const [name, content] of _noteCache) {
+            out.push({ name, content });
+          }
+          return out;
+        }
         const userId = getUserId();
         if (!userId) return [];
         const results = await db.getAll(
           'SELECT name, content FROM notes WHERE user_id = ? AND deleted = 0',
           [userId]
         );
+        // Populate cache on first full fetch
+        _noteCache.clear();
+        for (const r of results) {
+          _noteCache.set(r.name, r.content);
+        }
+        _noteCacheReady = true;
         return results.map(r => ({ name: r.name, content: r.content }));
       },
 
+      // Refresh the in-memory cache from the database. Called after sync
+      // events to pick up remotely-changed notes without individual queries.
+      async refreshCache() {
+        const userId = getUserId();
+        if (!userId) return;
+        const results = await db.getAll(
+          'SELECT name, content FROM notes WHERE user_id = ? AND deleted = 0',
+          [userId]
+        );
+        _noteCache.clear();
+        for (const r of results) {
+          _noteCache.set(r.name, r.content);
+        }
+        _noteCacheReady = true;
+      },
+
       async clear() {
+        _noteCache.clear();
+        _noteCacheReady = false;
         const userId = getUserId();
         if (!userId) return 0;
         const allNotes = await db.getAll(
