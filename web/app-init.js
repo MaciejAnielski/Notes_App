@@ -801,9 +801,14 @@ if (window.PowerSyncNoteStorage) {
 
 // iOS: PowerSync WASM is deferred (not loaded on startup). Set up a
 // tap-to-sync handler that lazy-inits PowerSync on first tap.
-if (window.Capacitor?.isNativePlatform() && window._lazyPowerSyncInit) {
-  const bottomArea = document.getElementById('bottom-status-area');
-  if (bottomArea) {
+// Listen for powersync:disabled which fires after the lazy init path is
+// configured (powersync-storage.js is an async module that may finish
+// after this script runs).
+if (window.Capacitor?.isNativePlatform()) {
+  const _setupIOSTapToSync = () => {
+    if (!window._lazyPowerSyncInit) return;
+    const bottomArea = document.getElementById('bottom-status-area');
+    if (!bottomArea) return;
     bottomArea.style.cursor = 'pointer';
     bottomArea.title = 'Tap to sync';
     updateBackupStatus();
@@ -837,6 +842,13 @@ if (window.Capacitor?.isNativePlatform() && window._lazyPowerSyncInit) {
         updateStatus('Sync failed.', true);
       }
     });
+  };
+  // Try immediately (in case powersync-storage.js already ran)
+  if (window._lazyPowerSyncInit) {
+    _setupIOSTapToSync();
+  } else {
+    // Wait for the deferred event from powersync-storage.js
+    window.addEventListener('powersync:disabled', _setupIOSTapToSync, { once: true });
   }
 }
 
