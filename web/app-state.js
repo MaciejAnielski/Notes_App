@@ -262,9 +262,12 @@ function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
   if (!el) return;
   const isSynced = !!window.PowerSyncNoteStorage;
+  const isIOS = !!window.Capacitor?.isNativePlatform();
   const t = localStorage.getItem('last_backup_time');
+  // On iOS, sync is manual — append a tap hint since title tooltips don't show.
+  const suffix = (isSynced && isIOS) ? ' · Tap to Sync' : '';
   const prefix = isSynced ? 'Synced · ' : '';
-  if (!t) { el.textContent = isSynced ? 'Synced · Never Backed Up' : 'Never Backed Up'; return; }
+  if (!t) { el.textContent = (isSynced ? 'Synced · Never Backed Up' : 'Never Backed Up') + suffix; return; }
   const diff = Date.now() - parseInt(t, 10);
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -274,7 +277,7 @@ function updateBackupStatus() {
   else if (mins < 60) ago = `${mins}m Ago`;
   else if (hours < 24) ago = `${hours}h Ago`;
   else                 ago = `${days}d Ago`;
-  el.textContent = `${prefix}Last Backup ${ago}`;
+  el.textContent = `${prefix}Last Backup ${ago}${suffix}`;
 }
 
 // ── Attachment helpers ────────────────────────────────────────────────────

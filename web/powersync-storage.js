@@ -402,9 +402,8 @@
   await db.init();
   console.log('[powersync] Database initialized.');
 
-  // On iOS, defer db.connect() so the UI can load from cached local data
-  // before sync starts consuming main-thread resources (WASM SQLite runs
-  // in-process).  On Electron, connect immediately (workers handle the load).
+  // On iOS, skip auto-connect entirely — sync is manual-only (see triggerSync).
+  // On Electron, connect immediately (workers handle the concurrent load).
   if (!isIOS) {
     console.log('[powersync] Calling db.connect()...');
     await db.connect(connector);
@@ -766,11 +765,20 @@
 
     async triggerSync() {
       try {
-        // On iOS, PowerSync runs sync in-process (no sync worker). Calling
-        // disconnect()+connect() disrupts the in-process sync stream and can
-        // crash the WASM engine. Instead, just trigger attachment sync — the
-        // PowerSync sync stream auto-reconnects after network interruptions.
-        if (!isIOS) {
+        if (isIOS) {
+          // iOS: connect briefly to pull the latest data, then disconnect to
+          // free the WASM resources.  Auto-sync is disabled because the
+          // persistent sync stream's WASM processing crashes WKWebView's
+          // ~400 MB WebContent process.
+          console.log('[powersync] iOS: manual sync — connecting...');
+          await db.connect(connector);
+          // Give the sync stream a short window to download changes.
+          await new Promise(r => setTimeout(r, 8000));
+          await db.disconnect();
+          console.log('[powersync] iOS: manual sync — disconnected.');
+          // Fire a change event so the UI refreshes with any new data.
+          window.dispatchEvent(new CustomEvent('powersync:change'));
+        } else {
           await db.disconnect();
           await db.connect(connector);
         }
@@ -834,22 +842,21 @@
   }
 
   if (isIOS) {
-    // iOS staged startup: the UI is already live with local data. Wait 5 s
-    // for the WebContent process to stabilise, then start sync + watches.
-    // Running db.connect() + db.watch() immediately on the main thread
-    // (where WASM SQLite also runs) overwhelms the ~400 MB process limit.
-    setTimeout(async () => {
-      try {
-        console.log('[powersync] iOS: deferred db.connect()...');
-        await db.connect(connector);
-        console.log('[powersync] iOS: connected to sync service.');
-        // Start watches AFTER connect so the initial query doesn't compete
-        // with sync-stream processing on the main thread.
-        _startWatches();
-      } catch (e) {
-        console.error('[powersync] iOS: deferred connect failed:', e);
+    // iOS: do NOT auto-connect to sync. The persistent sync stream processes
+    // data through WASM SQLite on the main thread (no worker, no SharedWorker)
+    // which overwhelms the ~400 MB WKWebView WebContent process and crashes it.
+    // Instead, the user triggers sync manually via triggerSync() (tap-to-sync
+    // button) which connects briefly, pulls changes, then disconnects.
+    // Watches still run for local data changes (edits made on this device).
+    _startWatches();
+    console.log('[powersync] iOS: sync is manual-only (tap to sync). Watches started for local changes.');
+    // Fire settled immediately so calendar sync can start (no sync stream to wait for).
+    setTimeout(() => {
+      if (!_hasFiredSettled) {
+        _hasFiredSettled = true;
+        window.dispatchEvent(new CustomEvent('powersync:settled'));
       }
-    }, 5000);
+    }, 3000);
   } else {
     // Desktop: workers handle the heavy lifting, start watches immediately.
     _startWatches();
