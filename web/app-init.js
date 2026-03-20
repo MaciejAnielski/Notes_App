@@ -791,11 +791,53 @@ function _setupPowerSyncHandlers() {
 }
 
 // Call immediately if PowerSync is already ready (e.g. Electron where the
-// module finishes synchronously), otherwise wait for the ready event (iOS).
+// module finishes synchronously), otherwise wait for the ready event.
 if (window.PowerSyncNoteStorage) {
   _setupPowerSyncHandlers();
-} else if (window.electronAPI || window.Capacitor?.isNativePlatform()) {
+} else if (window.electronAPI) {
+  // Electron: wait for powersync:ready then set up handlers.
   window.addEventListener('powersync:ready', _setupPowerSyncHandlers, { once: true });
+}
+
+// iOS: PowerSync WASM is deferred (not loaded on startup). Set up a
+// tap-to-sync handler that lazy-inits PowerSync on first tap.
+if (window.Capacitor?.isNativePlatform() && window._lazyPowerSyncInit) {
+  const bottomArea = document.getElementById('bottom-status-area');
+  if (bottomArea) {
+    bottomArea.style.cursor = 'pointer';
+    bottomArea.title = 'Tap to sync';
+    updateBackupStatus();
+    bottomArea.addEventListener('click', async () => {
+      if (autoSaveTimer !== null) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        await autoSaveNote();
+      }
+      updateStatus('Initializing sync\u2026', true, true);
+      try {
+        // Lazy-init: loads WASM, creates DB, switches NoteStorage.
+        await window._lazyPowerSyncInit();
+        // Now PowerSyncNoteStorage exists — set up change handlers.
+        _setupPowerSyncHandlers();
+        // Migrate any localStorage notes into PowerSync.
+        await migrateLocalNotesToSync();
+        // Trigger the actual sync.
+        if (window.PowerSyncNoteStorage?.triggerSync) {
+          updateStatus('Syncing With Cloud\u2026', true, true);
+          await window.PowerSyncNoteStorage.triggerSync();
+        }
+        await handlePowerSyncChange();
+        // Start calendar sync now that PowerSync is ready.
+        if (typeof window._startCalendarSyncIfNeeded === 'function') {
+          window._startCalendarSyncIfNeeded();
+        }
+        updateStatus('Sync Complete.', true);
+      } catch (e) {
+        console.error('[sync] iOS lazy init + sync failed:', e);
+        updateStatus('Sync failed.', true);
+      }
+    });
+  }
 }
 
 // ── Async initialization ──────────────────────────────────────────────────
