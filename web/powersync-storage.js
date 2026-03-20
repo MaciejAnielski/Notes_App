@@ -376,18 +376,15 @@
   // all environments. The SharedWorker is only used on desktop (Electron) where
   // it allows multiple windows to share a single sync connection.
   console.log('[powersync] Creating PowerSyncDatabase...');
-  // WKWebView (iOS/Capacitor) does not support SharedWorker and has tight
-  // memory limits (~400 MB) for the WebContent process. Running the WASM SQLite
-  // engine inside a Web Worker doubles memory usage due to message-passing
-  // serialisation, and the concurrent message queue from in-process sync +
-  // db.watch() + calendar-sync can overwhelm the process.  Omit both workers
-  // on iOS so everything runs in-process: sync (already fixed) *and* database.
-  // Electron keeps both workers for performance (SharedWorker support + more RAM).
+  // WKWebView (iOS/Capacitor) does not support SharedWorker, so omit the sync
+  // worker on iOS — PowerSync runs sync in-process instead. The database WASM
+  // worker (WASQLiteDB) is kept on all platforms because PowerSync requires it
+  // to initialise SQLite; without it db.init() hangs indefinitely.
   const dbConfig = {
     schema: new Schema({ notes, attachments }),
     database: {
       dbFilename: 'notes-app.db',
-      ...(isIOS ? {} : { worker: 'vendor/worker/WASQLiteDB.umd.js' })
+      worker: 'vendor/worker/WASQLiteDB.umd.js'
     },
     flags: {
       externallyUnload: true
