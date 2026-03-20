@@ -698,7 +698,16 @@ async function handlePowerSyncChange() {
   let structuralChanged = false;
   let contentChanged = false;
 
-  // Re-apply synced preferences if the preferences note changed
+  // Refresh the in-memory cache first so that applySyncedPreferences()
+  // reads the latest .app_preferences written by the remote device rather
+  // than stale cached data.
+  if (typeof NoteStorage.refreshCache === 'function') {
+    await NoteStorage.refreshCache();
+  }
+
+  if (gen !== _loadNoteGeneration) return;
+
+  // Re-apply synced preferences now that the cache is fresh.
   if (typeof applySyncedPreferences === 'function') {
     await applySyncedPreferences();
   }
@@ -706,13 +715,11 @@ async function handlePowerSyncChange() {
   // Abort if the user navigated away during the async preference apply.
   if (gen !== _loadNoteGeneration) return;
 
-  // Refresh the in-memory cache from the database so that all subsequent
-  // getNote() / getAllNotes() calls resolve instantly from memory.
-  if (typeof NoteStorage.refreshCache === 'function') {
-    await NoteStorage.refreshCache();
+  // Update colour picker circles and emoji buttons in the Settings note
+  // preview so they reflect the newly-synced values.
+  if (typeof window._refreshSettingsPickerUI === 'function') {
+    window._refreshSettingsPickerUI();
   }
-
-  if (gen !== _loadNoteGeneration) return;
 
   if (currentFileName) {
     const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
