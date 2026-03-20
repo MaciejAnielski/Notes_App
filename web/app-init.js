@@ -778,7 +778,11 @@ function _setupPowerSyncHandlers() {
       }
       if (_forceSyncCallback) {
         await _forceSyncCallback(true);
-        if (typeof runCalendarSync === 'function') {
+        // Lazy-start calendar sync on first manual sync (iOS defers startup
+        // to avoid crashing the WebContent process).
+        if (typeof window._startCalendarSyncIfNeeded === 'function') {
+          window._startCalendarSyncIfNeeded();
+        } else if (typeof runCalendarSync === 'function') {
           await runCalendarSync();
         }
       }
