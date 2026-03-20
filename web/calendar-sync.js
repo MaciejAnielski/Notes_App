@@ -717,12 +717,9 @@ function stopCalendarSync() {
 // ── Auto-start on iOS ────────────────────────────────────────────────────────
 
 if (window.Capacitor?.isNativePlatform()) {
-  // iOS: do NOT auto-start calendar sync on launch.  The WKWebView WebContent
-  // process crashes (segfault, reason=Crash) when calendar plugin native calls
-  // run shortly after PowerSync WASM SQLite init.  Instead, calendar sync is
-  // started lazily — the first manual "tap to sync" triggers it, or the user
-  // opening the schedule panel.  This keeps startup lightweight and avoids the
-  // WASM + Capacitor bridge collision that crashes WebContent.
+  // iOS: do NOT auto-start calendar sync on launch.  Calendar sync is started
+  // lazily — the first manual "tap to sync" triggers it, or the user opening
+  // the schedule panel.  This keeps startup lightweight.
   let _calendarStarted = false;
   window._startCalendarSyncIfNeeded = () => {
     if (_calendarStarted) return;

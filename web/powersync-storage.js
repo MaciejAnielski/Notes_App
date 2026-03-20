@@ -1,5 +1,5 @@
 // PowerSync + Supabase NoteStorage implementation
-// Provides sync on Desktop (Electron) and iOS (Capacitor).
+// Provides sync on Desktop (Electron) and Mobile (Capacitor — iOS/Android).
 // Web (plain browser) never loads this file — it keeps using localStorage.
 //
 // Architecture: LOCAL-FIRST
@@ -7,6 +7,11 @@
 // - Attachments: binary data stored in local SQLite (local_data column),
 //   metadata synced via PowerSync, binaries synced to/from Supabase Storage
 //   in the background. All operations succeed offline.
+//
+// Platform SQLite drivers:
+// - Desktop (Electron): WASM SQLite via @journeyapps/wa-sqlite (web SDK)
+// - iOS/Android (Capacitor): Native SQLite via @capacitor-community/sqlite
+//   (PowerSync Capacitor SDK auto-detects and uses the native driver)
 //
 // Sync Opt-In:
 // - Sync is disabled by default. User enables it via the Settings note.
@@ -371,16 +376,12 @@
   };
 
   // ── Initialize PowerSync database ───────────────────────────────────────
-  // iOS / WKWebView constraints:
-  //   • SharedWorker is not supported → omit sync worker (in-process sync).
-  //   • Running WASM SQLite inside a Web Worker doubles memory via message-
-  //     passing serialisation.  Combined with in-process sync the concurrent
-  //     message queue overwhelms the ~400 MB WebContent process → crash.
-  //   • Even with useWebWorker: false, the WASM module compilation + SQLite
-  //     init on the main thread crashes the WebContent process on startup.
-  //     On iOS we defer ALL WASM work (PowerSyncDatabase + db.init) to the
-  //     first user-triggered sync. The app starts with localStorage.
-  // Desktop (Electron) keeps both workers for multi-window support + RAM.
+  // On iOS/Android the @powersync/capacitor SDK uses native SQLite via
+  // @capacitor-community/sqlite — no WASM needed. The Capacitor SDK's
+  // PowerSyncDatabase auto-detects the platform and picks the right driver.
+  //
+  // On Desktop (Electron) the original web-based PowerSyncDatabase uses
+  // WASM SQLite with worker threads for multi-window support.
 
   let db = null;
 
@@ -390,14 +391,18 @@
       schema: new Schema({ notes, attachments }),
       database: {
         dbFilename: 'notes-app.db',
-        ...(isIOS ? {} : { worker: 'vendor/worker/WASQLiteDB.umd.js' })
+        // On Electron, use WASM SQLite workers for multi-window support.
+        // On iOS/Android (Capacitor SDK), the native SQLite driver is used
+        // automatically — no worker config needed.
+        ...(isElectron ? { worker: 'vendor/worker/WASQLiteDB.umd.js' } : {})
       },
       flags: {
         externallyUnload: true,
-        ...(isIOS ? { useWebWorker: false, enableMultiTabs: false } : {})
+        // Disable multi-tab on iOS — single WebView only.
+        ...(isIOS ? { enableMultiTabs: false } : {})
       }
     };
-    if (!isIOS) {
+    if (isElectron) {
       dbConfig.sync = { worker: 'vendor/worker/SharedSyncImplementation.umd.js' };
     }
     db = new PowerSyncDatabase(dbConfig);
@@ -763,17 +768,8 @@
 
       async triggerSync() {
         try {
-          if (isIOS) {
-            console.log('[powersync] iOS: manual sync — connecting...');
-            await db.connect(connector);
-            await new Promise(r => setTimeout(r, 8000));
-            await db.disconnect();
-            console.log('[powersync] iOS: manual sync — disconnected.');
-            window.dispatchEvent(new CustomEvent('powersync:change'));
-          } else {
-            await db.disconnect();
-            await db.connect(connector);
-          }
+          await db.disconnect();
+          await db.connect(connector);
           await syncPendingAttachments();
           await downloadMissingAttachments();
         } catch (e) {
@@ -783,99 +779,7 @@
     };
   }
 
-  // ── iOS: REST-based sync (no WASM) ─────────────────────────────────────
-  // WASM SQLite crashes the WKWebView WebContent process (segfault) whether
-  // loaded at startup or deferred. The ~400 MB process limit cannot handle
-  // WASM module compilation + SQLite runtime. Instead, sync via Supabase
-  // REST API directly. localStorage remains the primary storage backend.
-  if (isIOS) {
-    console.log('[powersync] iOS: using REST sync (no WASM). localStorage is primary storage.');
-    window._supabase = supabase;
-
-    const userId = session?.user?.id;
-
-    // Expose REST-based sync — called from tap-to-sync in app-init.js.
-    window._restSync = async function () {
-      if (!userId) { console.warn('[powersync] No user ID for sync.'); return; }
-      console.log('[powersync] iOS REST sync starting...');
-
-      // 1. Pull remote notes
-      const { data: remoteNotes, error: fetchErr } = await supabase
-        .from('notes')
-        .select('id, name, content, updated_at, deleted')
-        .eq('user_id', userId);
-      if (fetchErr) throw fetchErr;
-
-      // 2. Build local note map (md_* keys in localStorage)
-      const localNotes = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('md_')) {
-          const name = key.slice(3);
-          localNotes[name] = localStorage.getItem(key);
-        }
-      }
-
-      // 3. Pull remote → local (remote wins for notes not modified locally)
-      // Track remote names so we know what exists on server.
-      const remoteNames = new Set();
-      let pulled = 0;
-      for (const rn of remoteNotes) {
-        if (rn.deleted) continue;
-        remoteNames.add(rn.name);
-        const localContent = localNotes[rn.name];
-        if (localContent === undefined || localContent === null) {
-          // Note doesn't exist locally — pull it
-          localStorage.setItem('md_' + rn.name, rn.content || '');
-          pulled++;
-        } else {
-          // Note exists locally — use remote version (server is source of truth)
-          // unless local has newer content (compare by content, not timestamp,
-          // since localStorage doesn't track timestamps).
-          if (localContent !== rn.content) {
-            // Remote wins — user can always re-edit locally
-            localStorage.setItem('md_' + rn.name, rn.content || '');
-            pulled++;
-          }
-        }
-      }
-
-      // 4. Push local → remote (notes that exist locally but not on server)
-      let pushed = 0;
-      for (const [name, content] of Object.entries(localNotes)) {
-        if (name === '.Projects' || name === '.Graph') continue; // skip virtual
-        if (name.startsWith('.')) continue; // skip hidden/metadata notes
-        if (!remoteNames.has(name)) {
-          // Local-only note — push to server
-          const now = new Date().toISOString();
-          const { error: upsertErr } = await supabase
-            .from('notes')
-            .upsert({
-              id: crypto.randomUUID(),
-              name,
-              content,
-              deleted: false,
-              updated_at: now,
-              created_at: now,
-              user_id: userId
-            }, { onConflict: 'id' });
-          if (upsertErr) {
-            console.warn('[powersync] Push failed for', name, upsertErr.message);
-          } else {
-            pushed++;
-          }
-        }
-      }
-
-      console.log(`[powersync] iOS REST sync done. Pulled ${pulled}, pushed ${pushed}.`);
-    };
-
-    // Let app-init.js proceed with localStorage immediately (don't block).
-    window.dispatchEvent(new CustomEvent('powersync:disabled'));
-    return; // ← early exit from IIFE; rest is Electron-only
-  }
-
-  // ── Electron: init immediately ────────────────────────────────────────
+  // ── Initialize PowerSync on all native platforms (Electron + Capacitor) ─
   await _createAndInitDB();
   await db.connect(connector);
   console.log('[powersync] Connected to sync service.');
@@ -886,7 +790,7 @@
   console.log('[powersync] Ready. NoteStorage overridden with PowerSync implementation.');
   window.dispatchEvent(new CustomEvent('powersync:ready'));
 
-  // ── Reactive change notifications (Electron only) ─────────────────────
+  // ── Reactive change notifications ─────────────────────────────────────
   const abortController = new AbortController();
   let _changeDebounce = null;
   let _settledTimer = null;

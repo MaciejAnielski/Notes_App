@@ -1,5 +1,6 @@
 node_modules/
 www/
+www-override/vendor/
 ios/
 .sourcemap/
 # Un-ignore the local Capacitor plugins' native source directories.
