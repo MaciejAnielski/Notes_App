@@ -717,9 +717,23 @@ function stopCalendarSync() {
 // ── Auto-start on iOS ────────────────────────────────────────────────────────
 
 if (window.Capacitor?.isNativePlatform()) {
-  // Wait for app init to complete, then start calendar sync
+  // Wait for PowerSync's initial sync to settle before starting calendar sync.
+  // Starting too early while PowerSync is still downloading data causes a storm
+  // of concurrent DB operations that can crash the iOS WebContent process.
+  // powersync:settled fires once changes stop arriving for 3 seconds after
+  // the initial sync batch, signalling it is safe to start calendar work.
+  // Falls back to a 15-second timeout if PowerSync is disabled or takes too long.
   window.addEventListener('load', () => {
-    setTimeout(startCalendarSync, 3000);
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      startCalendarSync();
+    };
+    window.addEventListener('powersync:settled', start, { once: true });
+    window.addEventListener('powersync:disabled', () => setTimeout(start, 3000), { once: true });
+    window.addEventListener('powersync:auth-required', () => setTimeout(start, 3000), { once: true });
+    setTimeout(start, 15000); // ultimate fallback
   });
 
   document.addEventListener('resume', () => {

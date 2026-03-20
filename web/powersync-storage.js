@@ -376,11 +376,18 @@
   // all environments. The SharedWorker is only used on desktop (Electron) where
   // it allows multiple windows to share a single sync connection.
   console.log('[powersync] Creating PowerSyncDatabase...');
+  // WKWebView (iOS/Capacitor) does not support SharedWorker and has tight
+  // memory limits (~400 MB) for the WebContent process. Running the WASM SQLite
+  // engine inside a Web Worker doubles memory usage due to message-passing
+  // serialisation, and the concurrent message queue from in-process sync +
+  // db.watch() + calendar-sync can overwhelm the process.  Omit both workers
+  // on iOS so everything runs in-process: sync (already fixed) *and* database.
+  // Electron keeps both workers for performance (SharedWorker support + more RAM).
   const dbConfig = {
     schema: new Schema({ notes, attachments }),
     database: {
       dbFilename: 'notes-app.db',
-      worker: 'vendor/worker/WASQLiteDB.umd.js'
+      ...(isIOS ? {} : { worker: 'vendor/worker/WASQLiteDB.umd.js' })
     },
     flags: {
       externallyUnload: true
@@ -754,8 +761,14 @@
 
     async triggerSync() {
       try {
-        await db.disconnect();
-        await db.connect(connector);
+        // On iOS, PowerSync runs sync in-process (no sync worker). Calling
+        // disconnect()+connect() disrupts the in-process sync stream and can
+        // crash the WASM engine. Instead, just trigger attachment sync — the
+        // PowerSync sync stream auto-reconnects after network interruptions.
+        if (!isIOS) {
+          await db.disconnect();
+          await db.connect(connector);
+        }
         await syncPendingAttachments();
         await downloadMissingAttachments();
       } catch (e) {
@@ -769,11 +782,33 @@
   window.dispatchEvent(new CustomEvent('powersync:ready'));
 
   // ── Reactive change notifications ─────────────────────────────────────
+  // During initial sync PowerSync fires many rapid change events. Debounce
+  // the dispatched event so the UI handler (handlePowerSyncChange) doesn't
+  // run dozens of concurrent DB reads that overwhelm the iOS WebContent process.
   const abortController = new AbortController();
+  let _changeDebounce = null;
+  let _settledTimer = null;
+  let _hasFiredSettled = false;
+  function _scheduleChange() {
+    clearTimeout(_changeDebounce);
+    _changeDebounce = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('powersync:change'));
+      // After changes stop arriving for 3 seconds, fire a one-time 'settled'
+      // event that calendar-sync uses to know initial sync is done.
+      clearTimeout(_settledTimer);
+      _settledTimer = setTimeout(() => {
+        if (!_hasFiredSettled) {
+          _hasFiredSettled = true;
+          window.dispatchEvent(new CustomEvent('powersync:settled'));
+        }
+      }, 3000);
+    }, isIOS ? 500 : 100);
+  }
+
   (async () => {
     try {
       for await (const _update of db.watch('SELECT COUNT(*) as c FROM notes WHERE deleted = 0', [], { signal: abortController.signal })) {
-        window.dispatchEvent(new CustomEvent('powersync:change'));
+        _scheduleChange();
       }
     } catch (e) {
       if (e.name !== 'AbortError') console.error('[powersync] watch error:', e);
@@ -784,7 +819,7 @@
     try {
       for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
         scheduleDownloadMissing();
-        window.dispatchEvent(new CustomEvent('powersync:change'));
+        _scheduleChange();
       }
     } catch (e) {
       if (e.name !== 'AbortError') console.error('[powersync] attachments watch error:', e);
