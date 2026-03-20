@@ -106,6 +106,10 @@ const _perNoteRemoteContent = new Map();
 // applied only when the user commits (View toggle, note switch, new note).
 // This prevents repeated filesystem renames while the user is mid-typing.
 let _pendingRename = null;
+// Monotonically increasing counter used to detect stale async operations.
+// Incremented at the start of each loadNote() call; any async continuation
+// that sees a different value knows a newer load has started and should bail.
+let _loadNoteGeneration = 0;
 
 const PROJECTS_NOTE = 'Projects';
 const CALENDARS_NOTE = 'Settings';
