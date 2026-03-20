@@ -485,10 +485,19 @@ async function importNotesFromMd(files) {
   try {
     const entries = [];
     for (const file of files) {
-      const name = file.name.replace(/\.md$/, '');
+      const fileBaseName = file.name.replace(/\.md$/, '');
       // Skip system/virtual notes — they are auto-generated and should not be imported
-      if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) continue;
+      if (fileBaseName === PROJECTS_NOTE || fileBaseName === GRAPH_NOTE || fileBaseName === CALENDARS_NOTE) continue;
       const content = await file.text();
+      // Use the first-line # header as the note name so that the name always
+      // matches the header, falling back to the filename if no header is present.
+      const firstLine = content.split(/\n/)[0].trim();
+      let name = fileBaseName;
+      if (firstLine.startsWith('#')) {
+        const headerTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+        if (headerTitle) name = headerTitle;
+      }
+      if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) continue;
       entries.push({ name, content });
     }
 
@@ -520,19 +529,35 @@ async function importNotesFromZip(file) {
   updateStatus(`Importing\u2026`, true, true);
   try {
     const zip = await JSZip.loadAsync(file);
-    const entries = [];
+    const rawEntries = [];
     const attachmentEntries = [];
     zip.forEach((relativePath, zipEntry) => {
       if (zipEntry.dir) return;
       if (relativePath.endsWith('.md')) {
-        const name = relativePath.replace(/\.md$/, '');
-        // Skip system/virtual notes — they are auto-generated and should not be imported
-        if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) return;
-        entries.push({ name, zipEntry });
+        // Track the original dir name for attachment matching before we
+        // derive the final note name from the header content below.
+        rawEntries.push({ fileBaseName: relativePath.replace(/\.md$/, ''), zipEntry });
       } else if (relativePath.includes('.attachments/')) {
         attachmentEntries.push({ relativePath, zipEntry });
       }
     });
+
+    // Read content upfront so we can derive note names from first-line headers.
+    const entries = (await Promise.all(rawEntries.map(async ({ fileBaseName, zipEntry }) => {
+      const content = await zipEntry.async('string');
+      // Skip system/virtual notes — they are auto-generated and should not be imported
+      if (fileBaseName === PROJECTS_NOTE || fileBaseName === GRAPH_NOTE || fileBaseName === CALENDARS_NOTE) return null;
+      // Use the first-line # header as the note name so that the name always
+      // matches the header, falling back to the filename if no header is present.
+      const firstLine = content.split(/\n/)[0].trim();
+      let name = fileBaseName;
+      if (firstLine.startsWith('#')) {
+        const headerTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+        if (headerTitle) name = headerTitle;
+      }
+      if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) return null;
+      return { name, fileBaseName, content };
+    }))).filter(Boolean);
 
     // Check for existing notes that would be overwritten
     const existChecks = await Promise.all(entries.map(({ name }) => NoteStorage.getNote(name)));
@@ -549,17 +574,19 @@ async function importNotesFromZip(file) {
     }
 
     updateStatus(`Importing\u2026`, true, true);
-    await Promise.all(entries.map(async ({ name, zipEntry }) => {
-      const content = await zipEntry.async('string');
-      await NoteStorage.setNote(name, content);
-    }));
+    await Promise.all(entries.map(({ name, content }) => NoteStorage.setNote(name, content)));
     await Promise.all(attachmentEntries.map(async ({ relativePath, zipEntry }) => {
       const slashIdx = relativePath.indexOf('/');
       if (slashIdx < 0) return;
       const dirPart = relativePath.slice(0, slashIdx);
       const filename = relativePath.slice(slashIdx + 1);
       if (!filename) return;
-      const matchedEntry = entries.find(e => noteNameToAttachmentDir(e.name) === dirPart);
+      // Match attachments by the original file-based attachment dir name OR
+      // by the header-derived note name's attachment dir.
+      const matchedEntry = entries.find(e =>
+        noteNameToAttachmentDir(e.fileBaseName) === dirPart ||
+        noteNameToAttachmentDir(e.name) === dirPart
+      );
       if (!matchedEntry) return;
       const b64 = await zipEntry.async('base64');
       await NoteStorage.writeAttachment(matchedEntry.name, filename, b64);

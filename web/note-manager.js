@@ -351,6 +351,12 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
         _lastSavedContent = textarea.value;
         _perNoteSavedContent.set(currentFileName, textarea.value);
       } catch (_) { /* ignore — content is still in textarea */ }
+      // The debounce timer may not have fired yet, so _pendingRename may not
+      // reflect the latest header. Recompute it now so the rename is not lost.
+      if (!_pendingRename) {
+        const title = getNoteTitle();
+        if (title && title !== currentFileName) _pendingRename = title;
+      }
     }
     await applyPendingRename();
   }
@@ -407,6 +413,16 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
 
   const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE || name === GRAPH_NOTE;
 
+  // If the stored note's first-line header doesn't match its name (e.g. after
+  // an import or a legacy data issue), queue a rename so the invariant is
+  // restored on the user's next commit (View toggle, note switch, new note).
+  if (!isReadOnlyNote) {
+    const headerTitle = getNoteTitle();
+    if (headerTitle && headerTitle !== name) {
+      _pendingRename = headerTitle;
+    }
+  }
+
   if (isReadOnlyNote) {
     textarea.readOnly = true;
     toggleViewBtn.disabled = true;
@@ -449,6 +465,12 @@ async function newNote() {
         _lastSavedContent = textarea.value;
         _perNoteSavedContent.set(currentFileName, textarea.value);
       } catch (_) { /* ignore */ }
+      // The debounce timer may not have fired yet, so _pendingRename may not
+      // reflect the latest header. Recompute it now so the rename is not lost.
+      if (!_pendingRename) {
+        const title = getNoteTitle();
+        if (title && title !== currentFileName) _pendingRename = title;
+      }
     }
     await applyPendingRename();
   }
