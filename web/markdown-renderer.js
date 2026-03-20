@@ -1493,6 +1493,43 @@ function injectProjectEmojiPickers(container) {
   }
 }
 
+// ── Refresh Settings note UI after sync ───────────────────────────────────
+// Called after applySyncedPreferences() to ensure the colour picker circles
+// and emoji buttons in the Settings note preview reflect the latest values.
+
+function refreshSettingsPickerUI() {
+  if (currentFileName !== CALENDARS_NOTE) return;
+
+  // Theme colour pickers
+  const theme = getCurrentTheme();
+  for (const picker of previewDiv.querySelectorAll('.theme-color-picker')) {
+    if (picker.title === 'Background colour') picker.value = theme.background;
+    else if (picker.title === 'Accent colour') picker.value = theme.accent;
+  }
+
+  // Calendar colour pickers
+  const calColors = getCalendarColors();
+  for (const picker of previewDiv.querySelectorAll('.calendar-color-picker')) {
+    const calName = picker.title.replace('Colour for ', '');
+    if (calColors[calName]) {
+      picker.value = calColors[calName];
+      // Also update the name-span colour next to the picker
+      const nameSpan = picker.closest('li')?.querySelector('.calendar-name-label');
+      if (nameSpan) nameSpan.style.color = calColors[calName];
+    }
+  }
+
+  // Emoji display buttons (order: active first, completed second)
+  const emojis = getProjectEmojis();
+  const emojiDisplays = previewDiv.querySelectorAll('.emoji-display');
+  if (emojiDisplays.length >= 2) {
+    emojiDisplays[0].textContent = emojis.active;
+    emojiDisplays[1].textContent = emojis.completed;
+  }
+}
+
+window._refreshSettingsPickerUI = refreshSettingsPickerUI;
+
 async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
