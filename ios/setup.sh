@@ -20,9 +20,11 @@ npm audit fix
 npm run build
 
 # Add the iOS platform (generates the ios/ native project inside this directory).
-npx cap add ios
+# Use CocoaPods instead of SPM because @powersync/capacitor and
+# @capacitor-community/sqlite do not ship Package.swift files yet.
+npx cap add ios --packagemanager CocoaPods
 
-# Sync web files and native plugins.
+# Sync web files and native plugins (runs pod install).
 npx cap sync ios
 
 # ── Info.plist: make iCloud container visible in Files app ──
