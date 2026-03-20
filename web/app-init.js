@@ -799,14 +799,11 @@ if (window.PowerSyncNoteStorage) {
   window.addEventListener('powersync:ready', _setupPowerSyncHandlers, { once: true });
 }
 
-// iOS: PowerSync WASM is deferred (not loaded on startup). Set up a
-// tap-to-sync handler that lazy-inits PowerSync on first tap.
-// Listen for powersync:disabled which fires after the lazy init path is
-// configured (powersync-storage.js is an async module that may finish
-// after this script runs).
+// iOS: WASM SQLite is not used (crashes WKWebView). Sync is REST-based.
+// Set up tap-to-sync that calls _restSync (Supabase REST, no WASM).
 if (window.Capacitor?.isNativePlatform()) {
   const _setupIOSTapToSync = () => {
-    if (!window._lazyPowerSyncInit) return;
+    if (!window._restSync) return;
     const bottomArea = document.getElementById('bottom-status-area');
     if (!bottomArea) return;
     bottomArea.style.cursor = 'pointer';
@@ -818,36 +815,37 @@ if (window.Capacitor?.isNativePlatform()) {
         autoSaveTimer = null;
         await autoSaveNote();
       }
-      updateStatus('Initializing sync\u2026', true, true);
+      updateStatus('Syncing\u2026', true, true);
       try {
-        // Lazy-init: loads WASM, creates DB, switches NoteStorage.
-        await window._lazyPowerSyncInit();
-        // Now PowerSyncNoteStorage exists — set up change handlers.
-        _setupPowerSyncHandlers();
-        // Migrate any localStorage notes into PowerSync.
-        await migrateLocalNotesToSync();
-        // Trigger the actual sync.
-        if (window.PowerSyncNoteStorage?.triggerSync) {
-          updateStatus('Syncing With Cloud\u2026', true, true);
-          await window.PowerSyncNoteStorage.triggerSync();
+        await window._restSync();
+        // Refresh UI with any newly-pulled notes
+        await updateFileList();
+        // Reload the current note if it was updated
+        if (currentNote) {
+          const fresh = await NoteStorage.getNote(currentNote);
+          if (fresh !== null && fresh !== textarea.value) {
+            textarea.value = fresh;
+            _lastSavedContent = fresh;
+            _lastRemoteContent = fresh;
+            if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
+          }
         }
-        await handlePowerSyncChange();
-        // Start calendar sync now that PowerSync is ready.
+        invalidateScheduleCache();
+        // Start calendar sync if not started yet
         if (typeof window._startCalendarSyncIfNeeded === 'function') {
           window._startCalendarSyncIfNeeded();
         }
         updateStatus('Sync Complete.', true);
       } catch (e) {
-        console.error('[sync] iOS lazy init + sync failed:', e);
+        console.error('[sync] iOS REST sync failed:', e);
         updateStatus('Sync failed.', true);
       }
     });
   };
-  // Try immediately (in case powersync-storage.js already ran)
-  if (window._lazyPowerSyncInit) {
+  // Try immediately, or wait for powersync:disabled event
+  if (window._restSync) {
     _setupIOSTapToSync();
   } else {
-    // Wait for the deferred event from powersync-storage.js
     window.addEventListener('powersync:disabled', _setupIOSTapToSync, { once: true });
   }
 }

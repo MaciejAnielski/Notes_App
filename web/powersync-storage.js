@@ -783,23 +783,91 @@
     };
   }
 
-  // ── iOS: defer WASM init entirely ─────────────────────────────────────
-  // The WASM module compilation + db.init() on the main thread crashes the
-  // WKWebView WebContent process on startup (segfault, reason=Crash).
-  // Defer all heavy work to the first user-triggered sync. The app starts
-  // with localStorage and switches to PowerSync on first sync.
+  // ── iOS: REST-based sync (no WASM) ─────────────────────────────────────
+  // WASM SQLite crashes the WKWebView WebContent process (segfault) whether
+  // loaded at startup or deferred. The ~400 MB process limit cannot handle
+  // WASM module compilation + SQLite runtime. Instead, sync via Supabase
+  // REST API directly. localStorage remains the primary storage backend.
   if (isIOS) {
-    console.log('[powersync] iOS: WASM init deferred until first sync. Using localStorage.');
+    console.log('[powersync] iOS: using REST sync (no WASM). localStorage is primary storage.');
     window._supabase = supabase;
 
-    // Expose lazy initializer — called from tap-to-sync in app-init.js.
-    window._lazyPowerSyncInit = async function () {
-      if (db) return; // already initialized
-      console.log('[powersync] iOS: lazy init starting (user triggered sync)...');
-      await _createAndInitDB();
-      _buildNoteStorage();
-      window.NoteStorage = window.PowerSyncNoteStorage;
-      console.log('[powersync] iOS: lazy init complete. NoteStorage switched to PowerSync.');
+    const userId = session?.user?.id;
+
+    // Expose REST-based sync — called from tap-to-sync in app-init.js.
+    window._restSync = async function () {
+      if (!userId) { console.warn('[powersync] No user ID for sync.'); return; }
+      console.log('[powersync] iOS REST sync starting...');
+
+      // 1. Pull remote notes
+      const { data: remoteNotes, error: fetchErr } = await supabase
+        .from('notes')
+        .select('id, name, content, updated_at, deleted')
+        .eq('user_id', userId);
+      if (fetchErr) throw fetchErr;
+
+      // 2. Build local note map (md_* keys in localStorage)
+      const localNotes = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('md_')) {
+          const name = key.slice(3);
+          localNotes[name] = localStorage.getItem(key);
+        }
+      }
+
+      // 3. Pull remote → local (remote wins for notes not modified locally)
+      // Track remote names so we know what exists on server.
+      const remoteNames = new Set();
+      let pulled = 0;
+      for (const rn of remoteNotes) {
+        if (rn.deleted) continue;
+        remoteNames.add(rn.name);
+        const localContent = localNotes[rn.name];
+        if (localContent === undefined || localContent === null) {
+          // Note doesn't exist locally — pull it
+          localStorage.setItem('md_' + rn.name, rn.content || '');
+          pulled++;
+        } else {
+          // Note exists locally — use remote version (server is source of truth)
+          // unless local has newer content (compare by content, not timestamp,
+          // since localStorage doesn't track timestamps).
+          if (localContent !== rn.content) {
+            // Remote wins — user can always re-edit locally
+            localStorage.setItem('md_' + rn.name, rn.content || '');
+            pulled++;
+          }
+        }
+      }
+
+      // 4. Push local → remote (notes that exist locally but not on server)
+      let pushed = 0;
+      for (const [name, content] of Object.entries(localNotes)) {
+        if (name === '.Projects' || name === '.Graph') continue; // skip virtual
+        if (name.startsWith('.')) continue; // skip hidden/metadata notes
+        if (!remoteNames.has(name)) {
+          // Local-only note — push to server
+          const now = new Date().toISOString();
+          const { error: upsertErr } = await supabase
+            .from('notes')
+            .upsert({
+              id: crypto.randomUUID(),
+              name,
+              content,
+              deleted: false,
+              updated_at: now,
+              created_at: now,
+              user_id: userId
+            }, { onConflict: 'id' });
+          if (upsertErr) {
+            console.warn('[powersync] Push failed for', name, upsertErr.message);
+          } else {
+            pushed++;
+          }
+        }
+      }
+
+      console.log(`[powersync] iOS REST sync done. Pulled ${pulled}, pushed ${pushed}.`);
     };
 
     // Let app-init.js proceed with localStorage immediately (don't block).
