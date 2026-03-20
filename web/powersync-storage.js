@@ -315,8 +315,12 @@
           const table = op.table;
           const data = { ...op.opData };
 
-          // local_data and sync_state are no longer in the PowerSync schema
-          // (they live in local_attachment_data), so no stripping needed.
+          // Strip local-only columns that may linger in the CRUD queue from
+          // before the schema migration (they don't exist in Supabase).
+          if (table === 'attachments') {
+            delete data.local_data;
+            delete data.sync_state;
+          }
 
           if (op.op === 'PUT') {
             data.id = op.id;
