@@ -779,7 +779,7 @@ function _setupPowerSyncHandlers() {
       if (_forceSyncCallback) {
         await _forceSyncCallback(true);
         // Lazy-start calendar sync on first manual sync (iOS defers startup
-        // to avoid crashing the WebContent process).
+        // to avoid heavy work during initial load).
         if (typeof window._startCalendarSyncIfNeeded === 'function') {
           window._startCalendarSyncIfNeeded();
         } else if (typeof runCalendarSync === 'function') {
@@ -792,18 +792,18 @@ function _setupPowerSyncHandlers() {
 
 // Call immediately if PowerSync is already ready (e.g. Electron where the
 // module finishes synchronously), otherwise wait for the ready event.
+// Both Electron and Capacitor (iOS/Android) now use the same PowerSync flow.
 if (window.PowerSyncNoteStorage) {
   _setupPowerSyncHandlers();
-} else if (window.electronAPI) {
-  // Electron: wait for powersync:ready then set up handlers.
+} else if (window.electronAPI || window.Capacitor?.isNativePlatform()) {
   window.addEventListener('powersync:ready', _setupPowerSyncHandlers, { once: true });
 }
 
-// iOS: WASM SQLite is not used (crashes WKWebView). Sync is REST-based.
-// Set up tap-to-sync that calls _restSync (Supabase REST, no WASM).
+// iOS/Android (Capacitor): add a tap-to-sync button on the status bar.
+// With the PowerSync Capacitor SDK using native SQLite, sync is automatic,
+// but tap-to-sync forces an immediate reconnect for responsiveness.
 if (window.Capacitor?.isNativePlatform()) {
-  const _setupIOSTapToSync = () => {
-    if (!window._restSync) return;
+  const _setupCapacitorTapToSync = () => {
     const bottomArea = document.getElementById('bottom-status-area');
     if (!bottomArea) return;
     bottomArea.style.cursor = 'pointer';
@@ -817,7 +817,9 @@ if (window.Capacitor?.isNativePlatform()) {
       }
       updateStatus('Syncing\u2026', true, true);
       try {
-        await window._restSync();
+        if (typeof NoteStorage.triggerSync === 'function') {
+          await NoteStorage.triggerSync();
+        }
         // Refresh UI with any newly-pulled notes
         await updateFileList();
         // Reload the current note if it was updated
@@ -837,17 +839,15 @@ if (window.Capacitor?.isNativePlatform()) {
         }
         updateStatus('Sync Complete.', true);
       } catch (e) {
-        console.error('[sync] iOS REST sync failed:', e);
+        console.error('[sync] Sync failed:', e);
         updateStatus('Sync failed.', true);
       }
     });
   };
-  // Try immediately, or wait for powersync:disabled event
-  if (window._restSync) {
-    _setupIOSTapToSync();
-  } else {
-    window.addEventListener('powersync:disabled', _setupIOSTapToSync, { once: true });
-  }
+  // Set up after PowerSync is ready, or immediately if sync is disabled
+  window.addEventListener('powersync:ready', _setupCapacitorTapToSync, { once: true });
+  window.addEventListener('powersync:disabled', _setupCapacitorTapToSync, { once: true });
+  window.addEventListener('powersync:auth-required', _setupCapacitorTapToSync, { once: true });
 }
 
 // ── Async initialization ──────────────────────────────────────────────────

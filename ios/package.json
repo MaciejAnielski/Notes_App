@@ -3,22 +3,28 @@
   "version": "1.0.0",
   "description": "Notes App - iOS (Capacitor)",
   "scripts": {
-    "build": "cp -r ../web/* www/",
+    "build": "node build-sync.js && mkdir -p www && cp -r ../web/* www/ && cp -r www-override/* www/",
     "sync": "npx cap sync ios",
     "open": "npx cap open ios",
     "start": "npm run build && npm run sync && npm run open",
     "postinstall": "node patches/fix-native-run-simulator.js"
   },
   "dependencies": {
-    "@capacitor/app": "^6.0.0",
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/filesystem": "^6.0.0",
-    "@capacitor/ios": "^6.2.1",
-    "@capacitor/local-notifications": "^6.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0",
+    "@capacitor-community/sqlite": "^7.0.2",
+    "@journeyapps/wa-sqlite": "^1.0.0",
+    "@powersync/capacitor": "^0.5.0",
+    "@powersync/web": "^1.32.0",
+    "@supabase/supabase-js": "^2.45.0",
     "capacitor-calendar": "file:plugins/capacitor-calendar"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.2.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.9.3"
   }
 }
