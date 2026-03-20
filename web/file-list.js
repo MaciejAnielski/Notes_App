@@ -17,6 +17,36 @@ async function getVisibleNotes(cachedNotes) {
   return notes;
 }
 
+// Lightweight active-state update — swaps the 'active-file' class in the
+// sidebar without rebuilding the entire list.  Called on every note switch
+// so clicking between notes is instantaneous.
+function _refreshFileListActiveState() {
+  // Update notes file list
+  for (const li of fileList.children) {
+    const span = li.querySelector('span');
+    if (!span) continue;
+    if (span.textContent === currentFileName) {
+      li.classList.add('active-file');
+    } else {
+      li.classList.remove('active-file');
+    }
+  }
+  // Update nav list (Projects, Note Graph, Settings)
+  const navList = document.getElementById('nav-list');
+  if (navList) {
+    for (const li of navList.children) {
+      const span = li.querySelector('span');
+      if (!span) continue;
+      const navName = { 'Projects': PROJECTS_NOTE, 'Note Graph': GRAPH_NOTE, 'Settings': CALENDARS_NOTE }[span.textContent];
+      if (navName === currentFileName) {
+        li.classList.add('active-file');
+      } else {
+        li.classList.remove('active-file');
+      }
+    }
+  }
+}
+
 // Serialize updateFileList calls to prevent duplicate entries when multiple
 // sync events fire in quick succession.
 let _updateFileListRunning = false;

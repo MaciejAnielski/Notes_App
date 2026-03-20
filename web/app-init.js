@@ -706,6 +706,14 @@ async function handlePowerSyncChange() {
   // Abort if the user navigated away during the async preference apply.
   if (gen !== _loadNoteGeneration) return;
 
+  // Refresh the in-memory cache from the database so that all subsequent
+  // getNote() / getAllNotes() calls resolve instantly from memory.
+  if (typeof NoteStorage.refreshCache === 'function') {
+    await NoteStorage.refreshCache();
+  }
+
+  if (gen !== _loadNoteGeneration) return;
+
   if (currentFileName) {
     const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
     const content = await NoteStorage.getNote(currentFileName);
@@ -835,6 +843,10 @@ if (window.Capacitor?.isNativePlatform()) {
         if (typeof NoteStorage.triggerSync === 'function') {
           await NoteStorage.triggerSync();
         }
+        // Refresh in-memory cache after sync so all getNote() calls are instant
+        if (typeof NoteStorage.refreshCache === 'function') {
+          await NoteStorage.refreshCache();
+        }
         // Refresh UI with any newly-pulled notes
         await updateFileList();
         // Reload the current note if it was updated
@@ -954,20 +966,37 @@ async function migrateLocalNotesToSync() {
       if (existingNames.length === 0) {
         setLoadingProgress(35, 'Downloading notes\u2026');
         updateStatus('Downloading notes\u2026 This may take a moment on first sync.', true, true);
+        // Wait for sync changes to arrive. Keep waiting (up to 12s) as long
+        // as new batches keep arriving — this handles large vaults where
+        // multiple sync pages stream in over several seconds.
         await new Promise(resolve => {
+          let timer = setTimeout(resolve, 12000);
+          let settleTimer = null;
           const handler = () => {
-            window.removeEventListener('powersync:change', handler);
-            resolve();
+            // A batch arrived — reset the settle timer so we keep waiting
+            // if more batches are expected (300ms settle window).
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(() => {
+              window.removeEventListener('powersync:change', handler);
+              clearTimeout(timer);
+              resolve();
+            }, 300);
           };
           window.addEventListener('powersync:change', handler);
-          // Don't block startup longer than 8 seconds
-          setTimeout(resolve, 8000);
         });
       }
     }
 
-    setLoadingProgress(50, 'Loading note\u2026');
-    const initialContent = lastFile ? await NoteStorage.getNote(lastFile) : null;
+    // ── Pre-warm in-memory cache ──────────────────────────────────────────
+    // Load ALL note contents into memory before dismissing the loading screen.
+    // This eliminates SQLite round-trips when the user clicks between notes.
+    setLoadingProgress(45, 'Caching notes\u2026');
+    const allNotesCached = await NoteStorage.getAllNotes();
+
+    setLoadingProgress(55, 'Loading note\u2026');
+    const initialContent = lastFile
+      ? (allNotesCached.find(n => n.name === lastFile)?.content ?? null)
+      : null;
     if (initialContent !== null) {
       setLoadingProgress(65, 'Opening note\u2026');
       await loadNote(lastFile, true, initialContent);
@@ -975,6 +1004,11 @@ async function migrateLocalNotesToSync() {
       setLoadingProgress(65, 'Creating note\u2026');
       await newNote();
     }
+
+    // Build the file list and sidebar while still on the loading screen so
+    // the UI is fully populated before the user can interact.
+    setLoadingProgress(80, 'Building file list\u2026');
+    await updateFileList();
 
     setLoadingProgress(90, 'Almost ready\u2026');
     if (savedPreview && !isPreview) {
