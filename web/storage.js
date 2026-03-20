@@ -66,6 +66,12 @@ window.NoteStorage = {
     return keys.length;
   },
 
+  async renameNote(oldName, newName, content) {
+    _noteNamesCache = null;
+    localStorage.setItem('md_' + newName, content);
+    localStorage.removeItem('md_' + oldName);
+  },
+
   // Attachment stubs — no-ops on web (localStorage has no binary file support)
   async writeAttachment(noteName, filename, base64data) { return false; },
   async readAttachment(noteName, filename) { return null; },

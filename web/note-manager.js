@@ -22,12 +22,16 @@ async function handleRenameAfterReplace(noteName, newContent) {
   const newTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
   if (!newTitle || newTitle === noteName) return;
   if (await NoteStorage.getNote(newTitle) !== null) return;
-  // Write the new note before removing the old one so a storage failure
-  // cannot result in data loss.
-  await NoteStorage.setNote(newTitle, newContent);
+  // Use renameNote (in-place UPDATE) so the name change reaches Supabase as a
+  // single PATCH op, avoiding the sync-stream race of the delete-then-insert pattern.
+  if (typeof NoteStorage.renameNote === 'function') {
+    await NoteStorage.renameNote(noteName, newTitle, newContent);
+  } else {
+    await NoteStorage.setNote(newTitle, newContent);
+    await NoteStorage.removeNote(noteName);
+  }
   _perNoteSavedContent.set(newTitle, newContent);
   _perNoteRemoteContent.set(newTitle, newContent);
-  await NoteStorage.removeNote(noteName);
   _perNoteSavedContent.delete(noteName);
   _perNoteRemoteContent.delete(noteName);
   await NoteStorage.renameAttachmentDir(noteName, newTitle);
@@ -299,12 +303,21 @@ async function applyPendingRename() {
     return;
   }
 
-  // Write the new note BEFORE removing the old one so a storage failure
-  // cannot result in data loss.
   const content = textarea.value;
   const useSyncStorage = !!window.PowerSyncNoteStorage;
   try {
-    await NoteStorage.setNote(newName, content);
+    // Use renameNote (in-place UPDATE) when available so that the name change
+    // reaches Supabase as a single PATCH op rather than a DELETE + INSERT pair.
+    // The two-step approach can race against the PowerSync sync stream: the
+    // stream may re-deliver the old note before the DELETE is uploaded,
+    // silently undoing the rename on the server.
+    if (typeof NoteStorage.renameNote === 'function') {
+      await NoteStorage.renameNote(oldName, newName, content);
+    } else {
+      // Fallback (should not be reached — both storage implementations have renameNote).
+      await NoteStorage.setNote(newName, content);
+      await NoteStorage.removeNote(oldName);
+    }
   } catch (e) {
     updateStatus('Save Failed — Storage Quota Exceeded. Delete Old Notes Or Export A Backup.', false);
     return;
@@ -314,7 +327,6 @@ async function applyPendingRename() {
   _perNoteRemoteContent.delete(oldName);
   _perNoteSavedContent.set(newName, content);
   _perNoteRemoteContent.set(newName, content);
-  await NoteStorage.removeNote(oldName);
   try {
     await NoteStorage.renameAttachmentDir(oldName, newName);
   } catch (e) {
