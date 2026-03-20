@@ -192,6 +192,12 @@ async function updateCalendarsNote() {
       }
       if (colorsUpdated) {
         localStorage.setItem('calendar_colors', JSON.stringify(existingColors));
+        // Record when these colours were seeded and sync them to the preferences
+        // note so the desktop picks up the native iOS calendar colours.
+        localStorage.setItem('calendar_colors_ts', Date.now().toString());
+        if (typeof syncCalendarColorsToNote === 'function') {
+          syncCalendarColorsToNote();
+        }
       }
     } catch { /* non-fatal */ }
   }
