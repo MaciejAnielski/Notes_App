@@ -66,10 +66,12 @@
     storage_path: column.text,
     updated_at: column.text,
     created_at: column.text,
-    user_id: column.text,
-    // Local-only columns (not in Supabase schema or sync stream).
-    local_data: column.text,   // base64-encoded binary data
-    sync_state: column.text    // 'pending' | 'synced' | 'error'
+    user_id: column.text
+    // local_data and sync_state are stored in a separate local-only table
+    // (local_attachment_data) to prevent PowerSync sync-loop: when these
+    // columns were in the synced schema, the sync stream would NULL them,
+    // downloadMissingAttachments would re-populate them, generating another
+    // CRUD entry → infinite PATCH cycle on iOS.
   });
 
   // ── Supabase client ─────────────────────────────────────────────────────
@@ -313,11 +315,8 @@
           const table = op.table;
           const data = { ...op.opData };
 
-          // Strip local-only columns before sending to Supabase
-          if (table === 'attachments') {
-            delete data.local_data;
-            delete data.sync_state;
-          }
+          // local_data and sync_state are no longer in the PowerSync schema
+          // (they live in local_attachment_data), so no stripping needed.
 
           if (op.op === 'PUT') {
             data.id = op.id;
@@ -409,6 +408,19 @@
     console.log('[powersync] Calling db.init()...');
     await db.init();
     console.log('[powersync] Database initialized.');
+
+    // Create local-only table for attachment binary data and sync state.
+    // This table is NOT part of the PowerSync schema, so changes to it
+    // never generate CRUD operations or enter the sync stream — breaking
+    // the infinite PATCH loop that occurred when these columns lived in
+    // the synced attachments table.
+    await db.execute(`CREATE TABLE IF NOT EXISTS local_attachment_data (
+      attachment_id TEXT PRIMARY KEY,
+      local_data TEXT,
+      sync_state TEXT DEFAULT 'pending'
+    )`);
+    console.log('[powersync] local_attachment_data table ready.');
+
     window._powersyncDB = db;
   }
 
@@ -454,7 +466,7 @@
     if (!userId) return;
     try {
       const pending = await db.getAll(
-        'SELECT id, storage_path, local_data FROM attachments WHERE sync_state = ? AND user_id = ? AND local_data IS NOT NULL',
+        'SELECT l.attachment_id, l.local_data, a.storage_path FROM local_attachment_data l JOIN attachments a ON a.id = l.attachment_id WHERE l.sync_state = ? AND a.user_id = ? AND l.local_data IS NOT NULL',
         ['pending', userId]
       );
       for (const row of pending) {
@@ -465,14 +477,14 @@
             .upload(row.storage_path, bytes, { upsert: true });
           if (error) throw error;
           await db.execute(
-            'UPDATE attachments SET sync_state = ? WHERE id = ?',
-            ['synced', row.id]
+            'UPDATE local_attachment_data SET sync_state = ? WHERE attachment_id = ?',
+            ['synced', row.attachment_id]
           );
         } catch (e) {
           console.warn('[powersync] Attachment upload failed (will retry):', row.storage_path, e.message);
           await db.execute(
-            'UPDATE attachments SET sync_state = ? WHERE id = ?',
-            ['error', row.id]
+            'UPDATE local_attachment_data SET sync_state = ? WHERE attachment_id = ?',
+            ['error', row.attachment_id]
           ).catch(() => {});
         }
       }
@@ -487,7 +499,7 @@
     if (!userId) return;
     try {
       const missing = await db.getAll(
-        'SELECT id, storage_path FROM attachments WHERE local_data IS NULL AND storage_path IS NOT NULL AND user_id = ?',
+        'SELECT a.id, a.storage_path FROM attachments a LEFT JOIN local_attachment_data l ON l.attachment_id = a.id WHERE l.local_data IS NULL AND a.storage_path IS NOT NULL AND a.user_id = ?',
         [userId]
       );
       for (const row of missing) {
@@ -498,8 +510,8 @@
           if (error) throw error;
           const b64 = bufferToBase64(await data.arrayBuffer());
           await db.execute(
-            'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
-            [b64, 'synced', row.id]
+            'INSERT OR REPLACE INTO local_attachment_data (attachment_id, local_data, sync_state) VALUES (?, ?, ?)',
+            [row.id, b64, 'synced']
           );
         } catch (e) {
           console.warn('[powersync] Attachment download deferred:', row.storage_path, e.message);
@@ -667,17 +679,28 @@
             [noteName, filename, userId]
           ).catch(() => null);
 
+          let attachmentId;
           if (existing) {
+            attachmentId = existing.id;
             await db.execute(
-              'UPDATE attachments SET storage_path = ?, local_data = ?, sync_state = ?, updated_at = ? WHERE id = ?',
-              [storagePath, base64data, 'pending', now, existing.id]
+              'UPDATE attachments SET storage_path = ?, updated_at = ? WHERE id = ?',
+              [storagePath, now, attachmentId]
             );
           } else {
+            // Generate a UUID for the new attachment so we can reference it
+            // in the local_attachment_data table.
+            const row = await db.get('SELECT uuid() as id');
+            attachmentId = row.id;
             await db.execute(
-              'INSERT INTO attachments (id, note_name, filename, storage_path, local_data, sync_state, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?)',
-              [noteName, filename, storagePath, base64data, 'pending', now, now, userId]
+              'INSERT INTO attachments (id, note_name, filename, storage_path, updated_at, created_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [attachmentId, noteName, filename, storagePath, now, now, userId]
             );
           }
+          // Store binary data in the local-only table (no CRUD generated)
+          await db.execute(
+            'INSERT OR REPLACE INTO local_attachment_data (attachment_id, local_data, sync_state) VALUES (?, ?, ?)',
+            [attachmentId, base64data, 'pending']
+          );
           scheduleSyncPending();
           return true;
         } catch (e) {
@@ -691,12 +714,17 @@
         if (!userId) return null;
         try {
           const rec = await db.get(
-            'SELECT id, storage_path, local_data FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
+            'SELECT id, storage_path FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
             [noteName, filename, userId]
           ).catch(() => null);
           if (!rec) return null;
 
-          if (rec.local_data) return rec.local_data;
+          // Check local-only table for cached binary data
+          const local = await db.get(
+            'SELECT local_data FROM local_attachment_data WHERE attachment_id = ?',
+            [rec.id]
+          ).catch(() => null);
+          if (local?.local_data) return local.local_data;
 
           try {
             const { data, error } = await supabase.storage
@@ -705,8 +733,8 @@
             if (error) throw error;
             const b64 = bufferToBase64(await data.arrayBuffer());
             await db.execute(
-              'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
-              [b64, 'synced', rec.id]
+              'INSERT OR REPLACE INTO local_attachment_data (attachment_id, local_data, sync_state) VALUES (?, ?, ?)',
+              [rec.id, b64, 'synced']
             ).catch(() => {});
             return b64;
           } catch (dlErr) {
@@ -725,18 +753,29 @@
         try {
           const newPath = `${userId}/${noteName}/${newFilename}`;
           const now = new Date().toISOString();
+          // Get the attachment ID before updating
+          const rec = await db.get(
+            'SELECT id FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
+            [noteName, oldFilename, userId]
+          ).catch(() => null);
           await db.execute(
-            'UPDATE attachments SET filename = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
-            [newFilename, newPath, 'pending', now, noteName, oldFilename, userId]
+            'UPDATE attachments SET filename = ?, storage_path = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
+            [newFilename, newPath, now, noteName, oldFilename, userId]
           );
+          if (rec) {
+            await db.execute(
+              'UPDATE local_attachment_data SET sync_state = ? WHERE attachment_id = ?',
+              ['pending', rec.id]
+            ).catch(() => {});
+          }
           const oldPath = `${userId}/${noteName}/${oldFilename}`;
           supabase.storage.from('attachments').move(oldPath, newPath).then(({ error }) => {
-            if (!error) {
+            if (!error && rec) {
               db.execute(
-                'UPDATE attachments SET sync_state = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
-                ['synced', noteName, newFilename, userId]
+                'UPDATE local_attachment_data SET sync_state = ? WHERE attachment_id = ?',
+                ['synced', rec.id]
               ).catch(() => {});
-            } else {
+            } else if (error) {
               supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
             }
           }).catch(() => {
@@ -754,9 +793,16 @@
         if (!userId) return;
         try {
           const recs = await db.getAll(
-            'SELECT storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
+            'SELECT id, storage_path FROM attachments WHERE note_name = ? AND user_id = ?',
             [noteName, userId]
           );
+          // Clean up local binary data
+          for (const rec of recs) {
+            await db.execute(
+              'DELETE FROM local_attachment_data WHERE attachment_id = ?',
+              [rec.id]
+            ).catch(() => {});
+          }
           await db.execute(
             'DELETE FROM attachments WHERE note_name = ? AND user_id = ?',
             [noteName, userId]
@@ -777,21 +823,25 @@
         if (!userId) return;
         try {
           const recs = await db.getAll(
-            'SELECT id, filename, storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
+            'SELECT a.id, a.filename, a.storage_path, l.sync_state FROM attachments a LEFT JOIN local_attachment_data l ON l.attachment_id = a.id WHERE a.note_name = ? AND a.user_id = ?',
             [oldNoteName, userId]
           );
           for (const rec of recs) {
             const newPath = `${userId}/${newNoteName}/${rec.filename}`;
             const now = new Date().toISOString();
             await db.execute(
-              'UPDATE attachments SET note_name = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE id = ?',
-              [newNoteName, newPath, 'pending', now, rec.id]
+              'UPDATE attachments SET note_name = ?, storage_path = ?, updated_at = ? WHERE id = ?',
+              [newNoteName, newPath, now, rec.id]
             );
+            await db.execute(
+              'UPDATE local_attachment_data SET sync_state = ? WHERE attachment_id = ?',
+              ['pending', rec.id]
+            ).catch(() => {});
             if (rec.sync_state === 'synced') {
               supabase.storage.from('attachments').move(rec.storage_path, newPath).then(({ error }) => {
                 if (!error) {
                   db.execute(
-                    'UPDATE attachments SET sync_state = ? WHERE id = ?',
+                    'UPDATE local_attachment_data SET sync_state = ? WHERE attachment_id = ?',
                     ['synced', rec.id]
                   ).catch(() => {});
                 }
