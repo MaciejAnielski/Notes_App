@@ -847,9 +847,14 @@
     // which overwhelms the ~400 MB WKWebView WebContent process and crashes it.
     // Instead, the user triggers sync manually via triggerSync() (tap-to-sync
     // button) which connects briefly, pulls changes, then disconnects.
-    // Watches still run for local data changes (edits made on this device).
-    _startWatches();
-    console.log('[powersync] iOS: sync is manual-only (tap to sync). Watches started for local changes.');
+    // Skip watches on iOS. db.watch() reactive queries run on the main thread
+    // (no web worker) and fire for every local SQLite write. When calendar sync
+    // writes daily notes, the watches cascade into handlePowerSyncChange() which
+    // does more DB reads — overwhelming the ~400 MB WebContent process. Watches
+    // are redundant here: user edits update the UI directly, manual triggerSync()
+    // calls handlePowerSyncChange() explicitly, and calendar sync handles its own
+    // note updates.
+    console.log('[powersync] iOS: sync is manual-only (tap to sync). Watches skipped to avoid main-thread pressure.');
     // Fire settled immediately so calendar sync can start (no sync stream to wait for).
     setTimeout(() => {
       if (!_hasFiredSettled) {
