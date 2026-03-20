@@ -371,23 +371,26 @@
   };
 
   // ── Initialize PowerSync database ───────────────────────────────────────
-  // WKWebView (iOS/Capacitor) does not support SharedWorker, so omit the sync
-  // worker on iOS. PowerSync will run sync in-process instead, which works in
-  // all environments. The SharedWorker is only used on desktop (Electron) where
-  // it allows multiple windows to share a single sync connection.
+  // iOS / WKWebView constraints:
+  //   • SharedWorker is not supported → omit sync worker (in-process sync).
+  //   • Running WASM SQLite inside a Web Worker doubles memory via message-
+  //     passing serialisation.  Combined with in-process sync the concurrent
+  //     message queue overwhelms the ~400 MB WebContent process → crash.
+  //   • Setting `useWebWorker: false` tells PowerSync to run WA-SQLite in
+  //     the main thread (no worker), avoiding the memory/crash issue.
+  //     Unlike simply omitting the `database.worker` path (which hangs
+  //     db.init()), this flag uses the proper non-worker SQLite adapter.
+  // Desktop (Electron) keeps both workers for multi-window support + RAM.
   console.log('[powersync] Creating PowerSyncDatabase...');
-  // WKWebView (iOS/Capacitor) does not support SharedWorker, so omit the sync
-  // worker on iOS — PowerSync runs sync in-process instead. The database WASM
-  // worker (WASQLiteDB) is kept on all platforms because PowerSync requires it
-  // to initialise SQLite; without it db.init() hangs indefinitely.
   const dbConfig = {
     schema: new Schema({ notes, attachments }),
     database: {
       dbFilename: 'notes-app.db',
-      worker: 'vendor/worker/WASQLiteDB.umd.js'
+      ...(isIOS ? {} : { worker: 'vendor/worker/WASQLiteDB.umd.js' })
     },
     flags: {
-      externallyUnload: true
+      externallyUnload: true,
+      ...(isIOS ? { useWebWorker: false, enableMultiTabs: false } : {})
     }
   };
   if (!isIOS) {
