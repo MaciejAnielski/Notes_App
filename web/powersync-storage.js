@@ -376,42 +376,36 @@
   //   • Running WASM SQLite inside a Web Worker doubles memory via message-
   //     passing serialisation.  Combined with in-process sync the concurrent
   //     message queue overwhelms the ~400 MB WebContent process → crash.
-  //   • Setting `useWebWorker: false` tells PowerSync to run WA-SQLite in
-  //     the main thread (no worker), avoiding the memory/crash issue.
-  //     Unlike simply omitting the `database.worker` path (which hangs
-  //     db.init()), this flag uses the proper non-worker SQLite adapter.
+  //   • Even with useWebWorker: false, the WASM module compilation + SQLite
+  //     init on the main thread crashes the WebContent process on startup.
+  //     On iOS we defer ALL WASM work (PowerSyncDatabase + db.init) to the
+  //     first user-triggered sync. The app starts with localStorage.
   // Desktop (Electron) keeps both workers for multi-window support + RAM.
-  console.log('[powersync] Creating PowerSyncDatabase...');
-  const dbConfig = {
-    schema: new Schema({ notes, attachments }),
-    database: {
-      dbFilename: 'notes-app.db',
-      ...(isIOS ? {} : { worker: 'vendor/worker/WASQLiteDB.umd.js' })
-    },
-    flags: {
-      externallyUnload: true,
-      ...(isIOS ? { useWebWorker: false, enableMultiTabs: false } : {})
+
+  let db = null;
+
+  async function _createAndInitDB() {
+    console.log('[powersync] Creating PowerSyncDatabase...');
+    const dbConfig = {
+      schema: new Schema({ notes, attachments }),
+      database: {
+        dbFilename: 'notes-app.db',
+        ...(isIOS ? {} : { worker: 'vendor/worker/WASQLiteDB.umd.js' })
+      },
+      flags: {
+        externallyUnload: true,
+        ...(isIOS ? { useWebWorker: false, enableMultiTabs: false } : {})
+      }
+    };
+    if (!isIOS) {
+      dbConfig.sync = { worker: 'vendor/worker/SharedSyncImplementation.umd.js' };
     }
-  };
-  if (!isIOS) {
-    dbConfig.sync = { worker: 'vendor/worker/SharedSyncImplementation.umd.js' };
+    db = new PowerSyncDatabase(dbConfig);
+    console.log('[powersync] Calling db.init()...');
+    await db.init();
+    console.log('[powersync] Database initialized.');
+    window._powersyncDB = db;
   }
-  const db = new PowerSyncDatabase(dbConfig);
-
-  console.log('[powersync] Calling db.init()...');
-  await db.init();
-  console.log('[powersync] Database initialized.');
-
-  // On iOS, skip auto-connect entirely — sync is manual-only (see triggerSync).
-  // On Electron, connect immediately (workers handle the concurrent load).
-  if (!isIOS) {
-    console.log('[powersync] Calling db.connect()...');
-    await db.connect(connector);
-    console.log('[powersync] Connected to sync service.');
-  }
-
-  window._powersyncDB = db;
-  window._supabase = supabase;
 
   // ── Helper: get current user ID ─────────────────────────────────────────
   function getUserId() {
@@ -450,6 +444,7 @@
   }
 
   async function syncPendingAttachments() {
+    if (!db) return;
     const userId = getUserId();
     if (!userId) return;
     try {
@@ -482,6 +477,7 @@
   }
 
   async function downloadMissingAttachments() {
+    if (!db) return;
     const userId = getUserId();
     if (!userId) return;
     try {
@@ -510,294 +506,319 @@
   }
 
   window.addEventListener('online', () => {
+    if (!db) return;
     scheduleSyncPending();
     scheduleDownloadMissing();
   });
 
-  // ── NoteStorage implementation ──────────────────────────────────────────
-  window.PowerSyncNoteStorage = {
-    async getNote(name) {
-      const userId = getUserId();
-      if (!userId) return null;
-      const result = await db.get(
-        'SELECT content FROM notes WHERE name = ? AND user_id = ? AND deleted = 0',
-        [name, userId]
-      ).catch(() => null);
-      return result?.content ?? null;
-    },
+  // ── NoteStorage builder (called after db.init) ─────────────────────────
+  function _buildNoteStorage() {
+    window.PowerSyncNoteStorage = {
+      async getNote(name) {
+        const userId = getUserId();
+        if (!userId) return null;
+        const result = await db.get(
+          'SELECT content FROM notes WHERE name = ? AND user_id = ? AND deleted = 0',
+          [name, userId]
+        ).catch(() => null);
+        return result?.content ?? null;
+      },
 
-    async setNote(name, content) {
-      const userId = getUserId();
-      if (!userId) return;
-      const now = new Date().toISOString();
-      const existing = await db.get(
-        'SELECT id FROM notes WHERE name = ? AND user_id = ? AND deleted = 0',
-        [name, userId]
-      ).catch(() => null);
-
-      if (existing) {
-        await db.execute(
-          'UPDATE notes SET content = ?, updated_at = ? WHERE id = ?',
-          [content, now, existing.id]
-        );
-      } else {
-        await db.execute(
-          'INSERT INTO notes (id, name, content, deleted, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, 0, ?, ?, ?)',
-          [name, content, now, now, userId]
-        );
-      }
-    },
-
-    async removeNote(name) {
-      const userId = getUserId();
-      if (!userId) return;
-      await db.execute(
-        'DELETE FROM notes WHERE name = ? AND user_id = ?',
-        [name, userId]
-      );
-    },
-
-    async trashNote(name) {
-      const userId = getUserId();
-      if (!userId) return;
-      const now = new Date().toISOString();
-      await db.execute(
-        'UPDATE notes SET deleted = 1, updated_at = ? WHERE name = ? AND user_id = ? AND deleted = 0',
-        [now, name, userId]
-      );
-    },
-
-    async getAllNoteNames() {
-      const userId = getUserId();
-      if (!userId) return [];
-      const results = await db.getAll(
-        'SELECT name FROM notes WHERE user_id = ? AND deleted = 0',
-        [userId]
-      );
-      return results.map(r => r.name);
-    },
-
-    async getAllNotes() {
-      const userId = getUserId();
-      if (!userId) return [];
-      const results = await db.getAll(
-        'SELECT name, content FROM notes WHERE user_id = ? AND deleted = 0',
-        [userId]
-      );
-      return results.map(r => ({ name: r.name, content: r.content }));
-    },
-
-    async clear() {
-      const userId = getUserId();
-      if (!userId) return 0;
-      const notes = await db.getAll(
-        'SELECT id FROM notes WHERE user_id = ? AND deleted = 0',
-        [userId]
-      );
-      if (notes.length === 0) return 0;
-      await db.execute(
-        'DELETE FROM notes WHERE user_id = ? AND deleted = 0',
-        [userId]
-      );
-      return notes.length;
-    },
-
-    // ── Attachments — local-first with background sync ────────────────
-
-    async writeAttachment(noteName, filename, base64data) {
-      const userId = getUserId();
-      if (!userId) return false;
-      try {
-        const storagePath = `${userId}/${noteName}/${filename}`;
+      async setNote(name, content) {
+        const userId = getUserId();
+        if (!userId) return;
         const now = new Date().toISOString();
         const existing = await db.get(
-          'SELECT id FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
-          [noteName, filename, userId]
+          'SELECT id FROM notes WHERE name = ? AND user_id = ? AND deleted = 0',
+          [name, userId]
         ).catch(() => null);
 
         if (existing) {
           await db.execute(
-            'UPDATE attachments SET storage_path = ?, local_data = ?, sync_state = ?, updated_at = ? WHERE id = ?',
-            [storagePath, base64data, 'pending', now, existing.id]
+            'UPDATE notes SET content = ?, updated_at = ? WHERE id = ?',
+            [content, now, existing.id]
           );
         } else {
           await db.execute(
-            'INSERT INTO attachments (id, note_name, filename, storage_path, local_data, sync_state, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?)',
-            [noteName, filename, storagePath, base64data, 'pending', now, now, userId]
+            'INSERT INTO notes (id, name, content, deleted, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, 0, ?, ?, ?)',
+            [name, content, now, now, userId]
           );
         }
-        scheduleSyncPending();
-        return true;
-      } catch (e) {
-        console.error('[powersync] writeAttachment failed:', e);
-        return false;
-      }
-    },
+      },
 
-    async readAttachment(noteName, filename) {
-      const userId = getUserId();
-      if (!userId) return null;
-      try {
-        const rec = await db.get(
-          'SELECT id, storage_path, local_data FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
-          [noteName, filename, userId]
-        ).catch(() => null);
-        if (!rec) return null;
+      async removeNote(name) {
+        const userId = getUserId();
+        if (!userId) return;
+        await db.execute(
+          'DELETE FROM notes WHERE name = ? AND user_id = ?',
+          [name, userId]
+        );
+      },
 
-        if (rec.local_data) return rec.local_data;
-
-        try {
-          const { data, error } = await supabase.storage
-            .from('attachments')
-            .download(rec.storage_path);
-          if (error) throw error;
-          const b64 = bufferToBase64(await data.arrayBuffer());
-          await db.execute(
-            'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
-            [b64, 'synced', rec.id]
-          ).catch(() => {});
-          return b64;
-        } catch (dlErr) {
-          console.warn('[powersync] readAttachment download deferred (offline?):', dlErr.message);
-          return null;
-        }
-      } catch (e) {
-        console.error('[powersync] readAttachment failed:', e);
-        return null;
-      }
-    },
-
-    async renameAttachment(noteName, oldFilename, newFilename) {
-      const userId = getUserId();
-      if (!userId) return false;
-      try {
-        const newPath = `${userId}/${noteName}/${newFilename}`;
+      async trashNote(name) {
+        const userId = getUserId();
+        if (!userId) return;
         const now = new Date().toISOString();
         await db.execute(
-          'UPDATE attachments SET filename = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
-          [newFilename, newPath, 'pending', now, noteName, oldFilename, userId]
+          'UPDATE notes SET deleted = 1, updated_at = ? WHERE name = ? AND user_id = ? AND deleted = 0',
+          [now, name, userId]
         );
-        const oldPath = `${userId}/${noteName}/${oldFilename}`;
-        supabase.storage.from('attachments').move(oldPath, newPath).then(({ error }) => {
-          if (!error) {
-            db.execute(
-              'UPDATE attachments SET sync_state = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
-              ['synced', noteName, newFilename, userId]
-            ).catch(() => {});
-          } else {
-            supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
-          }
-        }).catch(() => {
-          supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
-        });
-        return true;
-      } catch (e) {
-        console.error('[powersync] renameAttachment failed:', e);
-        return false;
-      }
-    },
+      },
 
-    async removeAttachmentDir(noteName) {
-      const userId = getUserId();
-      if (!userId) return;
-      try {
-        const recs = await db.getAll(
-          'SELECT storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
-          [noteName, userId]
+      async getAllNoteNames() {
+        const userId = getUserId();
+        if (!userId) return [];
+        const results = await db.getAll(
+          'SELECT name FROM notes WHERE user_id = ? AND deleted = 0',
+          [userId]
         );
+        return results.map(r => r.name);
+      },
+
+      async getAllNotes() {
+        const userId = getUserId();
+        if (!userId) return [];
+        const results = await db.getAll(
+          'SELECT name, content FROM notes WHERE user_id = ? AND deleted = 0',
+          [userId]
+        );
+        return results.map(r => ({ name: r.name, content: r.content }));
+      },
+
+      async clear() {
+        const userId = getUserId();
+        if (!userId) return 0;
+        const allNotes = await db.getAll(
+          'SELECT id FROM notes WHERE user_id = ? AND deleted = 0',
+          [userId]
+        );
+        if (allNotes.length === 0) return 0;
         await db.execute(
-          'DELETE FROM attachments WHERE note_name = ? AND user_id = ?',
-          [noteName, userId]
+          'DELETE FROM notes WHERE user_id = ? AND deleted = 0',
+          [userId]
         );
-        const remotePaths = recs.filter(r => r.storage_path).map(r => r.storage_path);
-        if (remotePaths.length > 0) {
-          supabase.storage.from('attachments').remove(remotePaths).catch(e => {
-            console.warn('[powersync] Storage cleanup on remove failed (non-fatal):', e.message);
-          });
-        }
-      } catch (e) {
-        console.error('[powersync] removeAttachmentDir failed:', e);
-      }
-    },
+        return allNotes.length;
+      },
 
-    async renameAttachmentDir(oldNoteName, newNoteName) {
-      const userId = getUserId();
-      if (!userId) return;
-      try {
-        const recs = await db.getAll(
-          'SELECT id, filename, storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
-          [oldNoteName, userId]
-        );
-        for (const rec of recs) {
-          const newPath = `${userId}/${newNoteName}/${rec.filename}`;
+      // ── Attachments — local-first with background sync ────────────────
+
+      async writeAttachment(noteName, filename, base64data) {
+        const userId = getUserId();
+        if (!userId) return false;
+        try {
+          const storagePath = `${userId}/${noteName}/${filename}`;
+          const now = new Date().toISOString();
+          const existing = await db.get(
+            'SELECT id FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
+            [noteName, filename, userId]
+          ).catch(() => null);
+
+          if (existing) {
+            await db.execute(
+              'UPDATE attachments SET storage_path = ?, local_data = ?, sync_state = ?, updated_at = ? WHERE id = ?',
+              [storagePath, base64data, 'pending', now, existing.id]
+            );
+          } else {
+            await db.execute(
+              'INSERT INTO attachments (id, note_name, filename, storage_path, local_data, sync_state, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, ?, ?, ?, ?, ?, ?)',
+              [noteName, filename, storagePath, base64data, 'pending', now, now, userId]
+            );
+          }
+          scheduleSyncPending();
+          return true;
+        } catch (e) {
+          console.error('[powersync] writeAttachment failed:', e);
+          return false;
+        }
+      },
+
+      async readAttachment(noteName, filename) {
+        const userId = getUserId();
+        if (!userId) return null;
+        try {
+          const rec = await db.get(
+            'SELECT id, storage_path, local_data FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
+            [noteName, filename, userId]
+          ).catch(() => null);
+          if (!rec) return null;
+
+          if (rec.local_data) return rec.local_data;
+
+          try {
+            const { data, error } = await supabase.storage
+              .from('attachments')
+              .download(rec.storage_path);
+            if (error) throw error;
+            const b64 = bufferToBase64(await data.arrayBuffer());
+            await db.execute(
+              'UPDATE attachments SET local_data = ?, sync_state = ? WHERE id = ?',
+              [b64, 'synced', rec.id]
+            ).catch(() => {});
+            return b64;
+          } catch (dlErr) {
+            console.warn('[powersync] readAttachment download deferred (offline?):', dlErr.message);
+            return null;
+          }
+        } catch (e) {
+          console.error('[powersync] readAttachment failed:', e);
+          return null;
+        }
+      },
+
+      async renameAttachment(noteName, oldFilename, newFilename) {
+        const userId = getUserId();
+        if (!userId) return false;
+        try {
+          const newPath = `${userId}/${noteName}/${newFilename}`;
           const now = new Date().toISOString();
           await db.execute(
-            'UPDATE attachments SET note_name = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE id = ?',
-            [newNoteName, newPath, 'pending', now, rec.id]
+            'UPDATE attachments SET filename = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
+            [newFilename, newPath, 'pending', now, noteName, oldFilename, userId]
           );
-          if (rec.sync_state === 'synced') {
-            supabase.storage.from('attachments').move(rec.storage_path, newPath).then(({ error }) => {
-              if (!error) {
-                db.execute(
-                  'UPDATE attachments SET sync_state = ? WHERE id = ?',
-                  ['synced', rec.id]
-                ).catch(() => {});
-              }
-            }).catch(() => {});
+          const oldPath = `${userId}/${noteName}/${oldFilename}`;
+          supabase.storage.from('attachments').move(oldPath, newPath).then(({ error }) => {
+            if (!error) {
+              db.execute(
+                'UPDATE attachments SET sync_state = ? WHERE note_name = ? AND filename = ? AND user_id = ?',
+                ['synced', noteName, newFilename, userId]
+              ).catch(() => {});
+            } else {
+              supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
+            }
+          }).catch(() => {
+            supabase.storage.from('attachments').remove([oldPath]).catch(() => {});
+          });
+          return true;
+        } catch (e) {
+          console.error('[powersync] renameAttachment failed:', e);
+          return false;
+        }
+      },
+
+      async removeAttachmentDir(noteName) {
+        const userId = getUserId();
+        if (!userId) return;
+        try {
+          const recs = await db.getAll(
+            'SELECT storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
+            [noteName, userId]
+          );
+          await db.execute(
+            'DELETE FROM attachments WHERE note_name = ? AND user_id = ?',
+            [noteName, userId]
+          );
+          const remotePaths = recs.filter(r => r.storage_path).map(r => r.storage_path);
+          if (remotePaths.length > 0) {
+            supabase.storage.from('attachments').remove(remotePaths).catch(e => {
+              console.warn('[powersync] Storage cleanup on remove failed (non-fatal):', e.message);
+            });
           }
+        } catch (e) {
+          console.error('[powersync] removeAttachmentDir failed:', e);
         }
-      } catch (e) {
-        console.error('[powersync] renameAttachmentDir failed:', e);
-      }
-    },
+      },
 
-    async listAttachments(noteName) {
-      const userId = getUserId();
-      if (!userId) return [];
-      const recs = await db.getAll(
-        'SELECT filename FROM attachments WHERE note_name = ? AND user_id = ?',
-        [noteName, userId]
-      );
-      return recs.map(r => r.filename);
-    },
-
-    isSyncEnabled: true,
-
-    async triggerSync() {
-      try {
-        if (isIOS) {
-          // iOS: connect briefly to pull the latest data, then disconnect to
-          // free the WASM resources.  Auto-sync is disabled because the
-          // persistent sync stream's WASM processing crashes WKWebView's
-          // ~400 MB WebContent process.
-          console.log('[powersync] iOS: manual sync — connecting...');
-          await db.connect(connector);
-          // Give the sync stream a short window to download changes.
-          await new Promise(r => setTimeout(r, 8000));
-          await db.disconnect();
-          console.log('[powersync] iOS: manual sync — disconnected.');
-          // Fire a change event so the UI refreshes with any new data.
-          window.dispatchEvent(new CustomEvent('powersync:change'));
-        } else {
-          await db.disconnect();
-          await db.connect(connector);
+      async renameAttachmentDir(oldNoteName, newNoteName) {
+        const userId = getUserId();
+        if (!userId) return;
+        try {
+          const recs = await db.getAll(
+            'SELECT id, filename, storage_path, sync_state FROM attachments WHERE note_name = ? AND user_id = ?',
+            [oldNoteName, userId]
+          );
+          for (const rec of recs) {
+            const newPath = `${userId}/${newNoteName}/${rec.filename}`;
+            const now = new Date().toISOString();
+            await db.execute(
+              'UPDATE attachments SET note_name = ?, storage_path = ?, sync_state = ?, updated_at = ? WHERE id = ?',
+              [newNoteName, newPath, 'pending', now, rec.id]
+            );
+            if (rec.sync_state === 'synced') {
+              supabase.storage.from('attachments').move(rec.storage_path, newPath).then(({ error }) => {
+                if (!error) {
+                  db.execute(
+                    'UPDATE attachments SET sync_state = ? WHERE id = ?',
+                    ['synced', rec.id]
+                  ).catch(() => {});
+                }
+              }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.error('[powersync] renameAttachmentDir failed:', e);
         }
-        await syncPendingAttachments();
-        await downloadMissingAttachments();
-      } catch (e) {
-        console.error('[powersync] triggerSync failed:', e);
+      },
+
+      async listAttachments(noteName) {
+        const userId = getUserId();
+        if (!userId) return [];
+        const recs = await db.getAll(
+          'SELECT filename FROM attachments WHERE note_name = ? AND user_id = ?',
+          [noteName, userId]
+        );
+        return recs.map(r => r.filename);
+      },
+
+      isSyncEnabled: true,
+
+      async triggerSync() {
+        try {
+          if (isIOS) {
+            console.log('[powersync] iOS: manual sync — connecting...');
+            await db.connect(connector);
+            await new Promise(r => setTimeout(r, 8000));
+            await db.disconnect();
+            console.log('[powersync] iOS: manual sync — disconnected.');
+            window.dispatchEvent(new CustomEvent('powersync:change'));
+          } else {
+            await db.disconnect();
+            await db.connect(connector);
+          }
+          await syncPendingAttachments();
+          await downloadMissingAttachments();
+        } catch (e) {
+          console.error('[powersync] triggerSync failed:', e);
+        }
       }
-    }
-  };
+    };
+  }
+
+  // ── iOS: defer WASM init entirely ─────────────────────────────────────
+  // The WASM module compilation + db.init() on the main thread crashes the
+  // WKWebView WebContent process on startup (segfault, reason=Crash).
+  // Defer all heavy work to the first user-triggered sync. The app starts
+  // with localStorage and switches to PowerSync on first sync.
+  if (isIOS) {
+    console.log('[powersync] iOS: WASM init deferred until first sync. Using localStorage.');
+    window._supabase = supabase;
+
+    // Expose lazy initializer — called from tap-to-sync in app-init.js.
+    window._lazyPowerSyncInit = async function () {
+      if (db) return; // already initialized
+      console.log('[powersync] iOS: lazy init starting (user triggered sync)...');
+      await _createAndInitDB();
+      _buildNoteStorage();
+      window.NoteStorage = window.PowerSyncNoteStorage;
+      console.log('[powersync] iOS: lazy init complete. NoteStorage switched to PowerSync.');
+    };
+
+    // Let app-init.js proceed with localStorage immediately (don't block).
+    window.dispatchEvent(new CustomEvent('powersync:disabled'));
+    return; // ← early exit from IIFE; rest is Electron-only
+  }
+
+  // ── Electron: init immediately ────────────────────────────────────────
+  await _createAndInitDB();
+  await db.connect(connector);
+  console.log('[powersync] Connected to sync service.');
+
+  _buildNoteStorage();
 
   // Signal readiness — UI can now query local data via NoteStorage
   console.log('[powersync] Ready. NoteStorage overridden with PowerSync implementation.');
   window.dispatchEvent(new CustomEvent('powersync:ready'));
 
-  // ── Reactive change notifications ─────────────────────────────────────
-  // During initial sync PowerSync fires many rapid change events. Debounce
-  // the dispatched event so the UI handler (handlePowerSyncChange) doesn't
-  // run dozens of concurrent DB reads that overwhelm the iOS WebContent process.
+  // ── Reactive change notifications (Electron only) ─────────────────────
   const abortController = new AbortController();
   let _changeDebounce = null;
   let _settledTimer = null;
@@ -806,8 +827,6 @@
     clearTimeout(_changeDebounce);
     _changeDebounce = setTimeout(() => {
       window.dispatchEvent(new CustomEvent('powersync:change'));
-      // After changes stop arriving for 3 seconds, fire a one-time 'settled'
-      // event that calendar-sync uses to know initial sync is done.
       clearTimeout(_settledTimer);
       _settledTimer = setTimeout(() => {
         if (!_hasFiredSettled) {
@@ -815,65 +834,34 @@
           window.dispatchEvent(new CustomEvent('powersync:settled'));
         }
       }, 3000);
-    }, isIOS ? 500 : 100);
+    }, 100);
   }
 
-  function _startWatches() {
-    (async () => {
-      try {
-        for await (const _update of db.watch('SELECT COUNT(*) as c FROM notes WHERE deleted = 0', [], { signal: abortController.signal })) {
-          _scheduleChange();
-        }
-      } catch (e) {
-        if (e.name !== 'AbortError') console.error('[powersync] watch error:', e);
+  (async () => {
+    try {
+      for await (const _update of db.watch('SELECT COUNT(*) as c FROM notes WHERE deleted = 0', [], { signal: abortController.signal })) {
+        _scheduleChange();
       }
-    })();
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('[powersync] watch error:', e);
+    }
+  })();
 
-    (async () => {
-      try {
-        for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
-          scheduleDownloadMissing();
-          _scheduleChange();
-        }
-      } catch (e) {
-        if (e.name !== 'AbortError') console.error('[powersync] attachments watch error:', e);
+  (async () => {
+    try {
+      for await (const _update of db.watch('SELECT COUNT(*) as c FROM attachments', [], { signal: abortController.signal })) {
+        scheduleDownloadMissing();
+        _scheduleChange();
       }
-    })();
-  }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('[powersync] attachments watch error:', e);
+    }
+  })();
 
-  if (isIOS) {
-    // iOS: do NOT auto-connect to sync. The persistent sync stream processes
-    // data through WASM SQLite on the main thread (no worker, no SharedWorker)
-    // which overwhelms the ~400 MB WKWebView WebContent process and crashes it.
-    // Instead, the user triggers sync manually via triggerSync() (tap-to-sync
-    // button) which connects briefly, pulls changes, then disconnects.
-    // Skip watches on iOS. db.watch() reactive queries run on the main thread
-    // (no web worker) and fire for every local SQLite write. When calendar sync
-    // writes daily notes, the watches cascade into handlePowerSyncChange() which
-    // does more DB reads — overwhelming the ~400 MB WebContent process. Watches
-    // are redundant here: user edits update the UI directly, manual triggerSync()
-    // calls handlePowerSyncChange() explicitly, and calendar sync handles its own
-    // note updates.
-    console.log('[powersync] iOS: sync is manual-only (tap to sync). Watches skipped to avoid main-thread pressure.');
-    // Calendar sync on iOS is now lazy (started on first user-triggered sync),
-    // so there is no need to fire powersync:settled on a timer.
-  } else {
-    // Desktop: workers handle the heavy lifting, start watches immediately.
-    _startWatches();
-
-    // On desktop (Electron), close the DB when the page unloads so the WASM
-    // worker is cleaned up. On iOS we deliberately skip this: pagehide fires
-    // when the app goes to background, and db.close() destroys the WASM SQLite
-    // worker. When the app returns, any attempt to query the closed DB (e.g.
-    // from the resume handler in app-init.js) causes a native WebContent process
-    // crash. On iOS we leave the DB open — PowerSync reconnects the sync stream
-    // automatically after any network interruption, so no explicit lifecycle
-    // management is needed here.
-    window.addEventListener('pagehide', () => {
-      abortController.abort();
-      db.close({ disconnect: false });
-    });
-  }
+  window.addEventListener('pagehide', () => {
+    abortController.abort();
+    db.close({ disconnect: false });
+  });
 
   } catch (err) {
     console.error('[powersync] Initialization failed:', err);
