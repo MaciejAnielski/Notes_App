@@ -670,16 +670,6 @@ window.addEventListener('storage', e => {
     } else {
       invalidateScheduleCache();
     }
-    // If this window owns PowerSync, forward the change to the sync database so
-    // it reaches the cloud. The primary window never writes to localStorage md_*
-    // keys directly, so any storage event here must have come from a secondary window.
-    if (window.PowerSyncNoteStorage) {
-      if (e.newValue !== null) {
-        NoteStorage.setNote(changedNote, e.newValue).catch(console.error);
-      } else {
-        NoteStorage.removeNote(changedNote).catch(console.error);
-      }
-    }
     return;
   }
 });
@@ -696,34 +686,6 @@ window.addEventListener('storage', e => {
 // powersync:ready event (iOS, where the async init finishes later).
 
 let _syncKnownNames = null;
-
-// ── PowerSync → localStorage mirror (for secondary windows) ──────────────────
-// Secondary windows have no PowerSync connection. They read notes from
-// localStorage and stay live via storage events. This function keeps
-// localStorage in sync with the PowerSync SQLite database so that:
-//   • Secondary windows see the current note list on startup.
-//   • Cloud changes (synced into PowerSync) propagate to secondary windows
-//     as storage events, which the existing handler already processes.
-// Only the primary window calls this — secondary windows never have
-// window.PowerSyncNoteStorage set.
-async function _mirrorPowerSyncToLocalStorage() {
-  if (!window.PowerSyncNoteStorage) return;
-  const notes = await NoteStorage.getAllNotes(); // hits the in-memory cache — fast
-  const psNames = new Set(notes.map(n => n.name));
-  // Remove localStorage entries that no longer exist in PowerSync
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith('md_') && !psNames.has(k.slice(3))) {
-      localStorage.removeItem(k);
-    }
-  }
-  // Write new or updated notes into localStorage
-  for (const { name, content } of notes) {
-    if (localStorage.getItem('md_' + name) !== content) {
-      localStorage.setItem('md_' + name, content);
-    }
-  }
-}
 
 async function handlePowerSyncChange() {
   if (!window.PowerSyncNoteStorage) return;
@@ -810,11 +772,6 @@ async function handlePowerSyncChange() {
     await updateFileList();
   } else if (contentChanged) {
     invalidateScheduleCache();
-  }
-  // Mirror any changes from PowerSync into localStorage so secondary windows
-  // pick them up via storage events. Only runs when something actually changed.
-  if (structuralChanged || contentChanged) {
-    await _mirrorPowerSyncToLocalStorage();
   }
 }
 
@@ -1042,10 +999,6 @@ async function migrateLocalNotesToSync() {
     // This eliminates SQLite round-trips when the user clicks between notes.
     setLoadingProgress(45, 'Caching notes\u2026');
     const allNotesCached = await NoteStorage.getAllNotes();
-
-    // Mirror all notes into localStorage now so any secondary windows opened
-    // immediately after startup already see the full note list.
-    await _mirrorPowerSyncToLocalStorage();
 
     setLoadingProgress(55, 'Loading note\u2026');
     const initialContent = lastFile

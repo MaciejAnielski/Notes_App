@@ -28,13 +28,31 @@
   const isIOS = !!window.Capacitor?.isNativePlatform();
   if (!isElectron && !isIOS) return;
 
-  // Secondary windows (opened via Ctrl+Shift+N) must not create a duplicate
-  // PowerSync/Supabase connection. They use localStorage and receive live
-  // note updates from the primary window via cross-window storage events.
+  // Secondary windows (opened via Ctrl+Shift+N) delegate all NoteStorage
+  // operations to the primary window via IPC so there is only one PowerSync
+  // connection and one SQLite database across all windows.
+  // Changes are pushed back via BroadcastChannel so secondary windows stay
+  // reactive without any extra connections.
   const isSecondary = new URLSearchParams(window.location.search).get('secondary') === 'true';
   if (isSecondary) {
-    console.log('[powersync] Secondary window — skipping PowerSync init, using localStorage.');
-    window.dispatchEvent(new CustomEvent('powersync:disabled'));
+    console.log('[powersync] Secondary window — proxying NoteStorage to primary window.');
+    // Every NoteStorage method becomes an IPC call forwarded to the primary.
+    const PROXY_METHODS = [
+      'getNote', 'setNote', 'renameNote', 'removeNote', 'trashNote',
+      'getAllNoteNames', 'getAllNotes', 'refreshCache', 'triggerSync',
+      'writeAttachment', 'readAttachment', 'renameAttachment',
+      'removeAttachmentDir', 'renameAttachmentDir', 'listAttachments',
+    ];
+    const proxy = {};
+    for (const method of PROXY_METHODS) {
+      proxy[method] = (...args) => window.electronAPI.proxyNoteStorage(method, args);
+    }
+    window.PowerSyncNoteStorage = proxy;
+    // Re-dispatch powersync:change locally whenever the primary window broadcasts
+    // a change, so handlePowerSyncChange() runs and the UI stays current.
+    const changeChannel = new BroadcastChannel('notes:powersync:change');
+    changeChannel.onmessage = () => window.dispatchEvent(new CustomEvent('powersync:change'));
+    window.dispatchEvent(new CustomEvent('powersync:ready'));
     return;
   }
 
@@ -921,6 +939,8 @@
 
   // ── Reactive change notifications ─────────────────────────────────────
   const abortController = new AbortController();
+  // Broadcast changes to secondary windows so they can refresh via their proxy.
+  const _psChangeChannel = new BroadcastChannel('notes:powersync:change');
   let _changeDebounce = null;
   let _settledTimer = null;
   let _hasFiredSettled = false;
@@ -928,6 +948,7 @@
     clearTimeout(_changeDebounce);
     _changeDebounce = setTimeout(() => {
       window.dispatchEvent(new CustomEvent('powersync:change'));
+      _psChangeChannel.postMessage('change');
       clearTimeout(_settledTimer);
       _settledTimer = setTimeout(() => {
         if (!_hasFiredSettled) {

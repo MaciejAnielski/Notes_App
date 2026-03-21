@@ -152,11 +152,33 @@ function registerHandlers() {
     }
   });
 
-  // Open a new note window. Pass secondary=true so the new window skips
-  // re-initialising PowerSync/Supabase and uses localStorage instead,
-  // relying on cross-window storage events for live updates.
+  // Open a new note window. The new window gets ?secondary=true so it proxies
+  // all NoteStorage calls back to the primary window instead of initialising
+  // its own PowerSync connection.
   ipcMain.handle('notes:newWindow', () => {
     createWindow(true);
+  });
+
+  // Relay a NoteStorage method call from a secondary window to the primary
+  // window's renderer via executeJavaScript. The primary window owns the
+  // PowerSync connection so all reads/writes go through one database.
+  const PROXY_METHODS = new Set([
+    'getNote', 'setNote', 'renameNote', 'removeNote', 'trashNote',
+    'getAllNoteNames', 'getAllNotes', 'refreshCache', 'triggerSync',
+    'writeAttachment', 'readAttachment', 'renameAttachment',
+    'removeAttachmentDir', 'renameAttachmentDir', 'listAttachments',
+  ]);
+  ipcMain.handle('notes:proxy', async (_event, method, args) => {
+    if (!PROXY_METHODS.has(method)) throw new Error(`Disallowed proxy method: ${method}`);
+    if (!primaryWindow) throw new Error('Primary window not available');
+    // Call NoteStorage[method](...args) inside the primary renderer and return
+    // the result. JSON-serialisable values (strings, arrays, booleans, null)
+    // survive the structured-clone round-trip automatically.
+    return primaryWindow.webContents.executeJavaScript(
+      `typeof NoteStorage[${JSON.stringify(method)}] === 'function'` +
+      ` ? NoteStorage[${JSON.stringify(method)}](...${JSON.stringify(args)})` +
+      ` : null`
+    );
   });
 }
 

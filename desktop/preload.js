@@ -25,5 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('notes:openAttachmentFile', filename, base64data),
 
   // Open a new application window.
-  newWindow: () => ipcRenderer.invoke('notes:newWindow')
+  newWindow: () => ipcRenderer.invoke('notes:newWindow'),
+
+  // Forward a NoteStorage call to the primary window (secondary windows only).
+  proxyNoteStorage: (method, args) => ipcRenderer.invoke('notes:proxy', method, args)
 });
