@@ -1854,12 +1854,12 @@ body.panel-pinned {
 
 /* ── Mobile: centre toolbar and show status message above it ── */
 @media (max-width: 650px) {
-  #button-container {
+  body:not(.electron) #button-container {
     justify-content: center;
     margin-left: 0;
   }
 
-  #tools-overflow-row {
+  body:not(.electron) #tools-overflow-row {
     justify-content: center;
   }
 
@@ -1875,7 +1875,7 @@ body.panel-pinned {
   }
 
   /* ── Status and backup messages — fixed to bottom of viewport on mobile ── */
-  #bottom-status-area {
+  body:not(.electron) #bottom-status-area {
     position: fixed;
     bottom: 0;
     left: 0;
@@ -1887,17 +1887,17 @@ body.panel-pinned {
   }
 
   /* Push editor/preview content above the fixed status bar */
-  #editor-section {
+  body:not(.electron) #editor-section {
     padding-bottom: calc(50px + env(safe-area-inset-bottom));
   }
 
-  #status-message {
+  body:not(.electron) #status-message {
     z-index: 11;
     bottom: 4px;
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
-  #panel-lists {
+  body:not(.electron) #panel-lists {
     position: fixed;
     top: 0;
     left: 0;
@@ -1920,8 +1920,8 @@ body.panel-pinned {
     padding-left: calc(env(safe-area-inset-left) + var(--gap) * 2);
   }
 
-  #panel-lists.visible,
-  #panel-lists.pinned {
+  body:not(.electron) #panel-lists.visible,
+  body:not(.electron) #panel-lists.pinned {
     transform: translateX(-100%);
   }
 
@@ -1978,12 +1978,12 @@ body.panel-pinned {
   }
 
   /* Remove body padding-right override on mobile */
-  body.panel-pinned {
+  body:not(.electron).panel-pinned {
     padding-right: 0;
   }
 
   /* ── Find/Replace: bottom sheet on mobile ── */
-  #global-search-panel {
+  body:not(.electron) #global-search-panel {
     position: fixed;
     top: auto;
     bottom: 0;
@@ -1999,12 +1999,12 @@ body.panel-pinned {
     transition: bottom 0.25s ease;
   }
 
-  #global-search-panel .gs-row {
+  body:not(.electron) #global-search-panel .gs-row {
     padding: 8px 10px;
   }
 
-  #gs-search-input,
-  #gs-replace-input {
+  body:not(.electron) #gs-search-input,
+  body:not(.electron) #gs-replace-input {
     font-size: 16px;
     padding: 8px 10px;
   }
@@ -2034,9 +2034,29 @@ body.panel-pinned {
   }
 
   /* Minimum touch target size for iOS accessibility */
-  #button-container .button-group > button:not(.sub-button) {
+  body:not(.electron) #button-container .button-group > button:not(.sub-button) {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* ── Electron: hide the side panel at narrow widths ──────────────────────
+     No mobile layout, but a pinned or visible panel takes space and cramps
+     the editor.  We suppress it via CSS so the JS state (panel-visible /
+     panel-pinned) is preserved and the panel reappears when the window widens.  */
+  body.electron #panel-lists.visible,
+  body.electron #panel-lists.pinned {
+    display: none !important;
+  }
+
+  body.electron.panel-pinned {
+    padding-right: 0;
+  }
+
+  /* The toolbar max-width constraint for floating panels is no longer needed
+     when the panel is hidden. */
+  body.electron.panel-visible #button-container,
+  body.electron.panel-visible #tools-overflow-row {
+    max-width: 100%;
   }
 }
 

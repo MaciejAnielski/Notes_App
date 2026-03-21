@@ -8,7 +8,7 @@
 // Applied before any layout so macOS-specific CSS (drag regions, padding-left)
 // takes effect immediately without a flash of wrong layout.
 if (window.electronAPI) {
-  document.body.classList.add('platform-' + window.electronAPI.platform);
+  document.body.classList.add('platform-' + window.electronAPI.platform, 'electron');
 }
 
 // ── Button event registrations ────────────────────────────────────────────
