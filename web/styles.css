@@ -1940,9 +1940,9 @@ body.panel-pinned {
     transform: translateX(-100%);
   }
 
-  #panel-lists.mobile-open-left,
-  #panel-lists.mobile-open-left.visible,
-  #panel-lists.mobile-open-left.pinned {
+  body:not(.electron) #panel-lists.mobile-open-left,
+  body:not(.electron) #panel-lists.mobile-open-left.visible,
+  body:not(.electron) #panel-lists.mobile-open-left.pinned {
     transform: translateX(0);
   }
 
