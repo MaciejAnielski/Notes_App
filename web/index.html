@@ -119,6 +119,13 @@
 
 <body>
 
+    <!-- macOS: full-width drag strip that sits behind all toolbar content.
+         -webkit-app-region:drag on this element lets the user drag the window
+         by clicking on any empty area of the toolbar row. Buttons and inputs
+         within #button-container override it with no-drag so clicks still work.
+         Only visible/active on macOS (body.platform-darwin), see styles.css. -->
+    <div id="window-drag-region"></div>
+
     <!-- Loading screen: shown immediately, dismissed after async init completes -->
     <div id="loading-screen">
       <div class="loading-content">

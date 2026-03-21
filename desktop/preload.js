@@ -28,5 +28,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   newWindow: () => ipcRenderer.invoke('notes:newWindow'),
 
   // Forward a NoteStorage call to the primary window (secondary windows only).
-  proxyNoteStorage: (method, args) => ipcRenderer.invoke('notes:proxy', method, args)
+  proxyNoteStorage: (method, args) => ipcRenderer.invoke('notes:proxy', method, args),
+
+  // macOS: start/stop polling-based window drag initiated from a toolbar button.
+  windowDragStart: () => ipcRenderer.send('window-drag-start'),
+  windowDragStop:  () => ipcRenderer.send('window-drag-stop')
 });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, screen } = require('electron');
 const http = require('http');
 const path = require('path');
 const os = require('os');
@@ -180,6 +180,35 @@ function registerHandlers() {
       ` : null`
     );
   });
+
+  // ── macOS button-drag: move the window when the user drags on a toolbar button ──
+  // Renderer sends window-drag-start when the mouse exceeds the 5 px threshold
+  // on a button. We poll the cursor position at ~16 ms and call setPosition().
+  ipcMain.on('window-drag-start', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    const id = event.sender.id;
+    // Clear any previous drag for this window.
+    const prev = _dragState.get(id);
+    if (prev) clearInterval(prev);
+
+    const { x: cursorX0, y: cursorY0 } = screen.getCursorScreenPoint();
+    const [winX0, winY0] = win.getPosition();
+
+    const timer = setInterval(() => {
+      if (win.isDestroyed()) { clearInterval(timer); _dragState.delete(id); return; }
+      const { x, y } = screen.getCursorScreenPoint();
+      win.setPosition(winX0 + (x - cursorX0), winY0 + (y - cursorY0));
+    }, 16);
+
+    _dragState.set(id, timer);
+  });
+
+  ipcMain.on('window-drag-stop', (event) => {
+    const id = event.sender.id;
+    const timer = _dragState.get(id);
+    if (timer) { clearInterval(timer); _dragState.delete(id); }
+  });
 }
 
 // ── Forward a deep-link URL to the renderer (protocol handler fallback) ──────
@@ -203,7 +232,12 @@ function getWebPath() {
 // secondary=true: additional window opened via Ctrl+Shift+N.
 // These windows skip PowerSync init (no duplicate DB/WebSocket connections)
 // and instead use localStorage with cross-window storage events for live sync.
+// Per-window drag state: webContentsId → intervalId.
+// Keyed per window so multiple windows can coexist safely.
+const _dragState = new Map();
+
 function createWindow(secondary = false) {
+  const isMac = process.platform === 'darwin';
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -212,12 +246,27 @@ function createWindow(secondary = false) {
     title: 'Notes App',
     backgroundColor: '#1e1e1e',
     show: false,
+    // macOS: hide the native title bar while keeping traffic lights.
+    // trafficLightPosition centres the 12 px buttons in the 28 px toolbar.
+    // Tune x/y here if the toolbar height changes.
+    ...(isMac ? {
+      titleBarStyle: 'hiddenInset',
+      trafficLightPosition: { x: 10, y: 8 },
+    } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       spellcheck: false
     }
+  });
+
+  // Clear any button-drag interval when this window loses focus so we never
+  // leak a running interval if mouseup fires outside the window.
+  win.on('blur', () => {
+    const id = win.webContents.id;
+    const timer = _dragState.get(id);
+    if (timer) { clearInterval(timer); _dragState.delete(id); }
   });
 
   // The first window ever created becomes the primary window that owns

@@ -230,6 +230,47 @@ body {
   flex-shrink: 0;
 }
 
+/* ── macOS: custom titlebar drag regions ────────────────────────────────────
+   Only applied when body.platform-darwin is set by app-init.js.
+
+   #window-drag-region  — position:fixed strip covering the full toolbar row.
+                          z-index 98, behind the toolbar (100). Handles empty
+                          space on the right side of the toolbar not covered by
+                          #button-container content.
+   #button-container    — also marked draggable so empty gaps BETWEEN buttons
+                          (where the container background shows through) also
+                          initiate a native drag.  Interactive children below
+                          override with no-drag so clicks still work normally.
+
+   Tune trafficLightPosition.y in main.js and padding-left here together:
+   padding-left ≈ traffic-light x + 3 button widths + gaps + margin (~80 px).
+*/
+body.platform-darwin #window-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  -webkit-app-region: drag;
+  app-region: drag;
+  z-index: 98;
+}
+
+body.platform-darwin #button-container {
+  padding-left: 80px;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* Every interactive descendant must opt out so native clicks are not swallowed. */
+body.platform-darwin #button-container button,
+body.platform-darwin #button-container input,
+body.platform-darwin #tools-overflow-row button,
+body.platform-darwin #tools-overflow-row input {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* ── Bottom status area — wraps status message and backup label ── */
 #bottom-status-area {
   position: relative;
