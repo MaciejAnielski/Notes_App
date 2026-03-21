@@ -28,6 +28,16 @@
   const isIOS = !!window.Capacitor?.isNativePlatform();
   if (!isElectron && !isIOS) return;
 
+  // Secondary windows (opened via Ctrl+Shift+N) must not create a duplicate
+  // PowerSync/Supabase connection. They use localStorage and receive live
+  // note updates from the primary window via cross-window storage events.
+  const isSecondary = new URLSearchParams(window.location.search).get('secondary') === 'true';
+  if (isSecondary) {
+    console.log('[powersync] Secondary window — skipping PowerSync init, using localStorage.');
+    window.dispatchEvent(new CustomEvent('powersync:disabled'));
+    return;
+  }
+
   try { // top-level catch so errors are never silently swallowed
 
   console.log('[powersync] Detected platform:', isElectron ? 'Electron' : 'iOS (Capacitor)');

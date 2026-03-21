@@ -14,7 +14,13 @@ if (!app.isDefaultProtocolClient(PROTOCOL)) {
   app.setAsDefaultProtocolClient(PROTOCOL);
 }
 
-let mainWindow = null;
+// primaryWindow is the first window ever created. It owns the PowerSync/auth
+// connection and is the target for auth callbacks and deep-links.
+// Additional windows (opened with Ctrl+Shift+N) are tracked by Electron
+// automatically via BrowserWindow.getAllWindows() and do NOT duplicate the
+// PowerSync/Supabase connection — they receive ?secondary=true and fall back
+// to localStorage + cross-window storage events.
+let primaryWindow = null;
 
 // ── Local auth-callback server ───────────────────────────────────────────────
 // When the user clicks a magic link the system browser opens the redirect URL.
@@ -89,10 +95,10 @@ function startAuthServer() {
           const params = new URLSearchParams(body);
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
-          if (accessToken && refreshToken && mainWindow) {
-            mainWindow.webContents.send('auth:callback', body);
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
+          if (accessToken && refreshToken && primaryWindow) {
+            primaryWindow.webContents.send('auth:callback', body);
+            if (primaryWindow.isMinimized()) primaryWindow.restore();
+            primaryWindow.focus();
           }
           res.writeHead(accessToken ? 200 : 400);
           res.end(accessToken ? 'OK' : 'Missing tokens');
@@ -146,19 +152,21 @@ function registerHandlers() {
     }
   });
 
-  // Open a new window
+  // Open a new note window. Pass secondary=true so the new window skips
+  // re-initialising PowerSync/Supabase and uses localStorage instead,
+  // relying on cross-window storage events for live updates.
   ipcMain.handle('notes:newWindow', () => {
-    createWindow();
+    createWindow(true);
   });
 }
 
 // ── Forward a deep-link URL to the renderer (protocol handler fallback) ──────
 function handleDeepLink(url) {
   if (!url || !url.startsWith(PROTOCOL + '://')) return;
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-    mainWindow.webContents.send('auth:callback', url);
+  if (primaryWindow) {
+    if (primaryWindow.isMinimized()) primaryWindow.restore();
+    primaryWindow.focus();
+    primaryWindow.webContents.send('auth:callback', url);
   }
 }
 
@@ -170,8 +178,11 @@ function getWebPath() {
   return path.join(__dirname, '..', 'web', 'index.html');
 }
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
+// secondary=true: additional window opened via Ctrl+Shift+N.
+// These windows skip PowerSync init (no duplicate DB/WebSocket connections)
+// and instead use localStorage with cross-window storage events for live sync.
+function createWindow(secondary = false) {
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 400,
@@ -187,28 +198,41 @@ function createWindow() {
     }
   });
 
-  // Fallback: show the window if ready-to-show hasn't fired within 3 s.
-  const showFallback = setTimeout(() => mainWindow.show(), 3000);
+  // The first window ever created becomes the primary window that owns
+  // the auth/PowerSync connection.
+  if (!primaryWindow) {
+    primaryWindow = win;
+  }
 
-  mainWindow.once('ready-to-show', () => {
+  // Fallback: show the window if ready-to-show hasn't fired within 3 s.
+  const showFallback = setTimeout(() => win.show(), 3000);
+
+  win.once('ready-to-show', () => {
     clearTimeout(showFallback);
-    mainWindow.show();
+    win.show();
     if (!app.isPackaged) {
-      mainWindow.webContents.openDevTools();
+      win.webContents.openDevTools();
     }
   });
 
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[main] Failed to load ${validatedURL || getWebPath()}: ${errorDescription} (${errorCode})`);
     clearTimeout(showFallback);
-    mainWindow.show();
+    win.show();
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  win.on('closed', () => {
+    if (primaryWindow === win) {
+      primaryWindow = null;
+    }
   });
 
-  mainWindow.loadFile(getWebPath());
+  if (secondary) {
+    // Load with ?secondary=true so powersync-storage.js skips its init.
+    win.loadFile(getWebPath(), { query: { secondary: 'true' } });
+  } else {
+    win.loadFile(getWebPath());
+  }
 }
 
 registerHandlers();
@@ -259,9 +283,9 @@ if (!gotLock) {
   app.on('second-instance', (_event, argv) => {
     const url = argv.find(arg => arg.startsWith(PROTOCOL + '://'));
     if (url) handleDeepLink(url);
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+    if (primaryWindow) {
+      if (primaryWindow.isMinimized()) primaryWindow.restore();
+      primaryWindow.focus();
     }
   });
 }
