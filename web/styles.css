@@ -1110,6 +1110,7 @@ body.panel-pinned #panel-arrow {
 
 #panel-lists.visible {
   display: flex;
+  z-index: 101; /* above #panel-arrow (100) so the pin button receives clicks */
 }
 
 /* Pinned: stay fixed at top of viewport (same as unpinned overlay) */
