@@ -346,9 +346,8 @@ button.btn-busy {
 #tools-overflow-row {
   display: none;
   position: fixed;
-  /* top is set by JS to sit immediately below the toolbar */
-  left: 50%;
-  transform: translateX(-50%);
+  /* top and left are set by JS — centered on the "…" button */
+  max-width: calc(100vw - 32px);
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: center;
@@ -2045,10 +2044,14 @@ body.panel-pinned {
     min-width: 44px;
   }
 
-  /* ── Electron: hide the side panel at narrow widths ──────────────────────
-     No mobile layout, but a pinned or visible panel takes space and cramps
-     the editor.  We suppress it via CSS so the JS state (panel-visible /
-     panel-pinned) is preserved and the panel reappears when the window widens.  */
+}
+
+/* ── Electron: hide the side panel at narrow widths ──────────────────────
+   No mobile layout, but a pinned or visible panel takes space and cramps
+   the editor.  We suppress it via CSS so the JS state (panel-visible /
+   panel-pinned) is preserved and the panel reappears when the window widens.
+   Must be its own block (not inside hover:none) since Electron reports hover:hover. */
+@media (max-width: 650px) {
   body.electron #panel-lists.visible,
   body.electron #panel-lists.pinned {
     display: none !important;
