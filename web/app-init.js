@@ -197,6 +197,14 @@ function _showOverflow() {
   clearTimeout(_overflowTimer);
   toolsOverflowRow.style.top = buttonContainer.getBoundingClientRect().bottom + 'px';
   toolsOverflowRow.classList.add('visible');
+  // Center popup on the "…" button, clamped so it stays within the viewport.
+  requestAnimationFrame(() => {
+    const btnRect = overflowGroup.getBoundingClientRect();
+    const centerX = btnRect.left + btnRect.width / 2;
+    const w = toolsOverflowRow.offsetWidth;
+    const left = Math.max(8, Math.min(centerX - w / 2, window.innerWidth - w - 8));
+    toolsOverflowRow.style.left = left + 'px';
+  });
 }
 
 function _hideOverflow() {
