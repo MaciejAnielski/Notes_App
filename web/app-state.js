@@ -78,8 +78,12 @@ const schedulePrevBtn = document.getElementById('schedule-prev');
 const scheduleNextBtn = document.getElementById('schedule-next');
 
 // ── Cached media queries ──────────────────────────────────────────────────
-const mobileMediaQuery = window.matchMedia('(max-width: 650px)');
-const mobileTouchQuery = window.matchMedia('(hover: none) and (max-width: 650px)');
+// On Electron the window can be narrowed below 650 px without entering mobile
+// mode — we always return matches:false so every mobileMediaQuery guard is a
+// no-op on desktop.  Only genuine mobile/web builds use real matchMedia.
+const _noMQ = { matches: false, addEventListener: () => {}, removeEventListener: () => {} };
+const mobileMediaQuery = window.electronAPI ? _noMQ : window.matchMedia('(max-width: 650px)');
+const mobileTouchQuery = window.electronAPI ? _noMQ : window.matchMedia('(hover: none) and (max-width: 650px)');
 
 // ── Application state ─────────────────────────────────────────────────────
 let isPreview = false;
