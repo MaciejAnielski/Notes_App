@@ -1121,12 +1121,14 @@ body.panel-pinned #panel-arrow {
   z-index: 101; /* above #panel-arrow (100) so the pin button receives clicks */
 }
 
-/* Pinned: stay fixed at top of viewport (same as unpinned overlay) */
+/* Pinned: stay fixed at top of viewport (same as unpinned overlay).
+   z-index must exceed the macOS drag region (98) so the pin button
+   receives clicks and the panel's no-drag region takes effect. */
 #panel-lists.pinned {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  z-index: 50;
+  z-index: 101;
 }
 
 /* ── Last Backed Up status — bottom-center of editor section ── */
