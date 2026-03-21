@@ -4,6 +4,13 @@
 // toolbar overflow menu, panel cycling, mobile swipe navigation,
 // cross-device sync, and the async startup sequence.
 
+// ── Platform class ────────────────────────────────────────────────────────
+// Applied before any layout so macOS-specific CSS (drag regions, padding-left)
+// takes effect immediately without a flash of wrong layout.
+if (window.electronAPI) {
+  document.body.classList.add('platform-' + window.electronAPI.platform);
+}
+
 // ── Button event registrations ────────────────────────────────────────────
 
 function setupMobileButtonGroup(button, action) {
@@ -62,6 +69,68 @@ importZipInput.addEventListener('change', withBusyGuard(async (e) => {
 }));
 
 toggleViewBtn.addEventListener('click', withBusyGuard(toggleView));
+
+// ── macOS: drag the window by pressing on a toolbar button and moving > 5 px ──
+// Empty toolbar space is handled natively via -webkit-app-region:drag on
+// #button-container (styles.css).  This covers the case where the user starts
+// a drag gesture on an interactive button, which has app-region:no-drag.
+//
+// A single shared mousemove listener on document avoids per-button listeners
+// and correctly handles the pointer leaving the button mid-drag.
+if (window.electronAPI?.platform === 'darwin') {
+  const DRAG_THRESHOLD = 5;
+  let _dragAnchorX = 0, _dragAnchorY = 0;
+  let _watchingDrag = false; // true while mousedown is held on a toolbar button
+  let _btnDragging  = false; // true after threshold exceeded
+
+  document.querySelectorAll('#button-container button').forEach(btn => {
+    btn.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      _dragAnchorX  = e.clientX;
+      _dragAnchorY  = e.clientY;
+      _watchingDrag = true;
+      _btnDragging  = false;
+    });
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_watchingDrag || _btnDragging) return;
+    if (Math.abs(e.clientX - _dragAnchorX) > DRAG_THRESHOLD ||
+        Math.abs(e.clientY - _dragAnchorY) > DRAG_THRESHOLD) {
+      _watchingDrag = false;
+      _btnDragging  = true;
+      window.electronAPI.windowDragStart();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    _watchingDrag = false;
+    if (_btnDragging) {
+      window.electronAPI.windowDragStop();
+      // Leave _btnDragging = true so the click capture below can suppress the
+      // click event that fires immediately after mouseup.
+    }
+  });
+
+  // Capture-phase click handler: suppress the button's action if the mouseup
+  // ended a drag rather than a tap.
+  document.addEventListener('click', (e) => {
+    if (_btnDragging) {
+      e.stopImmediatePropagation();
+      _btnDragging = false;
+    }
+  }, true);
+
+  // If the user releases the mouse outside the window the renderer never sees
+  // mouseup.  Clear state on blur so subsequent clicks behave normally.
+  window.addEventListener('blur', () => {
+    _watchingDrag = false;
+    if (_btnDragging) {
+      window.electronAPI.windowDragStop();
+      _btnDragging = false;
+    }
+  });
+}
 
 // ── Tools overflow menu ────────────────────────────────────────────────────
 const toolsToggleGroup = document.getElementById('tools-toggle-group');

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, screen } = require('electron');
 const http = require('http');
 const path = require('path');
 const os = require('os');
@@ -14,7 +14,13 @@ if (!app.isDefaultProtocolClient(PROTOCOL)) {
   app.setAsDefaultProtocolClient(PROTOCOL);
 }
 
-let mainWindow = null;
+// primaryWindow is the first window ever created. It owns the PowerSync/auth
+// connection and is the target for auth callbacks and deep-links.
+// Additional windows (opened with Ctrl+Shift+N) are tracked by Electron
+// automatically via BrowserWindow.getAllWindows() and do NOT duplicate the
+// PowerSync/Supabase connection — they receive ?secondary=true and fall back
+// to localStorage + cross-window storage events.
+let primaryWindow = null;
 
 // ── Local auth-callback server ───────────────────────────────────────────────
 // When the user clicks a magic link the system browser opens the redirect URL.
@@ -89,10 +95,10 @@ function startAuthServer() {
           const params = new URLSearchParams(body);
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
-          if (accessToken && refreshToken && mainWindow) {
-            mainWindow.webContents.send('auth:callback', body);
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
+          if (accessToken && refreshToken && primaryWindow) {
+            primaryWindow.webContents.send('auth:callback', body);
+            if (primaryWindow.isMinimized()) primaryWindow.restore();
+            primaryWindow.focus();
           }
           res.writeHead(accessToken ? 200 : 400);
           res.end(accessToken ? 'OK' : 'Missing tokens');
@@ -146,19 +152,72 @@ function registerHandlers() {
     }
   });
 
-  // Open a new window
+  // Open a new note window. The new window gets ?secondary=true so it proxies
+  // all NoteStorage calls back to the primary window instead of initialising
+  // its own PowerSync connection.
   ipcMain.handle('notes:newWindow', () => {
-    createWindow();
+    createWindow(true);
+  });
+
+  // Relay a NoteStorage method call from a secondary window to the primary
+  // window's renderer via executeJavaScript. The primary window owns the
+  // PowerSync connection so all reads/writes go through one database.
+  const PROXY_METHODS = new Set([
+    'getNote', 'setNote', 'renameNote', 'removeNote', 'trashNote',
+    'getAllNoteNames', 'getAllNotes', 'refreshCache', 'triggerSync',
+    'writeAttachment', 'readAttachment', 'renameAttachment',
+    'removeAttachmentDir', 'renameAttachmentDir', 'listAttachments',
+  ]);
+  ipcMain.handle('notes:proxy', async (_event, method, args) => {
+    if (!PROXY_METHODS.has(method)) throw new Error(`Disallowed proxy method: ${method}`);
+    if (!primaryWindow) throw new Error('Primary window not available');
+    // Call NoteStorage[method](...args) inside the primary renderer and return
+    // the result. JSON-serialisable values (strings, arrays, booleans, null)
+    // survive the structured-clone round-trip automatically.
+    return primaryWindow.webContents.executeJavaScript(
+      `typeof NoteStorage[${JSON.stringify(method)}] === 'function'` +
+      ` ? NoteStorage[${JSON.stringify(method)}](...${JSON.stringify(args)})` +
+      ` : null`
+    );
+  });
+
+  // ── macOS button-drag: move the window when the user drags on a toolbar button ──
+  // Renderer sends window-drag-start when the mouse exceeds the 5 px threshold
+  // on a button. We poll the cursor position at ~16 ms and call setPosition().
+  ipcMain.on('window-drag-start', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    const id = event.sender.id;
+    // Clear any previous drag for this window.
+    const prev = _dragState.get(id);
+    if (prev) clearInterval(prev);
+
+    const { x: cursorX0, y: cursorY0 } = screen.getCursorScreenPoint();
+    const [winX0, winY0] = win.getPosition();
+
+    const timer = setInterval(() => {
+      if (win.isDestroyed()) { clearInterval(timer); _dragState.delete(id); return; }
+      const { x, y } = screen.getCursorScreenPoint();
+      win.setPosition(winX0 + (x - cursorX0), winY0 + (y - cursorY0));
+    }, 16);
+
+    _dragState.set(id, timer);
+  });
+
+  ipcMain.on('window-drag-stop', (event) => {
+    const id = event.sender.id;
+    const timer = _dragState.get(id);
+    if (timer) { clearInterval(timer); _dragState.delete(id); }
   });
 }
 
 // ── Forward a deep-link URL to the renderer (protocol handler fallback) ──────
 function handleDeepLink(url) {
   if (!url || !url.startsWith(PROTOCOL + '://')) return;
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-    mainWindow.webContents.send('auth:callback', url);
+  if (primaryWindow) {
+    if (primaryWindow.isMinimized()) primaryWindow.restore();
+    primaryWindow.focus();
+    primaryWindow.webContents.send('auth:callback', url);
   }
 }
 
@@ -170,8 +229,16 @@ function getWebPath() {
   return path.join(__dirname, '..', 'web', 'index.html');
 }
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
+// secondary=true: additional window opened via Ctrl+Shift+N.
+// These windows skip PowerSync init (no duplicate DB/WebSocket connections)
+// and instead use localStorage with cross-window storage events for live sync.
+// Per-window drag state: webContentsId → intervalId.
+// Keyed per window so multiple windows can coexist safely.
+const _dragState = new Map();
+
+function createWindow(secondary = false) {
+  const isMac = process.platform === 'darwin';
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 400,
@@ -179,6 +246,13 @@ function createWindow() {
     title: 'Notes App',
     backgroundColor: '#1e1e1e',
     show: false,
+    // macOS: hide the native title bar while keeping traffic lights.
+    // trafficLightPosition centres the 12 px buttons in the 28 px toolbar.
+    // Tune x/y here if the toolbar height changes.
+    ...(isMac ? {
+      titleBarStyle: 'hiddenInset',
+      trafficLightPosition: { x: 10, y: 8 },
+    } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -187,28 +261,49 @@ function createWindow() {
     }
   });
 
-  // Fallback: show the window if ready-to-show hasn't fired within 3 s.
-  const showFallback = setTimeout(() => mainWindow.show(), 3000);
+  // Clear any button-drag interval when this window loses focus so we never
+  // leak a running interval if mouseup fires outside the window.
+  win.on('blur', () => {
+    const id = win.webContents.id;
+    const timer = _dragState.get(id);
+    if (timer) { clearInterval(timer); _dragState.delete(id); }
+  });
 
-  mainWindow.once('ready-to-show', () => {
+  // The first window ever created becomes the primary window that owns
+  // the auth/PowerSync connection.
+  if (!primaryWindow) {
+    primaryWindow = win;
+  }
+
+  // Fallback: show the window if ready-to-show hasn't fired within 3 s.
+  const showFallback = setTimeout(() => win.show(), 3000);
+
+  win.once('ready-to-show', () => {
     clearTimeout(showFallback);
-    mainWindow.show();
+    win.show();
     if (!app.isPackaged) {
-      mainWindow.webContents.openDevTools();
+      win.webContents.openDevTools();
     }
   });
 
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[main] Failed to load ${validatedURL || getWebPath()}: ${errorDescription} (${errorCode})`);
     clearTimeout(showFallback);
-    mainWindow.show();
+    win.show();
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  win.on('closed', () => {
+    if (primaryWindow === win) {
+      primaryWindow = null;
+    }
   });
 
-  mainWindow.loadFile(getWebPath());
+  if (secondary) {
+    // Load with ?secondary=true so powersync-storage.js skips its init.
+    win.loadFile(getWebPath(), { query: { secondary: 'true' } });
+  } else {
+    win.loadFile(getWebPath());
+  }
 }
 
 registerHandlers();
@@ -259,9 +354,9 @@ if (!gotLock) {
   app.on('second-instance', (_event, argv) => {
     const url = argv.find(arg => arg.startsWith(PROTOCOL + '://'));
     if (url) handleDeepLink(url);
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+    if (primaryWindow) {
+      if (primaryWindow.isMinimized()) primaryWindow.restore();
+      primaryWindow.focus();
     }
   });
 }
