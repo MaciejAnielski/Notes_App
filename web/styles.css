@@ -258,6 +258,7 @@ body.platform-darwin #window-drag-region {
 
 body.platform-darwin #button-container {
   padding-left: 80px;
+  padding-top: 4px;
   -webkit-app-region: drag;
   app-region: drag;
 }
