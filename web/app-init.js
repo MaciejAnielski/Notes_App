@@ -132,42 +132,83 @@ if (window.electronAPI?.platform === 'darwin') {
   });
 }
 
-// ── Toolbar overflow — second row ──────────────────────────────────────────
-// When the window is too narrow to fit all buttons on the first row, the
-// collapsible buttons move to #tools-overflow-row, which sits directly below
-// the first row.  On macOS the first row has 80 px of padding-left for the
-// traffic lights; the second row starts at x=0 and so provides ~80 px of
-// extra room before any wrapping is needed.
+// ── Toolbar overflow — floating "…" popup ─────────────────────────────────
+// Only buttons that genuinely don't fit on the first row overflow.  A "…"
+// button appears between the last fitting collapsible and View; hovering it
+// reveals a fixed, centred floating popup containing only the buttons that
+// couldn't fit.  The popup does not shift any other layout.
 const toolsOverflowRow = document.getElementById('tools-overflow-row');
 const buttonContainer  = document.getElementById('button-container');
 const viewGroup        = document.getElementById('toggle-view').parentElement;
 
+// Create the "…" trigger and insert it between the collapsibles and View.
+const overflowGroup = document.createElement('div');
+overflowGroup.className = 'button-group';
+overflowGroup.id = 'overflow-group';
+const overflowBtn = document.createElement('button');
+overflowBtn.id = 'overflow-btn';
+overflowBtn.textContent = '\u2026';
+overflowBtn.title = 'More tools';
+overflowGroup.appendChild(overflowBtn);
+buttonContainer.insertBefore(overflowGroup, viewGroup);
+overflowGroup.style.display = 'none';
+
+function _barOverflows() {
+  const right = buttonContainer.getBoundingClientRect().right;
+  const visible = Array.from(buttonContainer.children).filter(
+    el => getComputedStyle(el).display !== 'none'
+  );
+  const last = visible[visible.length - 1];
+  return last ? last.getBoundingClientRect().right > right + 1 : false;
+}
+
 function checkToolbarOverflow() {
   const collapsibles = Array.from(document.querySelectorAll('.tools-collapsible'));
 
-  // Always return collapsibles to the main bar first so we can measure the
-  // true required width.  Insert them before the View button to preserve order.
-  collapsibles.forEach(el => buttonContainer.insertBefore(el, viewGroup));
-  toolsOverflowRow.classList.remove('has-overflow');
-
-  void buttonContainer.offsetWidth; // force reflow before measuring
-
-  const containerRight = buttonContainer.getBoundingClientRect().right;
-  const visibleChildren = Array.from(buttonContainer.children).filter(
-    el => getComputedStyle(el).display !== 'none'
+  // Return every collapsible to the main bar (before the … button).
+  collapsibles.forEach(el => buttonContainer.insertBefore(el, overflowGroup));
+  // Also return any that ended up in the popup from a previous run.
+  Array.from(toolsOverflowRow.children).forEach(el =>
+    buttonContainer.insertBefore(el, overflowGroup)
   );
-  const lastChild = visibleChildren[visibleChildren.length - 1];
-  const overflows = lastChild
-    ? lastChild.getBoundingClientRect().right > containerRight + 1
-    : false;
+  overflowGroup.style.display = 'none';
+  toolsOverflowRow.classList.remove('has-overflow', 'visible');
 
-  if (overflows) {
-    collapsibles.forEach(el => toolsOverflowRow.appendChild(el));
-    toolsOverflowRow.classList.add('has-overflow');
+  if (!_barOverflows()) return; // everything fits
+
+  // Show the … button and move rightmost collapsibles into the popup one by
+  // one until the bar no longer overflows (or all collapsibles are moved).
+  overflowGroup.style.display = '';
+  const inBar = [...collapsibles];
+  const overflowed = [];
+  while (inBar.length > 0 && _barOverflows()) {
+    const rightmost = inBar.pop();
+    rightmost.remove();
+    overflowed.unshift(rightmost); // preserve original left→right order
   }
+  overflowed.forEach(el => toolsOverflowRow.appendChild(el));
+  toolsOverflowRow.classList.add('has-overflow');
 }
 
-const toolbarResizeObserver = new ResizeObserver(() => checkToolbarOverflow());
+// ── Hover: show / hide the floating popup ─────────────────────────────────
+let _overflowTimer = null;
+
+function _showOverflow() {
+  clearTimeout(_overflowTimer);
+  toolsOverflowRow.style.top = buttonContainer.getBoundingClientRect().bottom + 'px';
+  toolsOverflowRow.classList.add('visible');
+}
+
+function _hideOverflow() {
+  _overflowTimer = setTimeout(() => toolsOverflowRow.classList.remove('visible'), 80);
+}
+
+overflowGroup.addEventListener('mouseenter', _showOverflow);
+overflowGroup.addEventListener('mouseleave', _hideOverflow);
+toolsOverflowRow.addEventListener('mouseenter', () => clearTimeout(_overflowTimer));
+toolsOverflowRow.addEventListener('mouseleave', _hideOverflow);
+
+const toolbarResizeObserver = new ResizeObserver(checkToolbarOverflow);
 toolbarResizeObserver.observe(buttonContainer);
 checkToolbarOverflow();
 
