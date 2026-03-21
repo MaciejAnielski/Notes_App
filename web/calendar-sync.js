@@ -214,6 +214,121 @@ async function updateCalendarsNote() {
   }
 }
 
+// ── Markdown event line builder ───────────────────────────────────────────────
+
+function buildMdLine(evt, evtStart, evtEnd, dateStr, calendarTag) {
+  const tagSuffix = calendarTag ? ` @${calendarTag}` : '';
+  if (evt.allDay) {
+    const startStr = dateToYYMMDD(evtStart);
+    const endDateAdj = new Date(evtEnd);
+    endDateAdj.setDate(endDateAdj.getDate() - 1);
+    const endStr = dateToYYMMDD(endDateAdj);
+    if (startStr !== endStr && endStr > startStr) {
+      return `${evt.title} > ${startStr} ${endStr}${tagSuffix}`;
+    } else {
+      return `${evt.title} > ${startStr}${tagSuffix}`;
+    }
+  } else {
+    const hh1 = String(evtStart.getHours()).padStart(2, '0');
+    const mm1 = String(evtStart.getMinutes()).padStart(2, '0');
+    const hh2 = String(evtEnd.getHours()).padStart(2, '0');
+    const mm2 = String(evtEnd.getMinutes()).padStart(2, '0');
+    return `${evt.title} > ${dateStr} ${hh1}${mm1} ${hh2}${mm2}${tagSuffix}`;
+  }
+}
+
+// ── Find event line in note ───────────────────────────────────────────────────
+// Returns the line index of a synced event, searching first by exact lineText
+// then falling back to the stored lineIndex.
+
+function findEventLine(lines, metaEvent) {
+  if (metaEvent.lineText) {
+    const idx = lines.findIndex(l => l.trim() === metaEvent.lineText.trim());
+    if (idx !== -1) return idx;
+  }
+  if (metaEvent.lineIndex != null && metaEvent.lineIndex < lines.length) {
+    return metaEvent.lineIndex;
+  }
+  return -1;
+}
+
+// ── Insert events under ## Events heading ────────────────────────────────────
+// Inserts newLines under the "## Events" subheading that sits just after the
+// "# Title" line. Creates the heading (and a surrounding blank line) if absent.
+// Returns { content, startLineIdx } where startLineIdx is the index of the
+// first newly inserted line.
+
+function insertEventsUnderHeading(content, newLines) {
+  const EVENTS_HEADING = '## Events';
+  const lines = content.split('\n');
+
+  // Find # Title line
+  let titleIdx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^#\s/.test(lines[i])) { titleIdx = i; break; }
+  }
+
+  // Find ## Events heading anywhere in the note
+  let eventsIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === EVENTS_HEADING) { eventsIdx = i; break; }
+  }
+
+  let insertIdx;
+  if (eventsIdx !== -1) {
+    // Heading exists — find end of its section (before next ## or # heading)
+    let pos = eventsIdx + 1;
+    while (pos < lines.length && !/^##?\s/.test(lines[pos])) pos++;
+    // Back up over trailing blank lines within the section
+    while (pos > eventsIdx + 1 && lines[pos - 1].trim() === '') pos--;
+    insertIdx = pos;
+  } else {
+    // Create ## Events section right after # Title
+    const sectionLines = ['', EVENTS_HEADING, ''];
+    lines.splice(titleIdx + 1, 0, ...sectionLines);
+    insertIdx = titleIdx + 1 + sectionLines.length; // after the trailing blank
+  }
+
+  lines.splice(insertIdx, 0, ...newLines);
+  return { content: lines.join('\n'), startLineIdx: insertIdx };
+}
+
+// ── Migrate inline metadata to centralised store ──────────────────────────────
+// Scans daily notes for the legacy <!-- calendar_events: {...} --> inline
+// comment, moves the data into the centralised store, and strips the comment
+// from each note. Skips notes that already have an entry in the store.
+
+async function migrateInlineMetadata(store) {
+  const allNotes = await NoteStorage.getAllNotes();
+  const dailyNoteRe = /^(\d{6}) Daily Note$/;
+
+  for (const { name, content } of allNotes) {
+    if (name === CALENDAR_METADATA_NOTE) continue;
+    if (!dailyNoteRe.test(name)) continue;
+
+    const m = content.match(CALENDAR_META_RE);
+    if (!m) continue;
+
+    // Strip the inline comment from the note
+    const stripped = content.replace(CALENDAR_META_RE + '\n?', '').replace(/<!-- calendar_events:.*?-->\n?/, '');
+    await NoteStorage.setNote(name, stripped);
+
+    // Don't overwrite an existing store entry
+    if (store[name]) continue;
+
+    let meta;
+    try { meta = JSON.parse(m[1]); } catch { continue; }
+    if (!meta || !Array.isArray(meta.events)) continue;
+
+    // The comment was inserted after the # Title line, so all lineIndex values
+    // stored in the old inline metadata are 1 higher than in the stripped note.
+    for (const e of meta.events) {
+      if (e.lineIndex != null) e.lineIndex = Math.max(0, e.lineIndex - 1);
+    }
+    store[name] = meta;
+  }
+}
+
 // ── Parse markdown events from daily note ────────────────────────────────────
 
 function parseMarkdownEvents(content, noteDate) {
@@ -314,7 +429,16 @@ async function saveMetadataStore(store) {
 }
 
 // ── Sync: Calendar → Markdown ────────────────────────────────────────────────
-// Fetches events from iOS calendar and appends missing ones to daily notes.
+// Full bidirectional iCloud → Notes sync:
+//   Phase 0 — build a map of all current iCloud events in the sync window.
+//   Phase 1 — for events already tracked in metadata, reflect any iCloud
+//             changes (title, time, calendar) into the note, and remove lines
+//             whose events were deleted from iCloud.
+//   Phase 2 — import brand-new iCloud events into daily notes.  New events
+//             are placed under the "## Events" subheading (created when absent)
+//             that sits just after the "# Title" line.  Content-based duplicate
+//             detection merges an existing manually-typed event line with the
+//             iCloud event rather than inserting a second copy.
 
 async function syncCalendarToMarkdown(calendarIds) {
   const plugin = getCalendarPlugin();
@@ -332,15 +456,10 @@ async function syncCalendarToMarkdown(calendarIds) {
   } catch { return; }
 
   const today = new Date();
-  const startDate = firstSyncDateStr
-    ? new Date(firstSyncDateStr)
-    : today;
+  const startDate = firstSyncDateStr ? new Date(firstSyncDateStr) : today;
 
-  // Don't sync events from before the first sync
   if (!firstSyncDateStr) {
-    try {
-      await plugin.setFirstSyncDate({ date: today.toISOString() });
-    } catch {}
+    try { await plugin.setFirstSyncDate({ date: today.toISOString() }); } catch {}
   }
 
   const endDate = new Date(today);
@@ -356,78 +475,182 @@ async function syncCalendarToMarkdown(calendarIds) {
     calendarEvents = result.events || [];
   } catch { return; }
 
+  // ── Phase 0: Build event map ─────────────────────────────────────────────
+  const icloudEventMap = new Map();
+  for (const evt of calendarEvents) {
+    if (evt.eventId) icloudEventMap.set(evt.eventId, evt);
+  }
+
+  const startYYMMDD = dateToYYMMDD(startDate);
+  const endYYMMDD   = dateToYYMMDD(endDate);
+
+  // ── Phase 1: Update / delete existing synced events ─────────────────────
+  // Process notes whose dates fall within the current sync window.
+  const noteNames = Object.keys(store);
+  for (const noteName of noteNames) {
+    const nm = noteName.match(/^(\d{6}) Daily Note$/);
+    if (!nm) continue;
+    const noteDate = nm[1];
+    if (noteDate < startYYMMDD || noteDate > endYYMMDD) continue;
+
+    const meta = store[noteName];
+    if (!meta || !Array.isArray(meta.events) || meta.events.length === 0) continue;
+
+    let content = await NoteStorage.getNote(noteName);
+    if (!content) continue;
+
+    let lines = content.split('\n');
+    let noteModified = false;
+    const lineIndicesToRemove = [];
+
+    for (let i = meta.events.length - 1; i >= 0; i--) {
+      const me = meta.events[i];
+      if (!me.eventId) continue; // user-created, skip
+
+      const icloudEvt = icloudEventMap.get(me.eventId);
+
+      if (!icloudEvt) {
+        // Event deleted from iCloud → remove the line from the note
+        const lineIdx = findEventLine(lines, me);
+        if (lineIdx !== -1) lineIndicesToRemove.push(lineIdx);
+        meta.events.splice(i, 1);
+        noteModified = true;
+      } else {
+        // Check for changes (title, time, all-day flag, calendar, or date)
+        const evtStart = new Date(icloudEvt.startDate);
+        const evtEnd   = new Date(icloudEvt.endDate);
+        if (isNaN(evtStart.getTime()) || isNaN(evtEnd.getTime())) continue;
+        const newDateStr = dateToYYMMDD(evtStart);
+        const isNotesApp = icloudEvt.calendarId === notesAppCalendarId;
+        const newCalTag = isNotesApp
+          ? null
+          : (icloudEvt.calendarTitle || '').replace(/\s+/g, '') || null;
+        const newMdLine = buildMdLine(icloudEvt, evtStart, evtEnd, newDateStr, newCalTag);
+
+        if (newMdLine !== me.lineText) {
+          if (newDateStr !== noteDate) {
+            // Event moved to a different date — remove the line from this note
+            // and let Phase 2 insert it in the correct daily note.
+            const lineIdx = findEventLine(lines, me);
+            if (lineIdx !== -1) lineIndicesToRemove.push(lineIdx);
+            meta.events.splice(i, 1);
+            noteModified = true;
+          } else {
+            // Same date — update the line in-place (title, time, all-day, or calendar changed)
+            const lineIdx = findEventLine(lines, me);
+            if (lineIdx !== -1) {
+              lines[lineIdx] = newMdLine;
+              noteModified = true;
+            }
+            me.lineText    = newMdLine;
+            me.title       = icloudEvt.title;
+            me.calendarTag = newCalTag;
+            noteModified = true;
+          }
+        }
+      }
+    }
+
+    // Remove deleted lines in reverse order to keep indices valid
+    for (const idx of lineIndicesToRemove.sort((a, b) => b - a)) {
+      lines.splice(idx, 1);
+    }
+
+    if (noteModified) {
+      store[noteName] = meta;
+      storeModified = true;
+      const newContent = lines.join('\n');
+      await NoteStorage.setNote(noteName, newContent);
+      if (currentFileName === noteName) {
+        textarea.value = newContent;
+        if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
+      }
+    }
+  }
+
+  // ── Phase 2: Import new iCloud events ───────────────────────────────────
   // Group events by date (YYMMDD)
   const eventsByDate = {};
   for (const evt of calendarEvents) {
     if (!evt.startDate || !evt.endDate) continue;
     const evtStart = new Date(evt.startDate);
-    const evtEnd = new Date(evt.endDate);
+    const evtEnd   = new Date(evt.endDate);
     if (isNaN(evtStart.getTime()) || isNaN(evtEnd.getTime())) continue;
     const dateStr = dateToYYMMDD(evtStart);
-
     if (!eventsByDate[dateStr]) eventsByDate[dateStr] = [];
     eventsByDate[dateStr].push(evt);
   }
 
-  // Process each date
   for (const [dateStr, events] of Object.entries(eventsByDate)) {
     const noteName = dailyNoteName(dateStr);
     let content = await NoteStorage.getNote(noteName);
-    let isNew = false;
+    if (content === null) content = `# ${noteName}\n`;
 
-    if (content === null) {
-      // Create daily note — heading matches the file name
-      content = `# ${noteName}\n\n`;
-      isNew = true;
-    }
-
-    // Load existing metadata from store to avoid duplicates
     const meta = store[noteName] || { events: [] };
     const existingIds = new Set(meta.events.map(e => e.eventId));
     let modified = false;
 
+    // Collect events that need a new line in the note
+    const toInsert = [];
+
     for (const evt of events) {
       if (existingIds.has(evt.eventId)) continue;
 
-      // Format the event as markdown
       const evtStart = new Date(evt.startDate);
-      const evtEnd = new Date(evt.endDate);
-      let mdLine;
-
-      // Append @CalendarName tag for events not in Notes App Events
-      const isNotesAppEvent = evt.calendarId === notesAppCalendarId;
-      const calendarTag = isNotesAppEvent
+      const evtEnd   = new Date(evt.endDate);
+      const isNotesApp = evt.calendarId === notesAppCalendarId;
+      const calendarTag = isNotesApp
         ? null
         : (evt.calendarTitle || '').replace(/\s+/g, '') || null;
-      const tagSuffix = calendarTag ? ` @${calendarTag}` : '';
+      const mdLine = buildMdLine(evt, evtStart, evtEnd, dateStr, calendarTag);
 
-      if (evt.allDay) {
-        // Check if multi-day
-        const startStr = dateToYYMMDD(evtStart);
-        const endDateAdj = new Date(evtEnd);
-        endDateAdj.setDate(endDateAdj.getDate() - 1);
-        const endStr = dateToYYMMDD(endDateAdj);
-
-        if (startStr !== endStr && endStr > startStr) {
-          mdLine = `${evt.title} > ${startStr} ${endStr}${tagSuffix}`;
-        } else {
-          mdLine = `${evt.title} > ${startStr}${tagSuffix}`;
-        }
-      } else {
-        const hh1 = String(evtStart.getHours()).padStart(2, '0');
-        const mm1 = String(evtStart.getMinutes()).padStart(2, '0');
-        const hh2 = String(evtEnd.getHours()).padStart(2, '0');
-        const mm2 = String(evtEnd.getMinutes()).padStart(2, '0');
-        mdLine = `${evt.title} > ${dateStr} ${hh1}${mm1} ${hh2}${mm2}${tagSuffix}`;
-      }
-
-      content += mdLine + '\n';
-      meta.events.push({
-        eventId: evt.eventId,
-        title: evt.title,
-        lineText: mdLine,
-        calendarTag
+      // Content-based duplicate detection: look for a line with the same
+      // title and time already present in the note (possibly without @calendar).
+      const existingMdEvents = parseMarkdownEvents(content, dateStr);
+      const duplicate = existingMdEvents.find(e => {
+        if (e.text !== evt.title) return false;
+        if (evt.allDay) return e.allDay;
+        return !e.allDay &&
+          Math.abs(e.startDate.getTime() - evtStart.getTime()) < 60000 &&
+          Math.abs(e.endDate.getTime() - evtEnd.getTime()) < 60000;
       });
+
+      if (duplicate) {
+        // Merge: add @calendar tag to existing line if it's missing
+        const curLines = content.split('\n');
+        if (!duplicate.calendarTag && calendarTag) {
+          curLines[duplicate.lineIndex] = curLines[duplicate.lineIndex].trimEnd() + ` @${calendarTag}`;
+          content = curLines.join('\n');
+        }
+        meta.events.push({
+          eventId: evt.eventId,
+          title: evt.title,
+          lineText: curLines[duplicate.lineIndex].trim(),
+          lineIndex: duplicate.lineIndex,
+          calendarTag: duplicate.calendarTag || calendarTag
+        });
+        existingIds.add(evt.eventId);
+        modified = true;
+      } else {
+        toInsert.push({ mdLine, evt, calendarTag });
+      }
+    }
+
+    // Insert all new event lines at once under ## Events heading
+    if (toInsert.length > 0) {
+      const result = insertEventsUnderHeading(content, toInsert.map(e => e.mdLine));
+      content = result.content;
+      for (let i = 0; i < toInsert.length; i++) {
+        const { mdLine, evt, calendarTag } = toInsert[i];
+        meta.events.push({
+          eventId: evt.eventId,
+          title: evt.title,
+          lineText: mdLine,
+          lineIndex: result.startLineIdx + i,
+          calendarTag
+        });
+        existingIds.add(evt.eventId);
+      }
       modified = true;
     }
 
@@ -435,8 +658,6 @@ async function syncCalendarToMarkdown(calendarIds) {
       store[noteName] = meta;
       storeModified = true;
       await NoteStorage.setNote(noteName, content);
-
-      // Update editor if this note is open
       if (currentFileName === noteName) {
         textarea.value = content;
         if (isPreview || projectsViewActive) renderPreview(); else refreshHighlight();
@@ -523,8 +744,8 @@ async function syncMarkdownToCalendar(calendarIds) {
       if (metaIdx !== -1) {
         matchedMetaIndices.add(metaIdx);
         matchedCurrentIndices.add(ci);
-        // Backfill lineIndex into legacy metadata entries that predate this field
-        if (meta.events[metaIdx].lineIndex == null) {
+        // Keep lineIndex current — events may have been moved to a different line
+        if (meta.events[metaIdx].lineIndex !== evt.lineIndex) {
           meta.events[metaIdx].lineIndex = evt.lineIndex;
           modified = true;
         }
@@ -723,18 +944,26 @@ function stopCalendarSync() {
 // ── Auto-start on iOS ────────────────────────────────────────────────────────
 
 if (window.Capacitor?.isNativePlatform()) {
-  // iOS: do NOT auto-start calendar sync on launch.  Calendar sync is started
-  // lazily — the first manual "tap to sync" triggers it, or the user opening
-  // the schedule panel.  This keeps startup lightweight.
   let _calendarStarted = false;
+
+  // Start calendar sync exactly once.  Exposed on window so app-init.js can
+  // still call it explicitly (e.g. from the tap-to-sync button), but it now
+  // also fires automatically as soon as storage is ready.
   window._startCalendarSyncIfNeeded = () => {
     if (_calendarStarted) return;
     _calendarStarted = true;
     startCalendarSync();
   };
 
+  // Auto-start: fire as soon as PowerSync (or localStorage-backed) storage
+  // signals it is ready.  A 4-second fallback covers sessions that never emit
+  // the event (e.g. plain localStorage with no PowerSync).
+  window.addEventListener('powersync:ready', () => window._startCalendarSyncIfNeeded(), { once: true });
+  setTimeout(() => window._startCalendarSyncIfNeeded(), 4000);
+
   document.addEventListener('resume', () => {
     if (_calendarStarted) setTimeout(runCalendarSync, 1000);
+    else window._startCalendarSyncIfNeeded();
   });
   document.addEventListener('pause', stopCalendarSync);
 }
@@ -743,8 +972,9 @@ if (window.Capacitor?.isNativePlatform()) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     yymmddToDate, dateToYYMMDD, hhmmToTime, dailyNoteName,
+    buildMdLine, findEventLine, insertEventsUnderHeading,
     parseMarkdownEvents, parseCalendarMetadata, updateCalendarMetadata,
-    loadMetadataStore, saveMetadataStore,
+    loadMetadataStore, saveMetadataStore, migrateInlineMetadata,
     syncMarkdownToCalendar, syncCalendarToMarkdown,
     getCalendarsByTitle,
     // Resets module-level caches; call in beforeEach to isolate tests
