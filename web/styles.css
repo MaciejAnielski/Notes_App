@@ -1140,7 +1140,7 @@ body.panel-pinned #panel-arrow {
   margin: 4px 0;
 }
 
-@media (max-width: 650px) and (hover: none) {
+@media (max-width: 650px) and (any-pointer: coarse) {
   #preview img {
     max-height: 40vh;
   }
@@ -1858,7 +1858,7 @@ body.panel-pinned {
 }
 
 /* ── Mobile: centre toolbar and show status message above it ── */
-@media (max-width: 650px) and (hover: none) {
+@media (max-width: 650px) and (any-pointer: coarse) {
   body:not(.electron) #button-container {
     justify-content: center;
     margin-left: 0;
@@ -1914,8 +1914,7 @@ body.panel-pinned {
     transition: transform 0.25s ease;
     display: flex !important;
     flex-direction: column;
-    border-left: none;
-    border-right: 1px solid var(--border);
+    border: none;
     z-index: 150;
     will-change: transform;
     -webkit-backface-visibility: hidden;
@@ -1949,7 +1948,7 @@ body.panel-pinned {
     display: flex;
     flex-direction: column;
     background-color: var(--bg);
-    border-left: 1px solid var(--border);
+    border: none;
     z-index: 150;
     padding: var(--gap) calc(var(--gap) * 2);
     box-sizing: border-box;
@@ -2046,24 +2045,23 @@ body.panel-pinned {
 
 }
 
-/* ── Electron: hide the side panel at narrow widths ──────────────────────
-   No mobile layout, but a pinned or visible panel takes space and cramps
-   the editor.  We suppress it via CSS so the JS state (panel-visible /
-   panel-pinned) is preserved and the panel reappears when the window widens.
-   Must be its own block (not inside hover:none) since Electron reports hover:hover. */
-@media (max-width: 650px) {
-  body.electron #panel-lists.visible,
-  body.electron #panel-lists.pinned {
+/* ── Desktop (Electron + web browser): hide the side panel at narrow widths ───
+   hover:hover identifies all desktop devices (mouse input).  Mobile touch
+   devices have any-pointer:coarse and hover:none so they never match here.
+   JS state (panel-visible / panel-pinned) is preserved; the panel reappears
+   when the window widens. */
+@media (max-width: 650px) and (hover: hover) {
+  #panel-lists.visible,
+  #panel-lists.pinned {
     display: none !important;
   }
 
-  body.electron.panel-pinned {
+  body.panel-pinned {
     padding-right: 0;
   }
 
-  /* The toolbar max-width constraint for floating panels is no longer needed
-     when the panel is hidden. */
-  body.electron.panel-visible #button-container {
+  /* Toolbar max-width constraint no longer needed when the panel is hidden. */
+  body.panel-visible #button-container {
     max-width: 100%;
   }
 }
