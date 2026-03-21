@@ -342,18 +342,7 @@ button.btn-busy {
   pointer-events: none;
 }
 
-/* Active state for Tools toggle button when overflow row is open */
-#tools-toggle-group.active > button {
-  background-color: var(--hover-overlay);
-  color: var(--text);
-}
-
-/* ── Tools toggle button: hidden by default, shown when toolbar overflows ── */
-#tools-toggle-group {
-  display: none;
-}
-
-/* ── Tools overflow row: appears beneath toolbar when Tools is hovered ── */
+/* ── Tools overflow row: second row shown when the first row overflows ── */
 #tools-overflow-row {
   display: none;
   flex-direction: row;
@@ -366,7 +355,7 @@ button.btn-busy {
   background-color: var(--bg);
 }
 
-#tools-overflow-row.open {
+#tools-overflow-row.has-overflow {
   display: flex;
 }
 

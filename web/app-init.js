@@ -132,30 +132,29 @@ if (window.electronAPI?.platform === 'darwin') {
   });
 }
 
-// ── Tools overflow menu ────────────────────────────────────────────────────
-const toolsToggleGroup = document.getElementById('tools-toggle-group');
-const toolsToggleBtn   = document.getElementById('tools-toggle');
+// ── Toolbar overflow — second row ──────────────────────────────────────────
+// When the window is too narrow to fit all buttons on the first row, the
+// collapsible buttons move to #tools-overflow-row, which sits directly below
+// the first row.  On macOS the first row has 80 px of padding-left for the
+// traffic lights; the second row starts at x=0 and so provides ~80 px of
+// extra room before any wrapping is needed.
 const toolsOverflowRow = document.getElementById('tools-overflow-row');
 const buttonContainer  = document.getElementById('button-container');
+const viewGroup        = document.getElementById('toggle-view').parentElement;
 
 function checkToolbarOverflow() {
-  const collapsibles = Array.from(
-    document.querySelectorAll('.tools-collapsible')
-  );
+  const collapsibles = Array.from(document.querySelectorAll('.tools-collapsible'));
 
-  const needsReturn = collapsibles.some(el => el.parentElement !== buttonContainer);
-  if (needsReturn) {
-    collapsibles.forEach(el => buttonContainer.insertBefore(el, toolsToggleGroup));
-    toolsToggleGroup.style.display = 'none';
-    toolsToggleGroup.classList.remove('active');
-    toolsOverflowRow.classList.remove('open');
-  }
+  // Always return collapsibles to the main bar first so we can measure the
+  // true required width.  Insert them before the View button to preserve order.
+  collapsibles.forEach(el => buttonContainer.insertBefore(el, viewGroup));
+  toolsOverflowRow.classList.remove('has-overflow');
 
-  void buttonContainer.offsetWidth;
+  void buttonContainer.offsetWidth; // force reflow before measuring
 
   const containerRight = buttonContainer.getBoundingClientRect().right;
   const visibleChildren = Array.from(buttonContainer.children).filter(
-    el => el !== toolsToggleGroup && getComputedStyle(el).display !== 'none'
+    el => getComputedStyle(el).display !== 'none'
   );
   const lastChild = visibleChildren[visibleChildren.length - 1];
   const overflows = lastChild
@@ -164,32 +163,9 @@ function checkToolbarOverflow() {
 
   if (overflows) {
     collapsibles.forEach(el => toolsOverflowRow.appendChild(el));
-    toolsToggleGroup.style.display = 'inline-block';
+    toolsOverflowRow.classList.add('has-overflow');
   }
 }
-
-let toolsCloseTimer = null;
-
-function openToolsOverflow() {
-  clearTimeout(toolsCloseTimer);
-  toolsOverflowRow.classList.add('open');
-  toolsToggleGroup.classList.add('active');
-}
-
-function closeToolsOverflow() {
-  toolsOverflowRow.classList.remove('open');
-  toolsToggleGroup.classList.remove('active');
-}
-
-toolsToggleGroup.addEventListener('mouseenter', openToolsOverflow);
-toolsToggleGroup.addEventListener('mouseleave', () => {
-  toolsCloseTimer = setTimeout(closeToolsOverflow, 80);
-});
-
-toolsOverflowRow.addEventListener('mouseenter', () => {
-  clearTimeout(toolsCloseTimer);
-});
-toolsOverflowRow.addEventListener('mouseleave', closeToolsOverflow);
 
 const toolbarResizeObserver = new ResizeObserver(() => checkToolbarOverflow());
 toolbarResizeObserver.observe(buttonContainer);
