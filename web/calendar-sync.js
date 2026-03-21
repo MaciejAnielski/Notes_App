@@ -516,28 +516,37 @@ async function syncCalendarToMarkdown(calendarIds) {
         meta.events.splice(i, 1);
         noteModified = true;
       } else {
-        // Check for changes (title, time, calendar)
+        // Check for changes (title, time, all-day flag, calendar, or date)
         const evtStart = new Date(icloudEvt.startDate);
         const evtEnd   = new Date(icloudEvt.endDate);
         if (isNaN(evtStart.getTime()) || isNaN(evtEnd.getTime())) continue;
-        const dateStr = dateToYYMMDD(evtStart);
+        const newDateStr = dateToYYMMDD(evtStart);
         const isNotesApp = icloudEvt.calendarId === notesAppCalendarId;
         const newCalTag = isNotesApp
           ? null
           : (icloudEvt.calendarTitle || '').replace(/\s+/g, '') || null;
-        const newMdLine = buildMdLine(icloudEvt, evtStart, evtEnd, dateStr, newCalTag);
+        const newMdLine = buildMdLine(icloudEvt, evtStart, evtEnd, newDateStr, newCalTag);
 
         if (newMdLine !== me.lineText) {
-          // Update the line in the note
-          const lineIdx = findEventLine(lines, me);
-          if (lineIdx !== -1) {
-            lines[lineIdx] = newMdLine;
+          if (newDateStr !== noteDate) {
+            // Event moved to a different date — remove the line from this note
+            // and let Phase 2 insert it in the correct daily note.
+            const lineIdx = findEventLine(lines, me);
+            if (lineIdx !== -1) lineIndicesToRemove.push(lineIdx);
+            meta.events.splice(i, 1);
+            noteModified = true;
+          } else {
+            // Same date — update the line in-place (title, time, all-day, or calendar changed)
+            const lineIdx = findEventLine(lines, me);
+            if (lineIdx !== -1) {
+              lines[lineIdx] = newMdLine;
+              noteModified = true;
+            }
+            me.lineText    = newMdLine;
+            me.title       = icloudEvt.title;
+            me.calendarTag = newCalTag;
             noteModified = true;
           }
-          me.lineText     = newMdLine;
-          me.title        = icloudEvt.title;
-          me.calendarTag  = newCalTag;
-          noteModified = true;
         }
       }
     }
