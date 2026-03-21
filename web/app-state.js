@@ -82,8 +82,8 @@ const scheduleNextBtn = document.getElementById('schedule-next');
 // mode — we always return matches:false so every mobileMediaQuery guard is a
 // no-op on desktop.  Only genuine mobile/web builds use real matchMedia.
 const _noMQ = { matches: false, addEventListener: () => {}, removeEventListener: () => {} };
-const mobileMediaQuery = window.electronAPI ? _noMQ : window.matchMedia('(max-width: 650px) and (hover: none)');
-const mobileTouchQuery = window.electronAPI ? _noMQ : window.matchMedia('(max-width: 650px) and (hover: none)');
+const mobileMediaQuery = window.electronAPI ? _noMQ : window.matchMedia('(max-width: 650px) and (any-pointer: coarse)');
+const mobileTouchQuery = window.electronAPI ? _noMQ : window.matchMedia('(max-width: 650px) and (any-pointer: coarse)');
 
 // ── Application state ─────────────────────────────────────────────────────
 let isPreview = false;
