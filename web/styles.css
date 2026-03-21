@@ -357,7 +357,6 @@ button.btn-busy {
   padding: 4px 8px;
   z-index: 200;
   background-color: var(--bg);
-  border: 1px solid var(--border);
   border-radius: 4px;
   box-shadow: 0 4px 16px var(--shadow);
 }
@@ -1142,7 +1141,7 @@ body.panel-pinned #panel-arrow {
   margin: 4px 0;
 }
 
-@media (max-width: 650px) {
+@media (max-width: 650px) and (hover: none) {
   #preview img {
     max-height: 40vh;
   }
@@ -1860,7 +1859,7 @@ body.panel-pinned {
 }
 
 /* ── Mobile: centre toolbar and show status message above it ── */
-@media (max-width: 650px) {
+@media (max-width: 650px) and (hover: none) {
   body:not(.electron) #button-container {
     justify-content: center;
     margin-left: 0;
