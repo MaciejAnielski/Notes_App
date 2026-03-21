@@ -342,20 +342,28 @@ button.btn-busy {
   pointer-events: none;
 }
 
-/* ── Tools overflow row: second row shown when the first row overflows ── */
+/* ── Tools overflow row: floating centred popup revealed on "…" hover ────── */
 #tools-overflow-row {
   display: none;
+  position: fixed;
+  /* top is set by JS to sit immediately below the toolbar */
+  left: 50%;
+  transform: translateX(-50%);
   flex-direction: row;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 2px;
-  padding: 2px 6px;
-  flex-shrink: 0;
-  z-index: 100;
+  padding: 4px 8px;
+  z-index: 200;
   background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px var(--shadow);
 }
 
-#tools-overflow-row.has-overflow {
+/* Show only when it has content AND the user is hovering the "…" button */
+#tools-overflow-row.has-overflow.visible {
   display: flex;
 }
 
@@ -1195,8 +1203,7 @@ body.panel-pinned {
    Only applies on desktop (>650px) — on mobile the panel is a full-screen
    overlay and the toolbar should never be constrained by it. */
 @media (min-width: 651px) {
-  body.panel-visible:not(.panel-pinned) #button-container,
-  body.panel-visible:not(.panel-pinned) #tools-overflow-row {
+  body.panel-visible:not(.panel-pinned) #button-container {
     max-width: calc(100% - 306px);
     overflow: hidden;
   }
@@ -2054,8 +2061,7 @@ body.panel-pinned {
 
   /* The toolbar max-width constraint for floating panels is no longer needed
      when the panel is hidden. */
-  body.electron.panel-visible #button-container,
-  body.electron.panel-visible #tools-overflow-row {
+  body.electron.panel-visible #button-container {
     max-width: 100%;
   }
 }
