@@ -272,6 +272,14 @@ body.platform-darwin #tools-overflow-row input {
   app-region: no-drag;
 }
 
+/* The side panel overlaps the drag region at the top of the window.
+   Mark the entire panel as no-drag so the pin button and all panel
+   interactions are not swallowed by the macOS window-drag shell handler. */
+body.platform-darwin #panel-lists {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* ── Bottom status area — wraps status message and backup label ── */
 #bottom-status-area {
   position: relative;
