@@ -54,22 +54,38 @@ async function generateProjectsNoteContent(cachedNotes) {
   const currentFullYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
 
-  const SEASON_END_MONTH = { Winter: 2, Spring: 5, Summer: 8, Autumn: 11 };
+  // Projects are sorted chronologically within each year. December ("WinterLate")
+  // comes after Autumn rather than being grouped with January–February ("WinterEarly"),
+  // so a single calendar year can have two Winter subheadings.
+  const CHRONO_SEASON_ORDER = ['WinterEarly', 'Spring', 'Summer', 'Autumn', 'WinterLate'];
+  const SEASON_DISPLAY = {
+    WinterEarly: 'Winter', Spring: 'Spring', Summer: 'Summer', Autumn: 'Autumn', WinterLate: 'Winter',
+  };
+  // Last month of each season key — used to determine whether a season is past.
+  const SEASON_END_MONTH = { WinterEarly: 2, Spring: 5, Summer: 8, Autumn: 11, WinterLate: 12 };
+
   const emojis = getProjectEmojis();
+
+  function getSeasonKey(mm) {
+    const m = parseInt(mm, 10);
+    if (m >= 3 && m <= 5)  return 'Spring';
+    if (m >= 6 && m <= 8)  return 'Summer';
+    if (m >= 9 && m <= 11) return 'Autumn';
+    if (m === 12)          return 'WinterLate';
+    return 'WinterEarly'; // months 1–2
+  }
 
   function isYearPast(yy) {
     return (2000 + parseInt(yy, 10)) < currentFullYear;
   }
 
-  function isSeasonPast(yy, season) {
+  function isSeasonPast(yy, seasonKey) {
     const fullYear = 2000 + parseInt(yy, 10);
     if (fullYear < currentFullYear) return true;
     if (fullYear > currentFullYear) return false;
-    // Winter spans months 1, 2, and 12 of the same year.
-    // December of the current year is never past within the same year,
-    // so Winter is not "entirely past" until the year itself is past.
-    if (season === 'Winter') return false;
-    return SEASON_END_MONTH[season] < currentMonth;
+    // December (WinterLate) of the current year cannot be past until the year ends.
+    if (seasonKey === 'WinterLate') return false;
+    return SEASON_END_MONTH[seasonKey] < currentMonth;
   }
 
   function isValidYYMMDD(yy, mm, dd) {
@@ -90,13 +106,13 @@ async function generateProjectsNoteContent(cachedNotes) {
     if (!match) continue;
     const yy = match[1], mm = match[2], dd = match[3];
     if (!isValidYYMMDD(yy, mm, dd)) continue;
-    const season = getSeason(mm);
+    const seasonKey = getSeasonKey(mm);
     const projectDate = new Date(2000 + parseInt(yy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
     const isCompleted = projectDate < today;
     const target = isCompleted ? completed : active;
     if (!target[yy]) target[yy] = {};
-    if (!target[yy][season]) target[yy][season] = [];
-    target[yy][season].push(name);
+    if (!target[yy][seasonKey]) target[yy][seasonKey] = [];
+    target[yy][seasonKey].push(name);
   }
 
   for (const grp of [active, completed])
@@ -117,12 +133,13 @@ async function generateProjectsNoteContent(cachedNotes) {
       for (const yy of activeYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
         lines.push(`### 20${yy}${yCollapse}`, '');
-        for (const season of SEASON_ORDER) {
-          const notes = active[yy][season];
+        for (const seasonKey of CHRONO_SEASON_ORDER) {
+          const notes = active[yy][seasonKey];
           if (!notes || !notes.length) continue;
-          const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
-          const seasonEmoji = emojis[season];
-          lines.push(`#### ${seasonEmoji} ${season}${sCollapse}`, '');
+          const sCollapse = isSeasonPast(yy, seasonKey) ? ' >' : '';
+          const displayName = SEASON_DISPLAY[seasonKey];
+          const seasonEmoji = emojis[displayName];
+          lines.push(`#### ${seasonEmoji} ${displayName}${sCollapse}`, '');
           for (const name of notes) lines.push(`- [[${name}]]`);
           lines.push('');
         }
@@ -134,12 +151,13 @@ async function generateProjectsNoteContent(cachedNotes) {
       for (const yy of completedYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
         lines.push(`### 20${yy}${yCollapse}`, '');
-        for (const season of SEASON_ORDER) {
-          const notes = completed[yy][season];
+        for (const seasonKey of CHRONO_SEASON_ORDER) {
+          const notes = completed[yy][seasonKey];
           if (!notes || !notes.length) continue;
-          const sCollapse = isSeasonPast(yy, season) ? ' >' : '';
-          const seasonEmoji = emojis[season];
-          lines.push(`#### ${seasonEmoji} ${season}${sCollapse}`, '');
+          const sCollapse = isSeasonPast(yy, seasonKey) ? ' >' : '';
+          const displayName = SEASON_DISPLAY[seasonKey];
+          const seasonEmoji = emojis[displayName];
+          lines.push(`#### ${seasonEmoji} ${displayName}${sCollapse}`, '');
           for (const name of notes) lines.push(`- [[${name}]]`);
           lines.push('');
         }
@@ -166,7 +184,7 @@ async function refreshProjectsNote(cachedNotes) {
   localStorage.setItem(localKey, newContent);
   if (currentFileName === PROJECTS_NOTE) {
     textarea.value = newContent;
-    renderPreview();
+    await renderPreview();
   }
 }
 
@@ -428,10 +446,11 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   // Abort if superseded while fetching content.
   if (gen !== _loadNoteGeneration) return;
 
-  // Projects note: stored in localStorage only (not in sync database). Fall back to
-  // generating it fresh if localStorage doesn't have it yet (e.g. first run on Desktop/iOS).
+  // Projects note: always regenerate from the current note list so the view
+  // is never stale (e.g. after notes were added/removed since the last visit).
+  // It is stored in localStorage only — not in the sync database.
   if (content === null && name === PROJECTS_NOTE) {
-    content = localStorage.getItem('md_' + PROJECTS_NOTE) || await generateProjectsNoteContent();
+    content = await generateProjectsNoteContent();
     localStorage.setItem('md_' + PROJECTS_NOTE, content);
   }
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
