@@ -445,13 +445,14 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Wiki-link autocomplete ────────────────────────────────────────────────
-// Shows a floating dropdown of note names when the user types [[ in the editor.
+// Shows a floating dropdown of note names when the user types [[ or [ in the editor.
 
 {
   const dropdown = document.getElementById('wikilink-dropdown');
   let _acItems = [];
   let _acIdx = -1;
-  let _acStart = -1; // char offset of the opening [[ in textarea
+  let _acStart = -1; // char offset of the opening [[ or [ in textarea
+  let _acMode = 'wiki'; // 'wiki' for [[...]] syntax, 'md' for [...](url) syntax
 
   function _renderDropdown(names) {
     dropdown.innerHTML = '';
@@ -481,8 +482,9 @@ document.addEventListener('keydown', e => {
       'white-space:pre-wrap;word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
       'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
       'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
-    // Measure at _acStart + 2 (right after [[) — stays fixed while typing.
-    mirror.appendChild(document.createTextNode(textarea.value.slice(0, _acStart + 2)));
+    // Measure right after the opening trigger — stays fixed while typing.
+    const anchorOffset = _acMode === 'wiki' ? _acStart + 2 : _acStart + 1;
+    mirror.appendChild(document.createTextNode(textarea.value.slice(0, anchorOffset)));
     const anchor = document.createElement('span');
     anchor.textContent = '\u200b';
     mirror.appendChild(anchor);
@@ -516,7 +518,9 @@ document.addEventListener('keydown', e => {
     const pos = textarea.selectionStart;
     const before = textarea.value.slice(0, _acStart);
     const after  = textarea.value.slice(pos);
-    const insert = '[[' + name + ']]';
+    const insert = _acMode === 'wiki'
+      ? '[[' + name + ']]'
+      : '(' + encodeURIComponent(name) + ')';
     textarea.value = before + insert + after;
     const newPos = before.length + insert.length;
     textarea.selectionStart = textarea.selectionEnd = newPos;
@@ -530,19 +534,13 @@ document.addEventListener('keydown', e => {
     _acItems = [];
     _acIdx = -1;
     _acStart = -1;
+    _acMode = 'wiki';
   }
 
-  textarea.addEventListener('input', () => {
-    const pos = textarea.selectionStart;
-    const before = textarea.value.slice(0, pos);
-    // Look for an unclosed [[ before the cursor (no closing ]] yet on this line)
-    const m = before.match(/\[\[([^\]\n]*)$/);
-    if (!m) { _hide(); return; }
-
-    const partial = m[1].toLowerCase();
-    const newStart = before.length - m[0].length;
-    const isNewTrigger = newStart !== _acStart;
+  function _handleMatch(partial, newStart, mode) {
+    const isNewTrigger = newStart !== _acStart || _acMode !== mode;
     _acStart = newStart;
+    _acMode = mode;
 
     NoteStorage.getAllNoteNames().then(names => {
       const filtered = names
@@ -558,9 +556,32 @@ document.addEventListener('keydown', e => {
       _acItems = filtered;
       _acIdx = 0;
       _renderDropdown(filtered);
-      // Only reposition when [[ is first typed; anchor stays fixed after that.
+      // Only reposition when trigger is first typed; anchor stays fixed after that.
       if (isNewTrigger) _positionDropdown();
     });
+  }
+
+  textarea.addEventListener('input', () => {
+    const pos = textarea.selectionStart;
+    const before = textarea.value.slice(0, pos);
+
+    // Priority 1: unclosed [[ before cursor (wiki-link syntax [[Note Name]])
+    const wikiM = before.match(/\[\[([^\]\n]*)$/);
+    if (wikiM) {
+      _handleMatch(wikiM[1].toLowerCase(), before.length - wikiM[0].length, 'wiki');
+      return;
+    }
+
+    // Priority 2: [Text]( before cursor (markdown link syntax [Text](Note Name))
+    const mdM = before.match(/\[[^\[\]\n]*\]\(([^)\n]*)$/);
+    if (mdM) {
+      // _acStart points at the '(' so completion replaces only (partial → (name)
+      const acStart = before.length - mdM[1].length - 1;
+      _handleMatch(mdM[1].toLowerCase(), acStart, 'md');
+      return;
+    }
+
+    _hide();
   });
 
   // Capture keydown so we intercept arrow keys before the textarea moves the cursor.
