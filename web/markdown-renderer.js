@@ -1075,7 +1075,7 @@ function setupPlainCheckboxes(container) {
   });
 }
 
-async function renderMermaidDiagrams(container) {
+async function renderMermaidDiagrams(container, varMap) {
   const codeBlocks = container.querySelectorAll('pre code.language-mermaid');
   if (codeBlocks.length === 0) return;
   if (!window.mermaid) {
@@ -1087,7 +1087,10 @@ async function renderMermaidDiagrams(container) {
   // Render all mermaid diagrams in parallel for faster preview
   const renderJobs = Array.from(codeBlocks).map(async (codeEl, idx) => {
     const pre = codeEl.parentElement;
-    const source = codeEl.textContent;
+    const rawSource = codeEl.textContent;
+    const source = (varMap && Object.keys(varMap).length > 0)
+      ? substituteVarsInMermaid(rawSource, varMap)
+      : rawSource;
     const id = 'mermaid-' + Date.now() + '-' + idx;
     try {
       const { svg } = await mermaid.render(id, source);
@@ -1215,7 +1218,8 @@ async function renderPreview() {
   // Staleness check after attachment resolution (can be slow for many images).
   if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
 
-  await renderMermaidDiagrams(previewDiv);
+  const _mathVarMap = buildMermaidVarMap(_currentContent);
+  await renderMermaidDiagrams(previewDiv, _mathVarMap);
   // Lazy-load MathJax only when the note contains math syntax.
   // Check for typesetPromise (not just window.MathJax) because window.MathJax
   // is pre-set to a config object in index.html before the script loads.

@@ -257,6 +257,37 @@ function formatMathResult(value) {
   return precise.toString();
 }
 
+function buildMermaidVarMap(markdown) {
+  const expressions = extractAllMathExpressions(markdown);
+  return buildMathVariableMap(expressions);
+}
+
+function substituteVarsInMermaid(mermaidSource, varMap) {
+  // Translate LaTeX-keyed varMap to plain mermaid identifiers
+  const mermaidMap = {};
+  for (const [latexKey, val] of Object.entries(varMap)) {
+    let name;
+    if (latexKey.startsWith('\\text{') && latexKey.endsWith('}')) {
+      name = latexKey.slice(6, -1);       // \text{label} → label
+    } else if (latexKey.startsWith('\\')) {
+      name = latexKey.slice(1);           // \alpha → alpha
+    } else {
+      name = latexKey;                    // plain identifier unchanged
+    }
+    mermaidMap[name] = val;
+  }
+
+  // Substitute longest names first to prevent shorter names matching inside longer ones
+  const entries = Object.entries(mermaidMap).sort(([a], [b]) => b.length - a.length);
+  let result = mermaidSource;
+  for (const [name, val] of entries) {
+    const escaped = name.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+    const re = new RegExp(`\\b${escaped}\\b`, 'g');
+    result = result.replace(re, formatMathResult(val));
+  }
+  return result;
+}
+
 function saveFormulaResult(mathExpr, resultStr) {
   if (!currentFileName || currentFileName === PROJECTS_NOTE) return;
   const content = textarea.value;
