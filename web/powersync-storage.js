@@ -603,6 +603,15 @@
             [content, now, existing.id]
           );
         } else {
+          // Remove any soft-deleted rows with this name left over from older
+          // database versions before inserting the new row. Without this,
+          // Supabase's partial unique index (on non-deleted rows) would allow
+          // the insert, but the lingering deleted row wastes space and can
+          // confuse the sync conflict handler.
+          await db.execute(
+            'DELETE FROM notes WHERE name = ? AND user_id = ? AND deleted = 1',
+            [name, userId]
+          ).catch(() => null);
           await db.execute(
             'INSERT INTO notes (id, name, content, deleted, updated_at, created_at, user_id) VALUES (uuid(), ?, ?, 0, ?, ?, ?)',
             [name, content, now, now, userId]
@@ -640,10 +649,13 @@
         _noteCache.delete(name);
         const userId = getUserId();
         if (!userId) return;
-        const now = new Date().toISOString();
+        // Hard-delete so the row is fully removed from Supabase and all other
+        // devices via PowerSync's DELETE CRUD propagation. Soft-delete
+        // (deleted=1) left rows in the database permanently and prevented
+        // re-creation of a note with the same name on other devices.
         await db.execute(
-          'UPDATE notes SET deleted = 1, updated_at = ? WHERE name = ? AND user_id = ? AND deleted = 0',
-          [now, name, userId]
+          'DELETE FROM notes WHERE name = ? AND user_id = ?',
+          [name, userId]
         );
       },
 
