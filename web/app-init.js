@@ -842,7 +842,7 @@ async function handlePowerSyncChange() {
         if (isPreview || projectsViewActive) previewDiv.innerHTML = '';
         updateStatus('Current note was deleted on another device.', false);
       }
-    } else if (content !== textarea.value) {
+    } else if (content !== textarea.value && content !== _lastSavedContent) {
       if (hasUnsavedEdits) {
         updateStatus('Remote change detected \u2014 keeping your unsaved edits.', true);
       } else {
