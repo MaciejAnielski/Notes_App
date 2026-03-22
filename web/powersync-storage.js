@@ -649,13 +649,10 @@
         _noteCache.delete(name);
         const userId = getUserId();
         if (!userId) return;
-        // Hard-delete so the row is fully removed from Supabase and all other
-        // devices via PowerSync's DELETE CRUD propagation. Soft-delete
-        // (deleted=1) left rows in the database permanently and prevented
-        // re-creation of a note with the same name on other devices.
+        const now = new Date().toISOString();
         await db.execute(
-          'DELETE FROM notes WHERE name = ? AND user_id = ?',
-          [name, userId]
+          'UPDATE notes SET deleted = 1, updated_at = ? WHERE name = ? AND user_id = ? AND deleted = 0',
+          [now, name, userId]
         );
       },
 

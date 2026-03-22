@@ -581,7 +581,7 @@ async function deleteNote() {
     alert('File not found.');
     return;
   }
-  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+  if (!confirm(`Delete "${name}"?`)) return;
 
   _pendingRename = null;
   await NoteStorage.trashNote(name);
@@ -598,7 +598,7 @@ async function deleteNote() {
 }
 
 async function deleteAllNotes() {
-  if (!confirm('Permanently delete all notes? This cannot be undone.')) return;
+  if (!confirm('Delete all notes?')) return;
   _pendingRename = null;
   const names = await NoteStorage.getAllNoteNames();
   await Promise.all(names.map(name => NoteStorage.trashNote(name)));
