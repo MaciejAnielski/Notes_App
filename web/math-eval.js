@@ -282,7 +282,11 @@ function substituteVarsInMermaid(mermaidSource, varMap) {
   let result = mermaidSource;
   for (const [name, val] of entries) {
     const escaped = name.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
-    const re = new RegExp(`\\b${escaped}\\b`, 'g');
+    // Only use \b where the name boundary is a word character; names ending with
+    // non-word chars like } (e.g. P_{\text{Sleep}}) must not use a trailing \b.
+    const startBound = /^[a-zA-Z0-9_]/.test(name) ? '\\b' : '';
+    const endBound = /[a-zA-Z0-9_]$/.test(name) ? '\\b' : '';
+    const re = new RegExp(`${startBound}${escaped}${endBound}`, 'g');
     result = result.replace(re, formatMathResult(val));
   }
   return result;
