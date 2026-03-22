@@ -617,8 +617,13 @@ function _findMarkdownTables(text) {
 }
 
 // Rewrite textarea.value so that sorted tables are persisted to the markdown source.
-// Also updates _lastRenderedContent so the render cache stays valid, and
-// calls NoteStorage.setNote() to immediately persist the change.
+// Called only when leaving preview mode (view toggle or note switch) so that
+// textarea.value is never modified mid-session — the original markdown rows
+// remain available as the stable reference, meaning cycling back to 'default'
+// always restores exactly the original order.
+// _lastRenderedContent is also updated so the render cache stays valid.
+// The actual NoteStorage write is left to the caller's existing save-on-navigate
+// / auto-save logic (loadNote, toggleView) to avoid double-writes.
 function _saveAllTableSorts(container) {
   if (!currentFileName) return;
 
@@ -652,9 +657,6 @@ function _saveAllTableSorts(container) {
     const newText = lines.join('\n');
     textarea.value = newText;
     _lastRenderedContent = newText;
-    // Keep _lastSavedContent in sync to avoid a redundant save-on-navigate
-    if (typeof _lastSavedContent !== 'undefined') _lastSavedContent = newText;
-    NoteStorage.setNote(currentFileName, newText);
   }
 }
 
@@ -758,7 +760,6 @@ function setupTableFeatures(container) {
         _tableSortState.set(table, { colIndex, direction: newDir });
         _applyTableSort(table, colIndex, newDir);
         _updateSortIndicators(ths, colIndex, newDir);
-        _saveAllTableSorts(container);
       });
     });
 
@@ -1891,6 +1892,8 @@ window._refreshSettingsPickerUI = refreshSettingsPickerUI;
 async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
+    // Flush any active table sort to markdown before switching to edit mode.
+    _saveAllTableSorts(previewDiv);
     const scrollRatio = (previewDiv.scrollHeight - previewDiv.clientHeight) > 0
       ? previewDiv.scrollTop / (previewDiv.scrollHeight - previewDiv.clientHeight)
       : 0;

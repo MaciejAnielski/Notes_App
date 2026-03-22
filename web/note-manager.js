@@ -400,6 +400,9 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   // Switching to a different note: flush any unsaved edits under the current
   // filename and apply any pending title rename before navigating away.
   if (currentFileName && currentFileName !== name) {
+    // If in preview mode, commit any active table sort into textarea.value so
+    // the save-on-navigate block below picks it up and writes it to storage.
+    if (isPreview) _saveAllTableSorts(previewDiv);
     if (textarea.value !== _lastSavedContent) {
       try {
         await NoteStorage.setNote(currentFileName, textarea.value);
