@@ -58,6 +58,12 @@ async function _doUpdateFileList() {
   const noteMap = {};
 
   const todayNote = getFormattedDate() + ' Daily Note';
+  // Check existence against ALL notes (not the search-filtered noteMap) so
+  // the daily-note placeholder is only shown when the note truly doesn't
+  // exist.  Using noteMap alone would incorrectly show a "create" placeholder
+  // whenever the daily note exists but doesn't match the current search,
+  // and clicking that placeholder would overwrite the note's content.
+  const todayNoteExists = allNotes.some(n => n.name === todayNote);
   for (const { name: fileName, content } of allNotes) {
     if (fileName.startsWith('.')) continue;
     if (fileName === PROJECTS_NOTE || fileName === GRAPH_NOTE || fileName === CALENDARS_NOTE) continue;
@@ -94,8 +100,24 @@ async function _doUpdateFileList() {
   // Always pin today's daily note to the very top, even if it hasn't been
   // created yet.  A placeholder is shown that creates the note on click.
   if (noteMap[todayNote]) {
+    // Today's note matches the search — use the already-built element.
     items.push(noteMap[todayNote]);
     delete noteMap[todayNote];
+  } else if (todayNoteExists) {
+    // Today's note exists but doesn't match the current search filter.
+    // Show it pinned at the top so the user always sees it, but don't
+    // offer a "create" action that would overwrite existing content.
+    const li = document.createElement('li');
+    li.classList.add('today-note');
+    const span = document.createElement('span');
+    span.textContent = todayNote;
+    span.style.cursor = 'pointer';
+    span.onclick = () => {
+      loadNote(todayNote);
+      closeMobilePanel('left');
+    };
+    li.appendChild(span);
+    items.push(li);
   } else {
     // Today's note doesn't exist yet — show a placeholder so the user can
     // see and create it without searching.
