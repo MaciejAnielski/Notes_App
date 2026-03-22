@@ -581,7 +581,7 @@ async function deleteNote() {
     alert('File not found.');
     return;
   }
-  if (!confirm(`Move "${name}" to the Deleted folder?`)) return;
+  if (!confirm(`Delete "${name}"?`)) return;
 
   _pendingRename = null;
   await NoteStorage.trashNote(name);
@@ -593,12 +593,12 @@ async function deleteNote() {
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateStatus(`Moved "${name}" to Deleted folder.`, true);
+  updateStatus(`Deleted "${name}".`, true);
   updateFileList();
 }
 
 async function deleteAllNotes() {
-  if (!confirm('Move all notes to the Deleted folder?')) return;
+  if (!confirm('Delete all notes?')) return;
   _pendingRename = null;
   const names = await NoteStorage.getAllNoteNames();
   await Promise.all(names.map(name => NoteStorage.trashNote(name)));
@@ -610,7 +610,7 @@ async function deleteAllNotes() {
   else previewDiv.innerHTML = '';
   currentFileName = null;
   localStorage.removeItem('current_file');
-  updateStatus(`Moved ${names.length} Note${names.length === 1 ? '' : 's'} to Deleted folder.`, true);
+  updateStatus(`Deleted ${names.length} Note${names.length === 1 ? '' : 's'}.`, true);
   updateFileList();
 }
 
@@ -633,6 +633,6 @@ async function deleteSelectedNotes() {
       localStorage.removeItem('current_file');
     }
   }));
-  updateStatus(`Moved ${notes.length} Note${notes.length === 1 ? '' : 's'} to Deleted folder.`, true);
+  updateStatus(`Deleted ${notes.length} Note${notes.length === 1 ? '' : 's'}.`, true);
   updateFileList();
 }

@@ -823,7 +823,12 @@ async function handlePowerSyncChange() {
     if (gen !== _loadNoteGeneration) return;
 
     if (content === null) {
-      if (textarea.value.trim()) {
+      // Only restore the note if the user has actually made local edits that
+      // haven't been saved yet. Checking textarea.value.trim() was wrong: it
+      // caused any open note (even one just being read) to be resurrected
+      // whenever it was deleted on another device, because the textarea still
+      // held the note's content.
+      if (hasUnsavedEdits) {
         try {
           await NoteStorage.setNote(currentFileName, textarea.value);
           _lastSavedContent = textarea.value;
