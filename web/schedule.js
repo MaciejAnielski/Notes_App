@@ -509,13 +509,8 @@ async function _doRenderSchedule(cachedNotes) {
     const hasMath = allItems.some(it =>
       /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(it.text || '')
     );
-    if (hasMath) {
-      if (!window.MathJax?.typesetPromise) {
-        try { await loadScript('vendor/tex-chtml-full.js'); } catch { /* ignore */ }
-      }
-      if (window.MathJax?.typesetPromise) {
-        MathJax.typesetPromise([scheduleContainer]).catch(() => {});
-      }
+    if (hasMath && window.MathJax?.typesetPromise) {
+      MathJax.typesetPromise([scheduleContainer]).catch(() => {});
     }
   }
 }

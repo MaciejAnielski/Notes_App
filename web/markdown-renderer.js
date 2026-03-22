@@ -1078,12 +1078,7 @@ function setupPlainCheckboxes(container) {
 async function renderMermaidDiagrams(container, varMap) {
   const codeBlocks = container.querySelectorAll('pre code.language-mermaid');
   if (codeBlocks.length === 0) return;
-  if (!window.mermaid) {
-    try {
-      await loadScript('vendor/mermaid.min.js');
-      if (typeof reinitMermaidTheme === 'function') reinitMermaidTheme();
-    } catch { return; }
-  }
+  if (!window.mermaid) return;
   // Render all mermaid diagrams in parallel for faster preview
   const renderJobs = Array.from(codeBlocks).map(async (codeEl, idx) => {
     const pre = codeEl.parentElement;
@@ -1220,17 +1215,7 @@ async function renderPreview() {
 
   const _mathVarMap = buildMermaidVarMap(_currentContent);
   await renderMermaidDiagrams(previewDiv, _mathVarMap);
-  // Lazy-load MathJax only when the note contains math syntax.
-  // Check for typesetPromise (not just window.MathJax) because window.MathJax
-  // is pre-set to a config object in index.html before the script loads.
-  if (!window.MathJax?.typesetPromise && /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(textarea.value)) {
-    try {
-      await loadScript('vendor/tex-chtml-full.js');
-    } catch { /* MathJax failed to load */ }
-  }
   if (window.MathJax?.typesetPromise) {
-    // Await typesetting so setupClickableMathFormulas runs after the mjx-container
-    // elements exist, and doesn't race against isPreview being set by the caller.
     await MathJax.typesetPromise([previewDiv]);
     if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
     markOverflowingMathContainers();

@@ -1077,19 +1077,25 @@ async function migrateLocalNotesToSync() {
     setLoadingProgress(5, 'Starting\u2026');
 
     // Wait for PowerSync to finish initializing before any NoteStorage operations.
-    // powersync-storage.js is an async IIFE that may still be running when this
-    // script executes. Resolves immediately when:
-    //   • powersync:ready   — fully initialized (sync enabled + authenticated)
-    //   • powersync:disabled — sync turned off by user; use localStorage
-    //   • powersync:auth-required — sync enabled but not signed in; use localStorage
-    // A 5-second timeout also falls back to localStorage gracefully.
+    // powersync-storage.js is an async module that may dispatch powersync:ready
+    // before this listener is set up (race condition on iOS where native bridge
+    // calls resolve quickly). Guard against this by also polling for the global.
     if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !window.PowerSyncNoteStorage) {
       setLoadingProgress(10, 'Connecting\u2026');
       await new Promise(resolve => {
-        window.addEventListener('powersync:ready', resolve, { once: true });
-        window.addEventListener('powersync:disabled', resolve, { once: true });
-        window.addEventListener('powersync:auth-required', resolve, { once: true });
-        setTimeout(resolve, 5000);
+        // Resolve on any of the three PowerSync lifecycle events
+        const done = () => {
+          clearInterval(poll);
+          resolve();
+        };
+        window.addEventListener('powersync:ready', done, { once: true });
+        window.addEventListener('powersync:disabled', done, { once: true });
+        window.addEventListener('powersync:auth-required', done, { once: true });
+        // Poll for the global in case the event fired before we registered
+        const poll = setInterval(() => {
+          if (window.PowerSyncNoteStorage) done();
+        }, 50);
+        setTimeout(done, 5000);
       });
       if (window.PowerSyncNoteStorage) {
         window.NoteStorage = window.PowerSyncNoteStorage;

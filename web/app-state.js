@@ -5,11 +5,8 @@
 // search predicates, formatting helpers, and attachment utilities.
 
 // ── Lazy script loader ───────────────────────────────────────────────────
-// Used to defer loading of heavy vendor libraries (mermaid, vis-network)
-// until they are actually needed, reducing initial startup time.
-// Tracks fully-loaded scripts so concurrent calls resolve immediately after
-// the first load, and don't resolve early if the tag exists but is still
-// fetching (which would leave window.mermaid / MathJax undefined).
+// Used to defer loading of vis-network (graph view only) until needed.
+// MathJax and Mermaid are now preloaded in index.html at startup.
 const _loadedScripts = new Set();
 function loadScript(src) {
   return new Promise((resolve, reject) => {
