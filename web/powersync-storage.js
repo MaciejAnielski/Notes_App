@@ -587,6 +587,19 @@
         return content;
       },
 
+      // Returns true if a row for this note exists in the sync DB regardless
+      // of its deleted state. Used during local→sync migration to avoid
+      // re-creating notes that were previously synced and then deleted.
+      async noteExistsInSync(name) {
+        const userId = getUserId();
+        if (!userId) return false;
+        const result = await db.get(
+          'SELECT id FROM notes WHERE name = ? AND user_id = ?',
+          [name, userId]
+        ).catch(() => null);
+        return result != null;
+      },
+
       async setNote(name, content) {
         const userId = getUserId();
         if (!userId) return;
