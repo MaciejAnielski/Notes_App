@@ -286,8 +286,6 @@
           logLevel: 'off', suppressErrorRendering: true,
           themeVariables: vars
         });
-        // Suppress mermaid error handler completely
-        mermaid.setErrorHandler(() => {});
         // Suppress console errors from mermaid
         const originalError = console.error;
         const mermaidErrorPatterns = ['Mermaid', 'diagram', 'syntax'];
