@@ -129,7 +129,7 @@ async function generateProjectsNoteContent(cachedNotes) {
   } else {
     if (hasActive) {
       lines.push(`## ${emojis.active} Ongoing`, '');
-      const activeYears = Object.keys(active).sort((a, b) => b.localeCompare(a));
+      const activeYears = Object.keys(active).sort((a, b) => a.localeCompare(b));
       for (const yy of activeYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
         lines.push(`### 20${yy}${yCollapse}`, '');
@@ -147,7 +147,7 @@ async function generateProjectsNoteContent(cachedNotes) {
     }
     if (hasCompleted) {
       lines.push(`## ${emojis.completed} Completed >`, '');
-      const completedYears = Object.keys(completed).sort((a, b) => b.localeCompare(a));
+      const completedYears = Object.keys(completed).sort((a, b) => a.localeCompare(b));
       for (const yy of completedYears) {
         const yCollapse = isYearPast(yy) ? ' >' : '';
         lines.push(`### 20${yy}${yCollapse}`, '');

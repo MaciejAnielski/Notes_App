@@ -121,6 +121,7 @@ const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 // back to the primary's localStorage key, so trail changes in secondary
 // windows never affect the primary.
 const _isSecondary = new URLSearchParams(window.location.search).get('secondary') === 'true';
+if (_isSecondary) document.body.classList.add('secondary-window');
 // Set to true in secondary windows once the trail has been cleared (new note
 // created or a note outside the trail was opened).  After severing, the
 // secondary window's trail is fully independent and no longer mirrors the
