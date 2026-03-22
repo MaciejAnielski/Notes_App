@@ -544,6 +544,8 @@ async function newNote() {
   // Flush unsaved content and apply any pending rename before leaving the
   // current note, so the title change is not silently discarded.
   if (currentFileName) {
+    // Commit any active table sort into textarea.value before the save check.
+    if (isPreview) _saveAllTableSorts(previewDiv);
     if (textarea.value !== _lastSavedContent) {
       try {
         await NoteStorage.setNote(currentFileName, textarea.value);

@@ -657,6 +657,15 @@ function _saveAllTableSorts(container) {
     const newText = lines.join('\n');
     textarea.value = newText;
     _lastRenderedContent = newText;
+    // Reset data-origRow on every processed table so the saved order becomes
+    // the new "default". This makes _saveAllTableSorts idempotent: a second
+    // call (e.g. from toggleView after newNote already flushed) is a no-op.
+    tables.forEach(table => {
+      Array.from(table.querySelectorAll('tbody tr')).forEach((tr, i) => {
+        tr.dataset.origRow = String(i);
+      });
+      _tableSortState.delete(table);
+    });
   }
 }
 
