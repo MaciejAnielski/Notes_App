@@ -520,7 +520,7 @@ document.addEventListener('keydown', e => {
     const after  = textarea.value.slice(pos);
     const insert = _acMode === 'wiki'
       ? '[[' + name + ']]'
-      : '[' + name + '](' + encodeURIComponent(name) + ')';
+      : '(' + encodeURIComponent(name) + ')';
     textarea.value = before + insert + after;
     const newPos = before.length + insert.length;
     textarea.selectionStart = textarea.selectionEnd = newPos;
@@ -572,10 +572,12 @@ document.addEventListener('keydown', e => {
       return;
     }
 
-    // Priority 2: unclosed [ (not [[ ) before cursor (markdown link syntax [Text](Note Name))
-    const mdM = before.match(/(?<!\[)\[([^\[\]\n]*)$/);
+    // Priority 2: [Text]( before cursor (markdown link syntax [Text](Note Name))
+    const mdM = before.match(/\[[^\[\]\n]*\]\(([^)\n]*)$/);
     if (mdM) {
-      _handleMatch(mdM[1].toLowerCase(), before.length - mdM[0].length, 'md');
+      // _acStart points at the '(' so completion replaces only (partial → (name)
+      const acStart = before.length - mdM[1].length - 1;
+      _handleMatch(mdM[1].toLowerCase(), acStart, 'md');
       return;
     }
 
