@@ -121,7 +121,28 @@ const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 // back to the primary's localStorage key, so trail changes in secondary
 // windows never affect the primary.
 const _isSecondary = new URLSearchParams(window.location.search).get('secondary') === 'true';
-if (_isSecondary) document.body.classList.add('secondary-window');
+if (_isSecondary) {
+  document.body.classList.add('secondary-window');
+
+  // Re-derive the full colour palette with a subtly muted background so that
+  // every background-coloured surface (toolbar, editor, sidebar, preview, etc.)
+  // shifts together harmoniously, while text and accent colours — which are
+  // derived from `accent`, not `bg` — remain unchanged.
+  // We wrap `applyTheme` so that Settings-triggered theme changes also apply
+  // the shift without any extra wiring.
+  const _shiftBgForSecondary = bg => {
+    const [h, s, l] = _hexToHSL(bg);
+    const dark = l < 50;
+    // Pull saturation down and nudge lightness so the bg reads as clearly
+    // different without becoming an unrelated colour.
+    return _hslToHex(h, s * 0.55, l + (dark ? -5 : 5));
+  };
+  const _origApplyTheme = window.applyTheme;
+  window.applyTheme = (bg, accent) => _origApplyTheme(_shiftBgForSecondary(bg), accent);
+  // Immediately re-apply so the shift takes effect on the current theme.
+  const { background, accent } = getCurrentTheme();
+  window.applyTheme(background, accent);
+}
 // Set to true in secondary windows once the trail has been cleared (new note
 // created or a note outside the trail was opened).  After severing, the
 // secondary window's trail is fully independent and no longer mirrors the
