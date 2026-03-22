@@ -1033,10 +1033,14 @@ async function migrateLocalNotesToSync() {
     if (noteName === PROJECTS_NOTE || noteName === GRAPH_NOTE) continue;
     const localContent = localStorage.getItem(key);
     if (!localContent) continue;
-    // Only insert notes that don't already exist in the sync database so
-    // that remote notes (synced from other devices) are never overwritten.
-    const existing = await NoteStorage.getNote(noteName);
-    if (existing === null) {
+    // Only insert notes that have never been synced (no row at all, active or
+    // deleted). Using getNote() alone is insufficient because it filters out
+    // soft-deleted rows (deleted = 1), which would cause previously-deleted
+    // notes to be re-created on every launch.
+    const alreadySynced = typeof NoteStorage.noteExistsInSync === 'function'
+      ? await NoteStorage.noteExistsInSync(noteName)
+      : await NoteStorage.getNote(noteName) !== null;
+    if (!alreadySynced) {
       await NoteStorage.setNote(noteName, localContent);
       migrated++;
     }
