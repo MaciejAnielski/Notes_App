@@ -17,6 +17,19 @@ let _notifCheckTimer = null;
 // ── Permission request ──────────────────────────────────────────────────────
 
 async function requestNotificationPermission() {
+  // iOS / Android (Capacitor) — check first so native platforms use the
+  // LocalNotifications plugin rather than the WKWebView/WebView Notification
+  // API, which does not surface real system notifications on iOS.
+  if (window.Capacitor?.Plugins?.LocalNotifications) {
+    try {
+      const result = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
+      _notifPermissionGranted = result.display === 'granted';
+      return _notifPermissionGranted;
+    } catch {
+      return false;
+    }
+  }
+
   // Web / Desktop (Electron uses the same Notification API)
   if ('Notification' in window) {
     if (Notification.permission === 'granted') {
@@ -29,17 +42,6 @@ async function requestNotificationPermission() {
       return _notifPermissionGranted;
     }
     return false;
-  }
-
-  // iOS (Capacitor) — use LocalNotifications plugin if available
-  if (window.Capacitor?.Plugins?.LocalNotifications) {
-    try {
-      const result = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
-      _notifPermissionGranted = result.display === 'granted';
-      return _notifPermissionGranted;
-    } catch {
-      return false;
-    }
   }
 
   return false;
@@ -138,8 +140,9 @@ async function checkScheduleNotifications() {
       );
     }
 
-    // Also notify at the exact start time
-    if (diff >= -1 && diff <= 0) {
+    // Also notify at the exact start time. Window is -1..1 to tolerate
+    // the 60-second check interval drifting by up to one minute.
+    if (diff >= -1 && diff <= 1) {
       const label = item.isTask ? 'Task' : 'Event';
       const cleanText = stripMarkdownText(item.text || '') || 'Scheduled item starting';
       sendNotification(
@@ -197,6 +200,16 @@ function clearStaleNotificationKeys() {
   _notifiedKeys.clear();
 }
 
+function scheduleMidnightClear() {
+  const now = new Date();
+  const msUntilMidnight =
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+  setTimeout(() => {
+    clearStaleNotificationKeys();
+    setInterval(clearStaleNotificationKeys, 86400000);
+  }, msUntilMidnight);
+}
+
 // Auto-start notifications on load
 if (document.readyState === 'complete') {
   startNotifications();
@@ -213,5 +226,5 @@ if (window.Capacitor?.isNativePlatform()) {
   document.addEventListener('pause', stopNotifications);
 }
 
-// Clear stale keys at midnight
-setInterval(clearStaleNotificationKeys, 86400000);
+// Clear stale keys at midnight (anchored to actual midnight, not a rolling 24h interval)
+scheduleMidnightClear();
