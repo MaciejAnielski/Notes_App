@@ -452,7 +452,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   // Projects note: always regenerate from the current note list so the view
   // is never stale (e.g. after notes were added/removed since the last visit).
   // It is stored in localStorage only — not in the sync database.
-  if (content === null && name === PROJECTS_NOTE) {
+  if (name === PROJECTS_NOTE) {
     content = await generateProjectsNoteContent();
     localStorage.setItem('md_' + PROJECTS_NOTE, content);
   }
