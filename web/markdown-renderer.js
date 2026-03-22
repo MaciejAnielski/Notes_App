@@ -563,6 +563,353 @@ function alignTableColumns(container) {
   });
 }
 
+// ── Table smart features: sorting, filtering, copy ─────────────────────────
+
+// Per-table sort state: maps table element → { colIndex, direction }
+// direction: 'default' | 'asc' | 'desc'
+const _tableSortState = new WeakMap();
+
+// Shared filter popup element (created once, reused)
+let _tableFilterPopup = null;
+
+function _getOrCreateTableFilterPopup() {
+  if (!_tableFilterPopup) {
+    _tableFilterPopup = document.createElement('div');
+    _tableFilterPopup.id = 'table-filter-popup';
+    document.body.appendChild(_tableFilterPopup);
+    // Dismiss on click outside
+    document.addEventListener('mousedown', e => {
+      if (_tableFilterPopup && !_tableFilterPopup.contains(e.target)) {
+        _tableFilterPopup.style.display = 'none';
+      }
+    });
+  }
+  return _tableFilterPopup;
+}
+
+// Parse all markdown-format tables from text.
+// Returns array of { bodyStartLine, bodyRows } where bodyRows are the
+// original source lines for tbody rows (in original order).
+function _findMarkdownTables(text) {
+  const lines = text.split('\n');
+  const tables = [];
+  let i = 0;
+  while (i < lines.length) {
+    // A table starts with a pipe-containing line followed by a separator line
+    if (
+      i + 1 < lines.length &&
+      /^\s*\|/.test(lines[i]) &&
+      /^\s*\|[\s\-:|]+\|/.test(lines[i + 1])
+    ) {
+      const bodyStartLine = i + 2;
+      let j = bodyStartLine;
+      while (j < lines.length && /^\s*\|/.test(lines[j])) j++;
+      tables.push({
+        bodyStartLine,
+        bodyRows: lines.slice(bodyStartLine, j),
+      });
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return tables;
+}
+
+// Rewrite textarea.value so that sorted tables are persisted to the markdown source.
+// Also updates _lastRenderedContent so the render cache stays valid, and
+// calls NoteStorage.setNote() to immediately persist the change.
+function _saveAllTableSorts(container) {
+  if (!currentFileName) return;
+
+  const tables = Array.from(container.querySelectorAll('table'));
+  const mdTables = _findMarkdownTables(textarea.value);
+  if (tables.length !== mdTables.length) return;
+
+  const lines = textarea.value.split('\n');
+  let changed = false;
+
+  for (let i = 0; i < tables.length; i++) {
+    const table = tables[i];
+    const mdTable = mdTables[i];
+    const tbody = table.querySelector('tbody');
+    if (!tbody) continue;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const origIndices = rows.map(tr => Number(tr.dataset.origRow));
+    const isDefault = origIndices.every((v, idx) => v === idx);
+    if (isDefault) continue;
+
+    // Replace body lines in the markdown with the new (sorted) order
+    const newBodyLines = origIndices.map(idx => mdTable.bodyRows[idx]);
+    for (let j = 0; j < newBodyLines.length; j++) {
+      lines[mdTable.bodyStartLine + j] = newBodyLines[j];
+    }
+    changed = true;
+  }
+
+  if (changed) {
+    const newText = lines.join('\n');
+    textarea.value = newText;
+    _lastRenderedContent = newText;
+    // Keep _lastSavedContent in sync to avoid a redundant save-on-navigate
+    if (typeof _lastSavedContent !== 'undefined') _lastSavedContent = newText;
+    NoteStorage.setNote(currentFileName, newText);
+  }
+}
+
+function _applyTableFilter(table, colIndex, value) {
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+    const td = tr.querySelectorAll('td')[colIndex];
+    const cellText = td ? td.textContent.trim() : '';
+    tr.style.display = cellText === value ? '' : 'none';
+  });
+}
+
+function _updateSortIndicators(ths, activeCol, direction) {
+  ths.forEach((th, i) => {
+    let ind = th.querySelector('.sort-indicator');
+    if (!ind) {
+      ind = document.createElement('span');
+      ind.className = 'sort-indicator';
+      th.appendChild(ind);
+    }
+    if (i === activeCol && direction !== 'default') {
+      ind.textContent = direction === 'asc' ? ' ▲' : ' ▼';
+    } else {
+      ind.textContent = '';
+    }
+  });
+}
+
+function _applyTableSort(table, colIndex, direction) {
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  if (direction === 'default') {
+    rows.sort((a, b) => Number(a.dataset.origRow) - Number(b.dataset.origRow));
+  } else {
+    rows.sort((a, b) => {
+      const aCell = a.querySelectorAll('td')[colIndex];
+      const bCell = b.querySelectorAll('td')[colIndex];
+      const aText = aCell ? aCell.textContent.trim() : '';
+      const bText = bCell ? bCell.textContent.trim() : '';
+      const clean = s => s.replace(/[,$€£¥%+\s]/g, '');
+      const aNum = Number(clean(aText));
+      const bNum = Number(clean(bText));
+      const bothNum = aText !== '' && bText !== '' && !isNaN(aNum) && !isNaN(bNum);
+      const cmp = bothNum ? aNum - bNum : aText.localeCompare(bText);
+      return direction === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  rows.forEach(tr => tbody.appendChild(tr));
+
+  // Re-apply active column filter after sort (to keep hidden rows hidden)
+  if (table._filterState) {
+    _applyTableFilter(table, table._filterState.colIndex, table._filterState.value);
+  }
+}
+
+function setupTableFeatures(container) {
+  container.querySelectorAll('table').forEach(table => {
+    // Tag each tbody row with its original (pre-sort) index
+    Array.from(table.querySelectorAll('tbody tr')).forEach((tr, i) => {
+      tr.dataset.origRow = String(i);
+    });
+
+    const ths = Array.from(table.querySelectorAll('thead tr th'));
+
+    // ── Sorting: click on header ──────────────────────────────────────────
+    ths.forEach((th, colIndex) => {
+      th.classList.add('sortable-header');
+
+      let _ptrDownX = 0, _ptrDownY = 0, _isDrag = false;
+
+      th.addEventListener('mousedown', e => {
+        _ptrDownX = e.clientX;
+        _ptrDownY = e.clientY;
+        _isDrag = false;
+      });
+      th.addEventListener('mousemove', e => {
+        if (Math.abs(e.clientX - _ptrDownX) > 5 || Math.abs(e.clientY - _ptrDownY) > 5) {
+          _isDrag = true;
+        }
+      });
+      th.addEventListener('click', e => {
+        // Don't sort when the user was click-dragging to select text
+        if (_isDrag) return;
+        const sel = window.getSelection ? window.getSelection().toString() : '';
+        if (sel.length > 0) return;
+
+        const state = _tableSortState.get(table) || { colIndex: -1, direction: 'default' };
+        let newDir;
+        if (state.colIndex !== colIndex || state.direction === 'default') {
+          newDir = 'asc';
+        } else if (state.direction === 'asc') {
+          newDir = 'desc';
+        } else {
+          newDir = 'default';
+        }
+
+        _tableSortState.set(table, { colIndex, direction: newDir });
+        _applyTableSort(table, colIndex, newDir);
+        _updateSortIndicators(ths, colIndex, newDir);
+        _saveAllTableSorts(container);
+      });
+    });
+
+    // ── Filter: right-click (or long-press) on header ────────────────────
+    const _showFilterPopup = (th, colIndex, clientX, clientY, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const tbody = table.querySelector('tbody');
+      if (!tbody) return;
+
+      // Collect unique non-empty cell values for this column
+      const allRows = Array.from(tbody.querySelectorAll('tr'));
+      const values = new Set();
+      allRows.forEach(tr => {
+        const td = tr.querySelectorAll('td')[colIndex];
+        if (td) {
+          const v = td.textContent.trim();
+          if (v) values.add(v);
+        }
+      });
+
+      const popup = _getOrCreateTableFilterPopup();
+      popup.innerHTML = '';
+
+      const activeVal = table._filterState?.colIndex === colIndex
+        ? table._filterState.value : null;
+
+      // "All" clears the filter
+      const allItem = document.createElement('div');
+      allItem.className = 'wikilink-item' + (activeVal === null ? ' wikilink-item-active' : '');
+      allItem.textContent = 'All';
+      allItem.addEventListener('mousedown', ev => {
+        ev.preventDefault();
+        table._filterState = null;
+        allRows.forEach(tr => { tr.style.display = ''; });
+        popup.style.display = 'none';
+      });
+      popup.appendChild(allItem);
+
+      // Sorted unique values
+      Array.from(values).sort((a, b) => a.localeCompare(b)).forEach(val => {
+        const item = document.createElement('div');
+        item.className = 'wikilink-item' + (activeVal === val ? ' wikilink-item-active' : '');
+        item.textContent = val;
+        item.addEventListener('mousedown', ev => {
+          ev.preventDefault();
+          table._filterState = { colIndex, value: val };
+          _applyTableFilter(table, colIndex, val);
+          popup.style.display = 'none';
+        });
+        popup.appendChild(item);
+      });
+
+      // Position near the header cell
+      popup.style.display = 'block';
+      const popupW = popup.offsetWidth || 200;
+      let left = clientX;
+      let top = clientY + 4;
+      if (left + popupW > window.innerWidth - 8) left = window.innerWidth - popupW - 8;
+      if (left < 4) left = 4;
+      popup.style.left = left + 'px';
+      popup.style.top = top + 'px';
+    };
+
+    ths.forEach((th, colIndex) => {
+      // Desktop: contextmenu (right-click)
+      th.addEventListener('contextmenu', e => {
+        _showFilterPopup(th, colIndex, e.clientX, e.clientY, e);
+      });
+
+      // Mobile: long-press (~500 ms)
+      let _lpTimer = null;
+      th.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        _lpTimer = setTimeout(() => {
+          _lpTimer = null;
+          _showFilterPopup(th, colIndex, t.clientX, t.clientY, e);
+        }, 500);
+      }, { passive: false });
+      th.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+      th.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    });
+
+    // ── Copy table: right-click (or long-press) on any body cell ─────────
+    const _copyTable = e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Build tab-separated text (header + visible body rows)
+      const rows = [];
+
+      // Header row — strip sort indicator text
+      if (ths.length > 0) {
+        rows.push(
+          ths.map(th => {
+            const ind = th.querySelector('.sort-indicator');
+            return ind
+              ? th.textContent.replace(ind.textContent, '').trim()
+              : th.textContent.trim();
+          }).join('\t')
+        );
+      }
+
+      // Visible body rows
+      Array.from(table.querySelectorAll('tbody tr')).forEach(tr => {
+        if (tr.style.display === 'none') return;
+        rows.push(
+          Array.from(tr.querySelectorAll('td'))
+            .map(td => td.textContent.trim())
+            .join('\t')
+        );
+      });
+
+      const text = rows.join('\n');
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          updateStatus('Table copied to clipboard.', true);
+        }).catch(() => {
+          _fallbackCopy(text);
+        });
+      } else {
+        _fallbackCopy(text);
+      }
+    };
+
+    Array.from(table.querySelectorAll('tbody td')).forEach(td => {
+      td.addEventListener('contextmenu', _copyTable);
+
+      // Mobile long-press
+      let _lpTimer = null;
+      td.addEventListener('touchstart', () => {
+        _lpTimer = setTimeout(() => { _lpTimer = null; _copyTable({ preventDefault() {}, stopPropagation() {} }); }, 500);
+      }, { passive: true });
+      td.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+      td.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    });
+  });
+}
+
+function _fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); updateStatus('Table copied to clipboard.', true); } catch { /* ignore */ }
+  document.body.removeChild(ta);
+}
+
 // Cache for iOS attachment data URIs — keyed by "noteName/filename".
 // Cleared when a different note is rendered.
 let _attachmentCache = {};
@@ -850,6 +1197,7 @@ async function renderPreview() {
   });
 
   alignTableColumns(previewDiv);
+  setupTableFeatures(previewDiv);
   setupPreviewTaskCheckboxes();
   setupPlainCheckboxes(previewDiv);
   await resolveAttachments(previewDiv);
