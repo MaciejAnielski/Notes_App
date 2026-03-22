@@ -1804,10 +1804,12 @@ body.panel-pinned {
   line-height: normal;
 }
 
-/* Block / display math: cap at parent width. */
+/* Block / display math: cap at parent width, align left. */
 #preview mjx-container[display="true"] {
   display: block !important;
   max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
 }
 
 /* Inline math: cap at line width. */
@@ -1833,6 +1835,8 @@ body.panel-pinned {
 #preview .MathJax_Display,
 #preview .MathJax[display="true"] {
   max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
 }
 
 /* ── Plain (non-task) checkboxes ── */
@@ -1844,7 +1848,7 @@ body.panel-pinned {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin: 0.75em 0;
-  text-align: center;
+  text-align: left;
 }
 
 .mermaid-diagram svg {
@@ -1977,7 +1981,7 @@ body.panel-pinned {
 .math-evaluable[display="true"] {
   width: fit-content !important;
   max-width: 100% !important;
-  margin-left: auto !important;
+  margin-left: 0 !important;
   margin-right: auto !important;
 }
 
@@ -1994,7 +1998,7 @@ body.panel-pinned {
 /* Block result (e.g. $$x + y =$$) */
 .math-result-block {
   display: block;
-  text-align: center;
+  text-align: left;
   margin-top: 0.4em;
   font-size: 1em;
 }
