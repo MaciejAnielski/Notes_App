@@ -424,16 +424,18 @@ async function handleAttachmentPaste(file) {
 // ── Global keyboard shortcuts ─────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-    e.preventDefault();
-    newNote();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
+  // Check Shift+N first — on macOS, Cmd+Shift+N can report e.key === 'n' (lowercase),
+  // so we must handle the new-window shortcut before the new-note shortcut.
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
     e.preventDefault();
     if (window.electronAPI?.newWindow) {
       window.electronAPI.newWindow();
     }
-    return; // don't fall through to regular new note
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'n' || e.key === 'N')) {
+    e.preventDefault();
+    newNote();
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
     e.preventDefault();
