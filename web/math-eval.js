@@ -259,7 +259,21 @@ function formatMathResult(value) {
 
 function buildMermaidVarMap(markdown) {
   const expressions = extractAllMathExpressions(markdown);
-  return buildMathVariableMap(expressions);
+  const varMap = buildMathVariableMap(expressions);
+
+  // For clickable display formulas with empty RHS (e.g. $P_{\text{Sleep}} =$),
+  // evaluate the LHS expression using the completed varMap. If the variable is
+  // defined (directly or via formula), its computed value is used in mermaid
+  // without requiring a separate explicit assignment.
+  const emptyLhsRe = /^(\\text\{[^}]+\}|\\?[a-zA-Z][a-zA-Z0-9]*(?:_\{(?:[^{}]|\{[^}]*\})*\}|_[a-zA-Z0-9])?)\s*=\s*$/;
+  for (const { tex } of expressions) {
+    const m = tex.match(emptyLhsRe);
+    if (!m || m[1] in varMap) continue;
+    const val = evaluateLatexExpr(m[1], varMap);
+    if (val !== null) varMap[m[1]] = val;
+  }
+
+  return varMap;
 }
 
 function substituteVarsInMermaid(mermaidSource, varMap) {
