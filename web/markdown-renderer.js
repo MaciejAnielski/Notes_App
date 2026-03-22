@@ -484,10 +484,12 @@ async function setupNoteLinks(container = previewDiv) {
           await loadNote(noteName, true);
         }
       } else {
-        // Clicking a link to a non-existent note creates it.  Creating a new
-        // note clears the trail (same as pressing the New Note button).
-        linkedNoteChain = [];
-        saveChain();
+        // Clicking a link to a non-existent note creates it and adds it to
+        // the trail exactly like navigating to an existing note via a link.
+        if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
+          linkedNoteChain.unshift(currentFileName);
+          saveChain();
+        }
         const newContent = `# ${noteName}\n\n`;
         await NoteStorage.setNote(noteName, newContent);
         await loadNote(noteName, true);

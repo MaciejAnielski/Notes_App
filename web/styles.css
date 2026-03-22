@@ -548,8 +548,14 @@ button.btn-busy {
 }
 
 /* ── Second note: currently open note shown just below today's note ── */
-/* Bold but no accent border or colour — distinct from today's highlight. */
+/* Same highlight treatment as today's note so the active note stands out. */
+#fileList li.second-note {
+  background: var(--today-bg);
+  border-radius: 4px;
+}
+
 #fileList li.second-note > span {
+  color: var(--today-color);
   font-weight: bold;
 }
 

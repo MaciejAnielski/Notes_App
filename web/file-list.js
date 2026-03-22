@@ -130,10 +130,11 @@ async function _doUpdateFileList() {
     if (noteMap[name]) {
       noteMap[name].classList.add('linked-file');
       noteMap[name].dataset.chainIndex = idx + 1;
+      // Navigate to the note without modifying the trail — the trail order
+      // is preserved regardless of how a note in the trail is reopened.
       noteMap[name].querySelector('span').onclick = () => {
-        linkedNoteChain = linkedNoteChain.slice(idx + 1);
-        saveChain();
         loadNote(name, true);
+        closeMobilePanel('left');
       };
       items.push(noteMap[name]);
       delete noteMap[name];
@@ -168,11 +169,8 @@ async function _doUpdateFileList() {
     } else if (chainIdx !== -1) {
       li.classList.add('linked-file');
       li.dataset.chainIndex = chainIdx + 1;
-      span.onclick = () => {
-        linkedNoteChain = linkedNoteChain.slice(chainIdx + 1);
-        saveChain();
-        loadNote(name, true);
-      };
+      // Navigate without modifying the trail (same policy as file-list chain items).
+      span.onclick = () => { loadNote(name, true); closeMobilePanel('left'); };
     } else {
       span.onclick = () => { loadNote(name); closeMobilePanel('left'); };
     }
