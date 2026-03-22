@@ -270,6 +270,7 @@ function cyclePanel() {
     todosContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
     localStorage.setItem('active_panel', 'schedule');
+    scheduleNeedsScrollToNow = true;
     renderSchedule();
   } else {
     scheduleContainer.classList.remove('active');
@@ -289,6 +290,7 @@ todosContainer.querySelector('h2').addEventListener('click', () => {
     todosContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
     localStorage.setItem('active_panel', 'schedule');
+    scheduleNeedsScrollToNow = true;
     renderSchedule();
     return;
   }
@@ -314,6 +316,7 @@ scheduleNextBtn.addEventListener('click', () => {
 });
 scheduleDateLabel.addEventListener('click', () => {
   scheduleDate = new Date();
+  scheduleNeedsScrollToNow = true;
   renderSchedule();
 });
 
@@ -353,6 +356,7 @@ setInterval(updateBackupStatus, 3600000);
   } else if (savedPanel === 'schedule') {
     filesContainer.classList.remove('active');
     scheduleContainer.classList.add('active');
+    scheduleNeedsScrollToNow = true;
     renderSchedule();
   }
 }
@@ -650,6 +654,7 @@ document.addEventListener('keydown', e => {
     if (saved === 'schedule') {
       todosContainer.classList.remove('active');
       scheduleContainer.classList.add('active');
+      scheduleNeedsScrollToNow = true;
       renderSchedule();
     } else {
       todosContainer.classList.add('active');

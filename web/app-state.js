@@ -143,6 +143,7 @@ let _forceSyncCallback = null;
 
 let scheduleDate = new Date();
 let scheduleNowTimer = null;
+let scheduleNeedsScrollToNow = false;
 let peekHideTimer = null;
 let isPanelPinned = localStorage.getItem('panel_pinned') === 'true';
 

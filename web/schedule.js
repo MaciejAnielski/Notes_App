@@ -140,14 +140,19 @@ function getCalendarColor(name) {
 
 // ── Scroll schedule to current time ──────────────────────────────────────
 
-function scrollScheduleToNow() {
+function scrollScheduleToNow(smooth = false) {
   const wrapper = document.getElementById('schedule-timeline-wrapper');
   if (!wrapper) return;
   const ROW_H = 40;
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const top = (nowMinutes / 30) * ROW_H;
-  wrapper.scrollTop = Math.max(0, top - wrapper.clientHeight / 2);
+  const target = Math.max(0, top - wrapper.clientHeight / 2);
+  if (smooth) {
+    wrapper.scrollTo({ top: target, behavior: 'smooth' });
+  } else {
+    wrapper.scrollTop = target;
+  }
 }
 
 // ── Now indicator ─────────────────────────────────────────────────────────
@@ -498,8 +503,13 @@ async function _doRenderSchedule(cachedNotes) {
     updateNowIndicator();
     clearInterval(scheduleNowTimer);
     scheduleNowTimer = setInterval(updateNowIndicator, 60000);
-    // Scroll after a brief layout settle so the wrapper has its final height
-    requestAnimationFrame(() => scrollScheduleToNow());
+    // Only scroll to current time when the schedule view is first opened,
+    // not on every background refresh while it is already visible.
+    if (scheduleNeedsScrollToNow) {
+      scheduleNeedsScrollToNow = false;
+      // Wait for layout to settle, then smooth-scroll to now
+      requestAnimationFrame(() => scrollScheduleToNow(true));
+    }
   }
 
   // Typeset math in schedule items. Lazy-load MathJax if needed and there is
