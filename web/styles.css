@@ -69,6 +69,11 @@ text[class*="error"] {
   letter-spacing: 0.02em;
 }
 
+/* ── Secondary window: desaturated background ── */
+body.secondary-window {
+  filter: saturate(0.55);
+}
+
 /* ── Sync settings UI (Settings note preview) ── */
 .sync-controls {
   padding: 8px 0 12px;
@@ -911,7 +916,7 @@ textarea:focus {
 
 /* ── Collapsible headings ── */
 #preview details {
-  margin: 0;
+  margin: 0 0 1.4em;
 }
 
 #preview details > summary {
