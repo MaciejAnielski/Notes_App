@@ -413,8 +413,15 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   }
 
   if (!fromLink) {
-    linkedNoteChain = [];
-    saveChain();
+    if (name === currentFileName) {
+      // Re-opening the current note: don't touch the trail.
+    } else if (!linkedNoteChain.includes(name)) {
+      // Target is not in the trail and is not the current note: opening it
+      // starts a fresh trail.
+      linkedNoteChain = [];
+      saveChain();
+    }
+    // else: note is already in the trail — navigate without changing it.
   }
   let content = prefetchedContent !== null ? prefetchedContent : await NoteStorage.getNote(name);
 

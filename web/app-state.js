@@ -119,6 +119,16 @@ const PROJECTS_NOTE = 'Projects';
 const CALENDARS_NOTE = 'Settings';
 const GRAPH_NOTE = 'Note Graph';
 const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
+// True when running as a secondary Electron window (opened via Ctrl+Shift+N).
+// Secondary windows inherit the primary window's note trail but do not write
+// back to the primary's localStorage key, so trail changes in secondary
+// windows never affect the primary.
+const _isSecondary = new URLSearchParams(window.location.search).get('secondary') === 'true';
+// Set to true in secondary windows once the trail has been cleared (new note
+// created or a note outside the trail was opened).  After severing, the
+// secondary window's trail is fully independent and no longer mirrors the
+// primary's linked_chain localStorage key.
+let _chainSevered = false;
 let projectsViewActive = false;
 // Matches all schedule syntax variants:
 //   > YYMMDD HHMM HHMM   (timed)
@@ -244,6 +254,15 @@ function getSeason(mm) {
 }
 
 function saveChain() {
+  if (_isSecondary) {
+    // Secondary windows keep their chain in memory only — never write to the
+    // primary window's localStorage key.  When the chain is cleared, mark it
+    // as severed so storage-event mirroring from the primary stops.
+    if (linkedNoteChain.length === 0 && !_chainSevered) {
+      _chainSevered = true;
+    }
+    return;
+  }
   localStorage.setItem('linked_chain', JSON.stringify(linkedNoteChain));
 }
 
