@@ -541,6 +541,18 @@ button.btn-busy {
   font-weight: bold;
 }
 
+/* Placeholder shown when today's daily note hasn't been created yet */
+#fileList li.today-note-pending > span {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* ── Second note: currently open note shown just below today's note ── */
+/* Bold but no accent border or colour — distinct from today's highlight. */
+#fileList li.second-note > span {
+  font-weight: bold;
+}
+
 /* ── Hide scrollbars while keeping scroll functionality ── */
 /* Global scrollbar hiding for all elements */
 * {

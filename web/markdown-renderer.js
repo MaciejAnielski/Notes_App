@@ -470,16 +470,24 @@ async function setupNoteLinks(container = previewDiv) {
       e.preventDefault();
       e.stopPropagation();
       if (await NoteStorage.getNote(noteName) !== null) {
-        if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
-          linkedNoteChain.unshift(currentFileName);
-          saveChain();
+        if (linkedNoteChain.includes(noteName) || noteName === currentFileName) {
+          // Target is already in the trail (or is the current note): navigate
+          // without modifying the trail order.
+          await loadNote(noteName, true);
+        } else {
+          // Target is a new note in the link chain: push the current note onto
+          // the front of the trail and navigate.
+          if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
+            linkedNoteChain.unshift(currentFileName);
+            saveChain();
+          }
+          await loadNote(noteName, true);
         }
-        await loadNote(noteName, true);
       } else {
-        if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
-          linkedNoteChain.unshift(currentFileName);
-          saveChain();
-        }
+        // Clicking a link to a non-existent note creates it.  Creating a new
+        // note clears the trail (same as pressing the New Note button).
+        linkedNoteChain = [];
+        saveChain();
         const newContent = `# ${noteName}\n\n`;
         await NoteStorage.setNote(noteName, newContent);
         await loadNote(noteName, true);

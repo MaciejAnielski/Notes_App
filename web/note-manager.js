@@ -413,8 +413,22 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   }
 
   if (!fromLink) {
-    linkedNoteChain = [];
-    saveChain();
+    if (name === currentFileName) {
+      // Re-opening the current note (e.g. clicking today note that is already
+      // open): don't touch the trail at all.
+    } else {
+      const chainIdx = linkedNoteChain.indexOf(name);
+      if (chainIdx !== -1) {
+        // The target note is already in the trail.  Navigate to it by
+        // discarding everything more recent (above it in the chain) while
+        // keeping older entries intact so trail order is preserved.
+        linkedNoteChain = linkedNoteChain.slice(chainIdx + 1);
+      } else {
+        // Target is not in the trail: opening it starts a fresh trail.
+        linkedNoteChain = [];
+      }
+      saveChain();
+    }
   }
   let content = prefetchedContent !== null ? prefetchedContent : await NoteStorage.getNote(name);
 

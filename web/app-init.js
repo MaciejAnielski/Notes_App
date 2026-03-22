@@ -990,6 +990,20 @@ if (savedChain) {
   try { linkedNoteChain = JSON.parse(savedChain); } catch(e) { linkedNoteChain = []; localStorage.removeItem('linked_chain'); }
 }
 
+// Secondary windows mirror the primary window's trail via storage events
+// until the secondary severs sync by clearing its own trail.
+if (_isSecondary) {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== 'linked_chain' || _chainSevered) return;
+    try {
+      linkedNoteChain = e.newValue ? JSON.parse(e.newValue) : [];
+    } catch (_) {
+      linkedNoteChain = [];
+    }
+    updateFileList();
+  });
+}
+
 function setLoadingProgress(pct, label) {
   const bar = document.getElementById('loading-progress-bar');
   const lbl = document.getElementById('loading-progress-label');

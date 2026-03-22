@@ -17,34 +17,11 @@ async function getVisibleNotes(cachedNotes) {
   return notes;
 }
 
-// Lightweight active-state update — swaps the 'active-file' class in the
-// sidebar without rebuilding the entire list.  Called on every note switch
-// so clicking between notes is instantaneous.
+// _refreshFileListActiveState is kept as a thin wrapper around updateFileList
+// so that the current note is always repositioned to second place in the list.
+// The full rebuild is necessary because the list order depends on currentFileName.
 function _refreshFileListActiveState() {
-  // Update notes file list
-  for (const li of fileList.children) {
-    const span = li.querySelector('span');
-    if (!span) continue;
-    if (span.textContent === currentFileName) {
-      li.classList.add('active-file');
-    } else {
-      li.classList.remove('active-file');
-    }
-  }
-  // Update nav list (Projects, Note Graph, Settings)
-  const navList = document.getElementById('nav-list');
-  if (navList) {
-    for (const li of navList.children) {
-      const span = li.querySelector('span');
-      if (!span) continue;
-      const navName = { 'Projects': PROJECTS_NOTE, 'Note Graph': GRAPH_NOTE, 'Settings': CALENDARS_NOTE }[span.textContent];
-      if (navName === currentFileName) {
-        li.classList.add('active-file');
-      } else {
-        li.classList.remove('active-file');
-      }
-    }
-  }
+  updateFileList();
 }
 
 // Serialize updateFileList calls to prevent duplicate entries when multiple
@@ -114,14 +91,37 @@ async function _doUpdateFileList() {
 
   const items = [];
 
-  // Pin today's daily note to the very top (above the active file)
+  // Always pin today's daily note to the very top, even if it hasn't been
+  // created yet.  A placeholder is shown that creates the note on click.
   if (noteMap[todayNote]) {
     items.push(noteMap[todayNote]);
     delete noteMap[todayNote];
+  } else {
+    // Today's note doesn't exist yet — show a placeholder so the user can
+    // see and create it without searching.
+    const li = document.createElement('li');
+    li.classList.add('today-note', 'today-note-pending');
+    const span = document.createElement('span');
+    span.textContent = todayNote;
+    span.style.cursor = 'pointer';
+    span.onclick = async () => {
+      await NoteStorage.setNote(todayNote, `# ${todayNote}\n\n`);
+      await loadNote(todayNote);
+      closeMobilePanel('left');
+    };
+    li.appendChild(span);
+    items.push(li);
   }
 
-  if (currentFileName && noteMap[currentFileName]) {
-    noteMap[currentFileName].classList.add('active-file');
+  // The currently open note is always shown second (after today's note),
+  // displayed in bold but without the highlighted border used for the today
+  // note.  Nav notes (Projects, Note Graph, Settings) are excluded from this
+  // second slot — they live in the nav-list below and are indicated there.
+  const NAV_NAMES = new Set([PROJECTS_NOTE, GRAPH_NOTE, CALENDARS_NOTE]);
+  if (currentFileName && noteMap[currentFileName] &&
+      currentFileName !== todayNote &&
+      !NAV_NAMES.has(currentFileName)) {
+    noteMap[currentFileName].classList.add('second-note');
     items.push(noteMap[currentFileName]);
     delete noteMap[currentFileName];
   }
