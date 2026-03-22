@@ -134,9 +134,21 @@ function deriveThemeVars(bg, accent) {
   // Strikethrough — mid-way toward background, still accent-coloured
   const strikeColor = _hslToHex(acH, acS, refL + dimDir * 33);
 
-  // Highlight (==text==) — warm gold, intentionally distinct from accent
-  const highlightColor = _hslToHex(45, 80, dark ? 70 : 40);
-  const highlightBg    = _hslToHex(45, 60, dark ? 20 : 85);
+  // Highlight (==text==) — warm gold by default; shifts to pink/magenta when
+  // the background hue is in the yellow range (±40°) to prevent a washed-out
+  // appearance on yellowy/amber themes.
+  let hlHue = 45;
+  const hlHueDist = Math.min(Math.abs(bgH - hlHue), 360 - Math.abs(bgH - hlHue));
+  if (hlHueDist < 40 && bgS > 15) {
+    hlHue = 320;  // pink/magenta — still universally reads as "highlight"
+  }
+  // Ensure highlight bg is distinct from page bg (at least 12 L-units apart)
+  let hlBgL = dark ? 20 : 85;
+  if (Math.abs(hlBgL - bgL) < 12) {
+    hlBgL = dark ? bgL + 15 : bgL - 15;
+  }
+  const highlightColor = _hslToHex(hlHue, 80, dark ? 70 : 40);
+  const highlightBg    = _hslToHex(hlHue, 60, hlBgL);
 
   // Links — rotated hue for semantic distinctness
   const linkHue  = (acH + 200) % 360;
@@ -183,8 +195,8 @@ function deriveThemeVars(bg, accent) {
   const footnoteMuted = muted;
   const footnoteBack = hrColor;
 
-  // Table header bg, alternating row
-  const tableHeaderBg = surface;
+  // Table header bg — stronger shift than surface so headers are distinct
+  const tableHeaderBg = _hslToHex(bgH, bgS, bgL + (dark ? 10 : -10));
   const tableAltRowBg = surface;
 
   // Global search
@@ -260,9 +272,10 @@ function deriveThemeVars(bg, accent) {
   // Caret colour
   const caretColor = text;
 
-  // Mark (==) in preview
-  const markBg = highlightBg;
-  const markColor = highlightColor;
+  // Mark (==) in preview — text must contrast against its own coloured bg,
+  // so use a more extreme lightness than the editor highlight text.
+  const markBg    = highlightBg;
+  const markColor = _hslToHex(hlHue, 85, dark ? 82 : 22);
 
   // Selection highlight
   const selectionBg = _hslToHex(acH, acS * 0.5, dark ? 30 : 72);

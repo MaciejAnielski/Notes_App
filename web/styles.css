@@ -720,9 +720,10 @@ input::placeholder {
 /* Strikethrough */
 .hl-strike { color: var(--strike); }
 
-/* Highlight ==text== — golden, inner text inherits so nesting stays gold */
+/* Highlight ==text== — golden, inner text inherits so nesting stays gold.
+   Background added so highlights remain visible on tinted/yellowy themes. */
 .hl-highlight      { color: var(--highlight); }
-.hl-highlight-text { color: var(--highlight); }
+.hl-highlight-text { color: var(--highlight); background-color: var(--highlight-bg); border-radius: 2px; }
 .hl-highlight-text * { color: inherit; }
 
 /* Links and wiki-links */
