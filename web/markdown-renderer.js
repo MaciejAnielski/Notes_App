@@ -1101,12 +1101,6 @@ async function renderMermaidDiagrams(container, varMap) {
   await Promise.all(renderJobs);
 }
 
-// Per-note collapse state: tracks the open/closed state of collapsible headings
-// for the currently displayed note. Cleared whenever a different note is rendered,
-// so every fresh note open uses the markdown's default ("> " markers).
-let _collapseStateFile = null;
-let _collapseState = {};
-
 // Cache: skip re-parsing when content hasn't changed since last render.
 let _lastRenderedFile = null;
 let _lastRenderedContent = null;
@@ -1140,22 +1134,6 @@ async function renderPreview() {
   ) {
     return;
   }
-
-  // Cache miss: snapshot open/closed state of collapsible sections before
-  // wiping the DOM. Only restore the snapshot if we are re-rendering the same
-  // note (e.g. a checkbox toggle). When the note changes, start fresh so the
-  // markdown's default collapse markers take effect on every new open.
-  if (_collapseStateFile === currentFileName) {
-    _collapseState = {};
-    let _csIdx = 0;
-    previewDiv.querySelectorAll('details').forEach(d => {
-      const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
-      if (h) _collapseState[h.tagName + ':' + h.textContent.trim() + ':' + (_csIdx++)] = d.open;
-    });
-  } else {
-    _collapseState = {};
-  }
-  _collapseStateFile = currentFileName;
 
   // Capture the note name and generation at the start of rendering so we can
   // detect if the user navigated away during any of the async steps below.
@@ -1192,16 +1170,6 @@ async function renderPreview() {
       saveChain();
       loadNote(prevNote, true);
     });
-  });
-
-  // Restore collapse state after re-render (only applies to same-note re-renders)
-  let _restoreIdx = 0;
-  previewDiv.querySelectorAll('details').forEach(d => {
-    const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
-    if (h) {
-      const key = h.tagName + ':' + h.textContent.trim() + ':' + (_restoreIdx++);
-      if (key in _collapseState) d.open = _collapseState[key];
-    }
   });
 
   alignTableColumns(previewDiv);
