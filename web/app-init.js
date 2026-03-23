@@ -341,6 +341,9 @@ panelArrow.addEventListener('mouseenter', showPanel);
 panelArrow.addEventListener('mouseleave', scheduleHidePanel);
 panelLists.addEventListener('mouseenter', showPanel);
 panelLists.addEventListener('mouseleave', scheduleHidePanel);
+panelOpenBtn.addEventListener('click', showPanel);
+panelOpenBtn.addEventListener('mouseenter', showPanel);
+panelOpenBtn.addEventListener('mouseleave', scheduleHidePanel);
 
 applyPinState();
 updateBackupStatus();
