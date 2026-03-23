@@ -329,7 +329,7 @@ body.platform-darwin #panel-arrow {
 button {
   background-color: var(--surface);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 4px;
   padding: 8px 12px;
   margin-right: 5px;
@@ -1462,7 +1462,7 @@ body.panel-pinned {
   overflow: hidden;
   box-sizing: border-box;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   cursor: default;
 }
@@ -1476,7 +1476,7 @@ body.panel-pinned {
 }
 
 .schedule-item input[type="checkbox"] {
-  margin: 0;
+  margin-left: 2px;
   flex-shrink: 0;
 }
 
@@ -2318,6 +2318,25 @@ input[type="checkbox"] {
   border: solid var(--bg);
   border-width: 0 0.14em 0.14em 0;
   transform: rotate(45deg);
+}
+
+/* Schedule item checkboxes: match the 12px event icon size exactly so that
+   the checkbox and calendar emoji sit at the same position and take the same
+   horizontal space. Use #schedule-container to outweigh the 14px base rule. */
+#schedule-container .schedule-item input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  border-width: 1px;
+  border-radius: 2px;
+  margin-top: 0;
+}
+
+#schedule-container .schedule-item input[type="checkbox"]:checked::after {
+  left: 2.5px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border-width: 0 1.5px 1.5px 0;
 }
 
 /* ── Image border in preview ── */
