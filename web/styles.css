@@ -2365,8 +2365,10 @@ input[type="checkbox"] {
   background: var(--bg);
   border: none;
   border-radius: 6px;
-  padding: 8px 12px;
-  max-width: 300px;
+  padding: 0;
+  max-width: 320px;
+  max-height: 300px;
+  overflow: hidden;
   color: var(--text);
   font-size: 0.78em;
   line-height: 1.45;
@@ -2374,6 +2376,84 @@ input[type="checkbox"] {
   z-index: 100;
   word-break: break-word;
   box-shadow: 0 4px 16px var(--shadow);
+}
+
+.graph-tooltip-title {
+  font-weight: 600;
+  font-size: 1em;
+  padding: 7px 12px 6px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.graph-tooltip-body {
+  padding: 6px 12px 8px;
+  overflow-y: auto;
+  max-height: 240px;
+}
+
+.graph-tooltip-body p {
+  margin: 0.2em 0;
+}
+
+.graph-tooltip-body h1,
+.graph-tooltip-body h2,
+.graph-tooltip-body h3,
+.graph-tooltip-body h4 {
+  font-size: 0.95em;
+  font-weight: 600;
+  margin: 0.35em 0 0.15em;
+}
+
+.graph-tooltip-body ul,
+.graph-tooltip-body ol {
+  margin: 0.2em 0;
+  padding-left: 1.3em;
+}
+
+.graph-tooltip-body li {
+  margin: 0.1em 0;
+}
+
+.graph-tooltip-body code {
+  background: var(--code-bg, rgba(128,128,128,0.15));
+  border-radius: 3px;
+  padding: 0 3px;
+  font-size: 0.88em;
+}
+
+.graph-tooltip-body pre {
+  background: var(--code-bg, rgba(128,128,128,0.15));
+  border-radius: 4px;
+  padding: 5px 8px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  margin: 0.25em 0;
+}
+
+.graph-tooltip-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.graph-tooltip-body blockquote {
+  margin: 0.25em 0 0.25em 0.5em;
+  padding-left: 0.6em;
+  border-left: 2px solid var(--accent);
+  opacity: 0.85;
+}
+
+.graph-tooltip-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.3em 0;
+}
+
+.graph-tooltip-body a {
+  color: var(--accent);
+  text-decoration: none;
 }
 
 /* Override vis.js built-in tooltip to match theme instead of browser default */
