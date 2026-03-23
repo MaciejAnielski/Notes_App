@@ -1469,7 +1469,6 @@ body.panel-pinned {
   overflow: hidden;
   box-sizing: border-box;
   display: flex;
-  align-items: center;
   gap: 4px;
   cursor: default;
 }
