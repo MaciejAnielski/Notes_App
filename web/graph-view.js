@@ -276,10 +276,19 @@ async function renderNoteGraph() {
   }
 
   // Click: open note and add Note Graph to breadcrumb trail
-  network.on('click', params => {
+  network.on('click', async params => {
     if (params.nodes.length === 0) return;
     const nodeId = params.nodes[0];
-    if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) return;
+    if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) {
+      const missingName = nodeId.replace(/^__missing__/, '');
+      await NoteStorage.setNote(missingName, '# ' + missingName + '\n\n');
+      if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
+        linkedNoteChain.unshift(currentFileName);
+        saveChain();
+      }
+      loadNote(missingName, true);
+      return;
+    }
     if (currentFileName && !linkedNoteChain.includes(currentFileName)) {
       linkedNoteChain.unshift(currentFileName);
       saveChain();
@@ -308,7 +317,7 @@ async function renderNoteGraph() {
       const missingName = nodeId.replace(/^__missing__/, '');
       tooltip.innerHTML =
         `<div class="graph-tooltip-title" style="color:var(--error)">Missing: ${_escHtml(missingName)}</div>` +
-        `<div class="graph-tooltip-body"><em>This note does not exist yet.</em></div>`;
+        `<div class="graph-tooltip-body"><em>This note does not exist yet. Click to create it.</em></div>`;
       _positionTooltip(tooltip, params.pointer.DOM, container);
       tooltip.style.display = 'block';
       return;
@@ -325,6 +334,7 @@ async function renderNoteGraph() {
     tooltip.innerHTML =
       `<div class="graph-tooltip-title">${_escHtml(nodeId)}</div>` +
       `<div class="graph-tooltip-body">${renderedHtml}</div>`;
+    if (typeof styleTaskListItems === 'function') styleTaskListItems(tooltip);
     _positionTooltip(tooltip, params.pointer.DOM, container);
     tooltip.style.display = 'block';
   });
