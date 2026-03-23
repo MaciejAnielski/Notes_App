@@ -466,7 +466,8 @@ document.addEventListener('keydown', e => {
       const item = document.createElement('div');
       item.className = 'wikilink-item' + (i === _acIdx ? ' wikilink-item-active' : '');
       item.setAttribute('role', 'option');
-      item.textContent = name;
+      // For []() md links, show and insert with underscores instead of spaces
+      item.textContent = _acMode === 'md' ? name.replace(/ /g, '_') : name;
       item.addEventListener('mousedown', e => {
         e.preventDefault(); // keep textarea focus
         _complete(name);
@@ -526,7 +527,7 @@ document.addEventListener('keydown', e => {
     const after  = textarea.value.slice(pos);
     const insert = _acMode === 'wiki'
       ? '[[' + name + ']]'
-      : '(' + encodeURIComponent(name) + ')';
+      : '(' + name.replace(/ /g, '_') + ')';
     textarea.value = before + insert + after;
     const newPos = before.length + insert.length;
     textarea.selectionStart = textarea.selectionEnd = newPos;
@@ -549,11 +550,13 @@ document.addEventListener('keydown', e => {
     _acMode = mode;
 
     NoteStorage.getAllNoteNames().then(names => {
+      // For md mode, the user may type underscores; normalise to spaces for matching
+      const normPartial = mode === 'md' ? partial.replace(/_/g, ' ') : partial;
       const filtered = names
-        .filter(n => !n.startsWith('.') && n.toLowerCase().includes(partial))
+        .filter(n => !n.startsWith('.') && n.toLowerCase().includes(normPartial))
         .sort((a, b) => {
-          const as = a.toLowerCase().startsWith(partial);
-          const bs = b.toLowerCase().startsWith(partial);
+          const as = a.toLowerCase().startsWith(normPartial);
+          const bs = b.toLowerCase().startsWith(normPartial);
           return (bs - as) || a.localeCompare(b);
         })
         .slice(0, 10);
