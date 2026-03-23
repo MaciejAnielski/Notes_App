@@ -261,8 +261,17 @@ panelPin.addEventListener('click', () => {
   localStorage.setItem('panel_pinned', isPanelPinned);
   applyPinState();
   if (wasUnpinning) {
-    panelOpenBtn.disabled = true;
-    setTimeout(() => { panelOpenBtn.disabled = false; }, 600);
+    // Suppress hover re-open until the mouse leaves the button area.
+    panelOpenBtn.style.pointerEvents = 'none';
+    const onMouseMove = (e) => {
+      const rect = panelOpenBtn.getBoundingClientRect();
+      if (e.clientX < rect.left || e.clientX > rect.right ||
+          e.clientY < rect.top  || e.clientY > rect.bottom) {
+        panelOpenBtn.style.pointerEvents = '';
+        document.removeEventListener('mousemove', onMouseMove);
+      }
+    };
+    document.addEventListener('mousemove', onMouseMove);
   }
 });
 
@@ -327,24 +336,25 @@ scheduleDateLabel.addEventListener('click', () => {
 
 function showPanel() {
   if (isPanelPinned) return;
+  clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
   document.body.classList.add('panel-visible');
   updateBackupStatus();
 }
 
-function hidePanel() {
+function scheduleHidePanel() {
   if (isPanelPinned) return;
-  panelLists.classList.remove('visible');
-  document.body.classList.remove('panel-visible');
+  clearTimeout(peekHideTimer);
+  peekHideTimer = setTimeout(() => {
+    panelLists.classList.remove('visible');
+    document.body.classList.remove('panel-visible');
+  }, 100);
 }
 
-panelOpenBtn.addEventListener('click', () => {
-  if (panelLists.classList.contains('visible')) {
-    hidePanel();
-  } else {
-    showPanel();
-  }
-});
+panelOpenBtn.addEventListener('mouseenter', showPanel);
+panelOpenBtn.addEventListener('mouseleave', scheduleHidePanel);
+panelLists.addEventListener('mouseenter', showPanel);
+panelLists.addEventListener('mouseleave', scheduleHidePanel);
 
 applyPinState();
 updateBackupStatus();
