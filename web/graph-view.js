@@ -121,12 +121,12 @@ async function renderNoteGraph() {
     const degree = incomingCount.get(name) || 0;
     const size = 10 + degree * 5;
     const fontSize = Math.max(10, 10 + degree * 2);
-    nodeLabelMap.set(name, name);
+    nodeLabelMap.set(name, _wrapLabel(name));
     nodes.add({
       id: name,
       label: '',  // hidden by default; shown on hover
       size,
-      font: { size: fontSize, color: gText },
+      font: { size: fontSize, color: gText, multi: true },
       color: {
         background: gNodeBg,
         border: gNodeBorder,
@@ -148,12 +148,12 @@ async function renderNoteGraph() {
       const toId = exists ? target : `__missing__${target}`;
 
       if (!exists && !addedMissingNodes.has(toId)) {
-        nodeLabelMap.set(toId, target);
+        nodeLabelMap.set(toId, _wrapLabel(target));
         nodes.add({
           id: toId,
           label: '',  // hidden by default; shown on hover
           size: 8,
-          font: { size: 9, color: gError },
+          font: { size: 9, color: gError, multi: true },
           color: {
             background: gErrorBg,
             border: gError,
@@ -203,12 +203,12 @@ async function renderNoteGraph() {
       enabled: true,
       solver: 'forceAtlas2Based',
       forceAtlas2Based: {
-        gravitationalConstant: -60,
-        centralGravity: 0.008,
-        springLength: 120,
+        gravitationalConstant: -80,
+        centralGravity: 0.005,
+        springLength: 160,
         springConstant: 0.04,
         damping: 0.4,
-        avoidOverlap: 0.5,
+        avoidOverlap: 1.0,
       },
       stabilization: {
         enabled: true,
@@ -279,17 +279,22 @@ async function renderNoteGraph() {
     if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) {
       const missingName = nodeId.replace(/^__missing__/, '');
       tooltip.innerHTML =
-        `<strong style="color:var(--error)">Missing: "${_escHtml(missingName)}"</strong>` +
-        `<br><small>This note does not exist yet.</small>`;
+        `<div class="graph-tooltip-title" style="color:var(--error)">Missing: ${_escHtml(missingName)}</div>` +
+        `<div class="graph-tooltip-body"><em>This note does not exist yet.</em></div>`;
       _positionTooltip(tooltip, params.pointer.DOM, container);
       tooltip.style.display = 'block';
       return;
     }
     const content = contentPreviewMap.get(nodeId) || '';
-    const snippet = content.length > 320 ? content.slice(0, 320) + '…' : content;
+    const snippet = content.length > 600 ? content.slice(0, 600) + '\n\n…' : content;
+    // Render snippet as markdown HTML using the same pipeline as the preview pane
+    const processed = (typeof preprocessMarkdown === 'function')
+      ? preprocessMarkdown(snippet) : snippet;
+    const renderedHtml = (typeof marked !== 'undefined')
+      ? marked.parse(processed) : `<pre>${_escHtml(snippet)}</pre>`;
     tooltip.innerHTML =
-      `<strong>${_escHtml(nodeId)}</strong><br>` +
-      `<small style="white-space:pre-wrap">${_escHtml(snippet)}</small>`;
+      `<div class="graph-tooltip-title">${_escHtml(nodeId)}</div>` +
+      `<div class="graph-tooltip-body">${renderedHtml}</div>`;
     _positionTooltip(tooltip, params.pointer.DOM, container);
     tooltip.style.display = 'block';
   });
@@ -318,6 +323,35 @@ function _escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// Wrap a long label at word boundaries so it fits within maxChars per line.
+// Falls back to hard-breaking single words that exceed maxChars.
+function _wrapLabel(name, maxChars = 16) {
+  if (name.length <= maxChars) return name;
+  const words = name.split(' ');
+  if (words.length === 1) {
+    // No spaces — break every maxChars characters
+    const chunks = [];
+    for (let i = 0; i < name.length; i += maxChars) {
+      chunks.push(name.slice(i, i + maxChars));
+    }
+    return chunks.join('\n');
+  }
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if ((current + ' ' + word).length <= maxChars) {
+      current += ' ' + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.join('\n');
 }
 
 function _positionTooltip(tooltip, domPos, container) {
