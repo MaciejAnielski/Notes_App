@@ -915,6 +915,14 @@ textarea:focus {
   list-style: none;
 }
 
+/* Align checkbox to the vertical centre of its text line. */
+#preview li.task-item,
+.graph-tooltip li.task-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
 /* ── Blockquotes ── */
 #preview blockquote {
   margin: 12px 0;
@@ -1056,12 +1064,11 @@ textarea:focus {
 
 #todoList li li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 #todoList li li input[type="checkbox"] {
   margin-right: 6px;
-  margin-top: 2px;
 }
 
 #todo-container .todo-note-title {
@@ -1462,7 +1469,7 @@ body.panel-pinned {
   overflow: hidden;
   box-sizing: border-box;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
   cursor: default;
 }
@@ -2288,8 +2295,8 @@ input[type="checkbox"] {
 #schedule-container input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 0.85em;
-  height: 0.85em;
+  width: 1em;
+  height: 1em;
   border: 0.1em solid var(--checkbox-border);
   border-radius: 0.2em;
   background: var(--checkbox-bg);
@@ -2311,10 +2318,10 @@ input[type="checkbox"] {
 #schedule-container input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
-  left: 0.22em;
-  top: 0.06em;
-  width: 0.24em;
-  height: 0.49em;
+  left: 0.26em;
+  top: 0.07em;
+  width: 0.28em;
+  height: 0.57em;
   border: solid var(--bg);
   border-width: 0 0.14em 0.14em 0;
   transform: rotate(45deg);
