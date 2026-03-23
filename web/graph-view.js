@@ -113,21 +113,25 @@ async function renderNoteGraph() {
   const gError = _v('--error') || '#e05c5c';
   const gErrorBg = _v('--error-bg') || '#3a1a1a';
 
+  // Map of node id → display label, used to show/hide labels on hover
+  const nodeLabelMap = new Map();
+
   // Add real note nodes
   for (const { name } of graphNotes) {
     const degree = incomingCount.get(name) || 0;
     const size = 10 + degree * 5;
     const fontSize = Math.max(10, 10 + degree * 2);
+    nodeLabelMap.set(name, name);
     nodes.add({
       id: name,
-      label: name,
+      label: '',  // hidden by default; shown on hover
       size,
       font: { size: fontSize, color: gText },
       color: {
         background: gNodeBg,
         border: gNodeBorder,
         highlight: { background: gNodeHlBg, border: gNodeHlBorder },
-        hover: { background: gNodeHoverBg, border: gNodeHlBorder },
+        hover: { background: gNodeBorder, border: gNodeHlBorder },
       },
       // No `title` — the custom .graph-tooltip handles hover previews;
       // omitting title prevents vis.js from rendering a second browser tooltip.
@@ -144,9 +148,10 @@ async function renderNoteGraph() {
       const toId = exists ? target : `__missing__${target}`;
 
       if (!exists && !addedMissingNodes.has(toId)) {
+        nodeLabelMap.set(toId, target);
         nodes.add({
           id: toId,
-          label: target,
+          label: '',  // hidden by default; shown on hover
           size: 8,
           font: { size: 9, color: gError },
           color: {
@@ -254,7 +259,7 @@ async function renderNoteGraph() {
     loadNote(nodeId, true);
   });
 
-  // Hover: show note preview tooltip and reveal connected edges
+  // Hover: show note preview tooltip, reveal connected edges, and show labels
   network.on('hoverNode', async params => {
     const nodeId = params.node;
 
@@ -262,6 +267,14 @@ async function renderNoteGraph() {
     const connectedEdgeIds = network.getConnectedEdges(nodeId);
     const connectedSet = new Set(connectedEdgeIds);
     edges.update(edges.getIds().map(id => ({ id, hidden: !connectedSet.has(id) })));
+
+    // Show labels for hovered node and its directly connected neighbours
+    const connectedNodeIds = network.getConnectedNodes(nodeId);
+    const labelUpdates = [nodeId, ...connectedNodeIds].map(id => ({
+      id,
+      label: nodeLabelMap.get(id) || String(id),
+    }));
+    nodes.update(labelUpdates);
 
     if (typeof nodeId === 'string' && nodeId.startsWith('__missing__')) {
       const missingName = nodeId.replace(/^__missing__/, '');
@@ -283,7 +296,8 @@ async function renderNoteGraph() {
 
   network.on('blurNode', () => {
     tooltip.style.display = 'none';
-    // Hide all edges again when no node is hovered
+    // Hide all labels and edges again when no node is hovered
+    nodes.update(nodes.getIds().map(id => ({ id, label: '' })));
     edges.update(edges.getIds().map(id => ({ id, hidden: true })));
   });
 
