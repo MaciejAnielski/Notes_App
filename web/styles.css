@@ -1455,7 +1455,7 @@ body.panel-pinned {
   overflow: hidden;
   box-sizing: border-box;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
   cursor: default;
 }
@@ -1470,7 +1470,6 @@ body.panel-pinned {
 
 .schedule-item input[type="checkbox"] {
   margin: 0;
-  margin-top: 2px;
   flex-shrink: 0;
 }
 
@@ -1489,8 +1488,6 @@ body.panel-pinned {
   flex-shrink: 0;
   font-size: 12px;
   line-height: 1;
-  align-self: flex-start;
-  margin-top: 2px;
 }
 
 /* ── Schedule all-day section (above timed grid) ── */
@@ -2322,7 +2319,6 @@ input[type="checkbox"] {
   height: 10px;
   border-width: 1px;
   border-radius: 2px;
-  margin-top: 1px;
 }
 
 #schedule-container .schedule-item input[type="checkbox"]:checked::after {
