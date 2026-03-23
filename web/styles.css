@@ -1138,8 +1138,7 @@ body.panel-visible #panel-arrow {
   background-color: var(--surface);
 }
 
-/* Hide when panel is open or pinned (pin button takes over that spot) */
-body.panel-visible #panel-open-btn,
+/* Hide when panel is pinned (pin button takes over that spot) */
 body.panel-pinned #panel-open-btn {
   display: none;
 }

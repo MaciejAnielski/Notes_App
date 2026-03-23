@@ -256,9 +256,14 @@ function applyPinState() {
 }
 
 panelPin.addEventListener('click', () => {
+  const wasUnpinning = isPanelPinned;
   isPanelPinned = !isPanelPinned;
   localStorage.setItem('panel_pinned', isPanelPinned);
   applyPinState();
+  if (wasUnpinning) {
+    panelOpenBtn.disabled = true;
+    setTimeout(() => { panelOpenBtn.disabled = false; }, 600);
+  }
 });
 
 function cyclePanel() {
@@ -322,28 +327,24 @@ scheduleDateLabel.addEventListener('click', () => {
 
 function showPanel() {
   if (isPanelPinned) return;
-  clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
   document.body.classList.add('panel-visible');
   updateBackupStatus();
 }
 
-function scheduleHidePanel() {
+function hidePanel() {
   if (isPanelPinned) return;
-  clearTimeout(peekHideTimer);
-  peekHideTimer = setTimeout(() => {
-    panelLists.classList.remove('visible');
-    document.body.classList.remove('panel-visible');
-  }, 100);
+  panelLists.classList.remove('visible');
+  document.body.classList.remove('panel-visible');
 }
 
-panelArrow.addEventListener('mouseenter', showPanel);
-panelArrow.addEventListener('mouseleave', scheduleHidePanel);
-panelLists.addEventListener('mouseenter', showPanel);
-panelLists.addEventListener('mouseleave', scheduleHidePanel);
-panelOpenBtn.addEventListener('click', showPanel);
-panelOpenBtn.addEventListener('mouseenter', showPanel);
-panelOpenBtn.addEventListener('mouseleave', scheduleHidePanel);
+panelOpenBtn.addEventListener('click', () => {
+  if (panelLists.classList.contains('visible')) {
+    hidePanel();
+  } else {
+    showPanel();
+  }
+});
 
 applyPinState();
 updateBackupStatus();
