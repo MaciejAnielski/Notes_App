@@ -216,7 +216,8 @@ body {
 
 /* ── Button container — Word-style menu bar ── */
 #button-container {
-  margin: 0px;
+  margin: 0;
+  padding: 8px 0 0 8px;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -258,7 +259,7 @@ body.platform-darwin #window-drag-region {
 
 body.platform-darwin #button-container {
   padding-left: 80px;
-  padding-top: 4px;
+  padding-top: 8px;
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -915,11 +916,11 @@ textarea:focus {
   list-style: none;
 }
 
-/* Align checkbox to the vertical centre of its text line only. */
+/* Align checkbox to the vertical centre of its text line. */
 #preview li.task-item,
 .graph-tooltip li.task-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.35em;
 }
 
@@ -1064,7 +1065,7 @@ textarea:focus {
 
 #todoList li li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 #todoList li li input[type="checkbox"] {
@@ -2058,6 +2059,7 @@ body.panel-pinned {
   body:not(.electron) #button-container {
     justify-content: center;
     margin-left: 0;
+    padding: 4px 0 0 0;
   }
 
   body:not(.electron) #tools-overflow-row {
@@ -2293,9 +2295,9 @@ input[type="checkbox"] {
 #schedule-container input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: calc(1lh - 4px);
-  height: calc(1lh - 4px);
-  margin-block: 2px;
+  width: 1.2cap;
+  height: 1.2cap;
+  margin-block: 0;
   border: 0.1em solid var(--checkbox-border);
   border-radius: 0.2em;
   background: var(--checkbox-bg);
