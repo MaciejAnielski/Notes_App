@@ -325,7 +325,10 @@ async function renderNoteGraph() {
     const content = contentPreviewMap.get(nodeId) || '';
     // Strip a leading # heading that duplicates the title already shown in the tooltip header
     const body = content.replace(/^#+ [^\n]*\n?/, '');
-    const snippet = body.length > 600 ? body.slice(0, 600) + '\n\n…' : body;
+    // Remove mermaid diagrams, math blocks and attachment images before truncating
+    // so they don't consume preview characters or trigger expensive renderers.
+    const lightBody = _stripHeavyBlocks(body);
+    const snippet = lightBody.length > 600 ? lightBody.slice(0, 600) + '\n\n…' : lightBody;
     // Render snippet as markdown HTML using the same pipeline as the preview pane
     const processed = (typeof preprocessMarkdown === 'function')
       ? preprocessMarkdown(snippet) : snippet;
@@ -335,6 +338,7 @@ async function renderNoteGraph() {
       `<div class="graph-tooltip-title">${_escHtml(nodeId)}</div>` +
       `<div class="graph-tooltip-body">${renderedHtml}</div>`;
     if (typeof styleTaskListItems === 'function') styleTaskListItems(tooltip);
+    if (typeof alignTableColumns === 'function') alignTableColumns(tooltip);
     _positionTooltip(tooltip, params.pointer.DOM, container);
     tooltip.style.display = 'block';
   });
@@ -355,6 +359,18 @@ async function renderNoteGraph() {
     network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
     network.setOptions({ physics: { enabled: false } });
   });
+}
+
+// Replace resource-intensive blocks with lightweight placeholders so the
+// tooltip doesn't attempt to run Mermaid, MathJax, or load binary attachments.
+function _stripHeavyBlocks(text) {
+  // Mermaid fenced code blocks  ```mermaid … ```
+  text = text.replace(/^[ \t]*`{3,}mermaid[ \t]*\n[\s\S]*?\n[ \t]*`{3,}[ \t]*$/gm, '*(diagram)*');
+  // Display-math blocks  $$ … $$  (single- or multi-line)
+  text = text.replace(/\$\$[\s\S]*?\$\$/g, '*(math)*');
+  // Attachment images  ![alt](attachment:filename)
+  text = text.replace(/!\[[^\]]*\]\(attachment:[^)]*\)/g, '*(image)*');
+  return text;
 }
 
 function _escHtml(str) {
