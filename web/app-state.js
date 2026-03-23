@@ -66,6 +66,7 @@ const backupStatusEl = document.getElementById('last-backup-status');
 const panelLists = document.getElementById('panel-lists');
 const panelArrow = document.getElementById('panel-arrow');
 const panelPin = document.getElementById('panel-pin');
+const panelOpenBtn = document.getElementById('panel-open-btn');
 const filesContainer = document.getElementById('files-container');
 const todosContainer = document.getElementById('todo-container');
 const scheduleContainer = document.getElementById('schedule-container');

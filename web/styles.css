@@ -1061,14 +1061,13 @@ textarea:focus {
   margin-top: 8px;
 }
 
-/* ── Arrow button — invisible hover zone at middle-right edge ── */
+/* ── Arrow button — invisible hover zone covering entire right edge ── */
 #panel-arrow {
   position: fixed;
-  top: 50%;
+  top: 0;
   right: 0;
-  transform: translateY(-50%);
   width: 20px;
-  height: 80px;
+  height: 100%;
   border-radius: 0;
   background: transparent;
   color: transparent;
@@ -1084,8 +1083,36 @@ textarea:focus {
   transition: none;
 }
 
-/* Hide the arrow entirely when panel is pinned */
-body.panel-pinned #panel-arrow {
+/* Hide the arrow entirely when panel is pinned or visible */
+body.panel-pinned #panel-arrow,
+body.panel-visible #panel-arrow {
+  display: none;
+}
+
+/* ── Panel open button — visible menu button at top-right ── */
+#panel-open-btn {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--pin-color);
+  cursor: pointer;
+  padding: 4px;
+  margin: 0;
+  border-radius: 4px;
+  line-height: 0;
+  z-index: 100;
+}
+
+#panel-open-btn:hover {
+  color: var(--text);
+  background-color: var(--surface);
+}
+
+/* Hide when panel is open or pinned (pin button takes over that spot) */
+body.panel-visible #panel-open-btn,
+body.panel-pinned #panel-open-btn {
   display: none;
 }
 
@@ -2020,8 +2047,9 @@ body.panel-pinned {
     display: none !important;
   }
 
-  /* Hide pin button on mobile */
-  #panel-pin {
+  /* Hide pin button and open button on mobile */
+  #panel-pin,
+  #panel-open-btn {
     display: none !important;
   }
 
