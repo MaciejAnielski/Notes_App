@@ -1469,7 +1469,7 @@ body.panel-pinned {
 }
 
 .schedule-item input[type="checkbox"] {
-  margin: 0;
+  margin-left: 2px;
   flex-shrink: 0;
 }
 
