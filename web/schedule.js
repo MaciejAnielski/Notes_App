@@ -19,6 +19,7 @@ async function _buildScheduleCache(cachedNotes) {
 
   const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name: fileName, content } of allNotes) {
+    if (fileName.startsWith('.')) continue;
     if (!content) continue;
     content.split(/\n/).forEach((line, idx) => {
       const trimmed = line.trim();
