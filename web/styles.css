@@ -916,11 +916,11 @@ textarea:focus {
   list-style: none;
 }
 
-/* Align checkbox to the vertical centre of its text line. */
+/* Align checkbox to the vertical centre of its first text line. */
 #preview li.task-item,
 .graph-tooltip li.task-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35em;
 }
 
@@ -1065,7 +1065,7 @@ textarea:focus {
 
 #todoList li li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
 #todoList li li input[type="checkbox"] {
@@ -2295,9 +2295,10 @@ input[type="checkbox"] {
 #schedule-container input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 1.2cap;
-  height: 1.2cap;
-  margin-block: 0;
+  width: 1em;
+  height: 1em;
+  margin-top: calc((1lh - 1em) / 2);
+  margin-bottom: 0;
   border: 0.1em solid var(--checkbox-border);
   border-radius: 0.2em;
   background: var(--checkbox-bg);
