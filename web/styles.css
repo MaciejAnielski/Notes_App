@@ -280,6 +280,20 @@ body.platform-darwin #panel-lists {
   app-region: no-drag;
 }
 
+/* panel-open-btn sits in the top-right corner which overlaps the drag region;
+   mark it no-drag so clicks are not swallowed by the native drag handler. */
+body.platform-darwin #panel-open-btn {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* panel-arrow covers the full right edge including the drag-region strip;
+   mark it no-drag so mouseenter/mouseleave events reach the DOM handler. */
+body.platform-darwin #panel-arrow {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* ── Bottom status area — wraps status message and backup label ── */
 #bottom-status-area {
   position: relative;
