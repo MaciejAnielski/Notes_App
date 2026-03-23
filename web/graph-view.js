@@ -241,6 +241,34 @@ async function renderNoteGraph() {
   tooltip.className = 'graph-tooltip';
   previewDiv.appendChild(tooltip);
 
+  // When the mouse moves from a node onto the tooltip, blurNode fires but we
+  // want to keep the tooltip alive.  Track hover state and defer the hide.
+  let tooltipHovered = false;
+  let blurTimeout = null;
+
+  const _hideTooltipNow = () => {
+    tooltip.style.display = 'none';
+    nodes.update(nodes.getIds().map(id => ({ id, label: '' })));
+    edges.update(edges.getIds().map(id => ({ id, hidden: true })));
+  };
+
+  tooltip.addEventListener('mouseenter', () => {
+    tooltipHovered = true;
+    clearTimeout(blurTimeout);
+  });
+  tooltip.addEventListener('mouseleave', () => {
+    tooltipHovered = false;
+    _hideTooltipNow();
+  });
+
+  // Scroll the tooltip body instead of zooming/panning the canvas.
+  tooltip.addEventListener('wheel', e => {
+    const body = tooltip.querySelector('.graph-tooltip-body');
+    if (body) body.scrollTop += e.deltaY;
+    e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
+
   // Content map for fast hover lookup (name → first 300 chars of content)
   const contentPreviewMap = new Map();
   for (const { name, content } of graphNotes) {
@@ -302,15 +330,15 @@ async function renderNoteGraph() {
   });
 
   network.on('blurNode', () => {
-    tooltip.style.display = 'none';
-    // Hide all labels and edges again when no node is hovered
-    nodes.update(nodes.getIds().map(id => ({ id, label: '' })));
-    edges.update(edges.getIds().map(id => ({ id, hidden: true })));
+    // Defer so the mouse has time to enter the tooltip before we decide to hide.
+    blurTimeout = setTimeout(() => {
+      if (!tooltipHovered) _hideTooltipNow();
+    }, 80);
   });
 
   // Hide tooltip when dragging/zooming to avoid stale positions
-  network.on('zoom', () => { tooltip.style.display = 'none'; });
-  network.on('dragStart', () => { tooltip.style.display = 'none'; });
+  network.on('zoom', () => { tooltipHovered = false; tooltip.style.display = 'none'; });
+  network.on('dragStart', () => { tooltipHovered = false; tooltip.style.display = 'none'; });
 
   // Fit graph to view after stabilization
   network.once('stabilizationIterationsDone', () => {

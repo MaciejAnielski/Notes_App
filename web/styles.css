@@ -2372,7 +2372,7 @@ input[type="checkbox"] {
   color: var(--text);
   font-size: 0.78em;
   line-height: 1.45;
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 100;
   word-break: break-word;
   box-shadow: 0 4px 16px var(--shadow);
