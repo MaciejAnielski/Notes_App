@@ -256,9 +256,23 @@ function applyPinState() {
 }
 
 panelPin.addEventListener('click', () => {
+  const wasUnpinning = isPanelPinned;
   isPanelPinned = !isPanelPinned;
   localStorage.setItem('panel_pinned', isPanelPinned);
   applyPinState();
+  if (wasUnpinning) {
+    // Suppress hover re-open until the mouse leaves the button area.
+    panelOpenBtn.style.pointerEvents = 'none';
+    const onMouseMove = (e) => {
+      const rect = panelOpenBtn.getBoundingClientRect();
+      if (e.clientX < rect.left || e.clientX > rect.right ||
+          e.clientY < rect.top  || e.clientY > rect.bottom) {
+        panelOpenBtn.style.pointerEvents = '';
+        document.removeEventListener('mousemove', onMouseMove);
+      }
+    };
+    document.addEventListener('mousemove', onMouseMove);
+  }
 });
 
 function cyclePanel() {
@@ -337,13 +351,10 @@ function scheduleHidePanel() {
   }, 100);
 }
 
-panelArrow.addEventListener('mouseenter', showPanel);
-panelArrow.addEventListener('mouseleave', scheduleHidePanel);
-panelLists.addEventListener('mouseenter', showPanel);
-panelLists.addEventListener('mouseleave', scheduleHidePanel);
-panelOpenBtn.addEventListener('click', showPanel);
 panelOpenBtn.addEventListener('mouseenter', showPanel);
 panelOpenBtn.addEventListener('mouseleave', scheduleHidePanel);
+panelLists.addEventListener('mouseenter', showPanel);
+panelLists.addEventListener('mouseleave', scheduleHidePanel);
 
 applyPinState();
 updateBackupStatus();
