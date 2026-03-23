@@ -286,7 +286,9 @@ async function renderNoteGraph() {
       return;
     }
     const content = contentPreviewMap.get(nodeId) || '';
-    const snippet = content.length > 600 ? content.slice(0, 600) + '\n\n…' : content;
+    // Strip a leading # heading that duplicates the title already shown in the tooltip header
+    const body = content.replace(/^#+ [^\n]*\n?/, '');
+    const snippet = body.length > 600 ? body.slice(0, 600) + '\n\n…' : body;
     // Render snippet as markdown HTML using the same pipeline as the preview pane
     const processed = (typeof preprocessMarkdown === 'function')
       ? preprocessMarkdown(snippet) : snippet;
