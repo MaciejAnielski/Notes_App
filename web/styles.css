@@ -908,6 +908,12 @@ textarea:focus {
 #preview ul ul { list-style-type: circle; }
 #preview ul ul ul { list-style-type: square; }
 
+/* Task-list items must never show a bullet, regardless of nesting depth. */
+#preview li.task-item,
+#todoList li.task-item {
+  list-style: none;
+}
+
 /* ── Blockquotes ── */
 #preview blockquote {
   margin: 12px 0;
@@ -2274,16 +2280,17 @@ input[type="checkbox"] {
   accent-color: var(--checkbox-accent);
 }
 
-/* Custom checkbox styling for preview and panels */
+/* Custom checkbox styling for preview and panels.
+   em-based sizing so checkboxes scale with surrounding text. */
 #preview input[type="checkbox"],
 #todoList input[type="checkbox"],
 #schedule-container input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--checkbox-border);
-  border-radius: 3px;
+  width: 0.85em;
+  height: 0.85em;
+  border: 0.1em solid var(--checkbox-border);
+  border-radius: 0.2em;
   background: var(--checkbox-bg);
   cursor: pointer;
   vertical-align: middle;
@@ -2303,30 +2310,13 @@ input[type="checkbox"] {
 #schedule-container input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
-  left: 3.5px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
+  left: 0.22em;
+  top: 0.06em;
+  width: 0.24em;
+  height: 0.49em;
   border: solid var(--bg);
-  border-width: 0 2px 2px 0;
+  border-width: 0 0.14em 0.14em 0;
   transform: rotate(45deg);
-}
-
-/* Smaller checkboxes inside schedule items to fit 15-min timeblocks.
-   Use #schedule-container to outweigh the 14px base rule above. */
-#schedule-container .schedule-item input[type="checkbox"] {
-  width: 10px;
-  height: 10px;
-  border-width: 1px;
-  border-radius: 2px;
-}
-
-#schedule-container .schedule-item input[type="checkbox"]:checked::after {
-  left: 2px;
-  top: 0.5px;
-  width: 3px;
-  height: 6px;
-  border-width: 0 1.5px 1.5px 0;
 }
 
 /* ── Image border in preview ── */
