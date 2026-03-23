@@ -2315,15 +2315,17 @@ input[type="checkbox"] {
   transform: rotate(45deg);
 }
 
-/* Smaller checkboxes inside schedule items to fit 15-min timeblocks */
-.schedule-item input[type="checkbox"] {
+/* Smaller checkboxes inside schedule items to fit 15-min timeblocks.
+   Use #schedule-container to outweigh the 14px base rule above. */
+#schedule-container .schedule-item input[type="checkbox"] {
   width: 10px;
   height: 10px;
   border-width: 1px;
   border-radius: 2px;
+  margin-top: 1px;
 }
 
-.schedule-item input[type="checkbox"]:checked::after {
+#schedule-container .schedule-item input[type="checkbox"]:checked::after {
   left: 2px;
   top: 0.5px;
   width: 3px;
@@ -2364,8 +2366,8 @@ input[type="checkbox"] {
 .graph-tooltip {
   display: none;
   position: absolute;
-  background: var(--graph-tooltip-bg);
-  border: 1.5px solid var(--graph-tooltip-border);
+  background: var(--bg);
+  border: none;
   border-radius: 6px;
   padding: 8px 12px;
   max-width: 300px;
@@ -2380,8 +2382,8 @@ input[type="checkbox"] {
 
 /* Override vis.js built-in tooltip to match theme instead of browser default */
 .vis-tooltip {
-  background-color: var(--graph-tooltip-bg) !important;
-  border: 1.5px solid var(--graph-tooltip-border) !important;
+  background-color: var(--bg) !important;
+  border: none !important;
   color: var(--text) !important;
   border-radius: 6px !important;
   padding: 6px 10px !important;
