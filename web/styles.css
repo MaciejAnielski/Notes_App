@@ -2289,12 +2289,13 @@ input[type="checkbox"] {
 }
 
 /* Custom checkbox styling for preview and panels.
-   em-based sizing so checkboxes scale with surrounding text. */
+   Inherit font so em/lh units scale with surrounding text. */
 #preview input[type="checkbox"],
 #todoList input[type="checkbox"],
 #schedule-container input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
+  font: inherit;
   width: 1em;
   height: 1em;
   margin-top: calc((1lh - 1em) / 2);
