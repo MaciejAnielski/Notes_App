@@ -910,7 +910,8 @@ textarea:focus {
 
 /* Task-list items must never show a bullet, regardless of nesting depth. */
 #preview li.task-item,
-#todoList li.task-item {
+#todoList li.task-item,
+.graph-tooltip li.task-item {
   list-style: none;
 }
 

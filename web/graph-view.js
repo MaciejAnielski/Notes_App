@@ -334,6 +334,7 @@ async function renderNoteGraph() {
     tooltip.innerHTML =
       `<div class="graph-tooltip-title">${_escHtml(nodeId)}</div>` +
       `<div class="graph-tooltip-body">${renderedHtml}</div>`;
+    if (typeof styleTaskListItems === 'function') styleTaskListItems(tooltip);
     _positionTooltip(tooltip, params.pointer.DOM, container);
     tooltip.style.display = 'block';
   });
