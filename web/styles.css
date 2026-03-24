@@ -916,12 +916,12 @@ textarea:focus {
   list-style: none;
 }
 
-/* Align checkbox to the vertical centre of its first text line. */
+/* Align checkbox to the vertical centre of the text line. */
 #preview li.task-item,
 #todoList li.task-item,
 .graph-tooltip li.task-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.35em;
 }
 
@@ -1461,6 +1461,7 @@ body.panel-pinned {
   overflow: hidden;
   box-sizing: border-box;
   display: flex;
+  align-items: center;
   gap: 0.35em;
   cursor: default;
 }
@@ -2289,8 +2290,6 @@ input[type="checkbox"] {
   font: inherit;
   width: 1em;
   height: 1em;
-  margin-top: calc((1lh - 1em) / 2);
-  margin-bottom: 0;
   border: 0.1em solid var(--checkbox-border);
   border-radius: 0.2em;
   background: var(--checkbox-bg);
@@ -2325,16 +2324,14 @@ input[type="checkbox"] {
   outline-offset: 0.1em;
 }
 
-/* Schedule item checkboxes: fixed 12px to match calendar emoji icon size. */
+/* Schedule item checkboxes: em-based sizing so they scale with browser zoom. */
 #schedule-container .schedule-item input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   font: inherit;
-  width: 12px;
-  height: 12px;
-  margin-top: calc((1lh - 1em) / 2);
-  margin-bottom: 0;
-  border: 1px solid var(--checkbox-border);
+  width: 1em;
+  height: 1em;
+  border: 0.1em solid var(--checkbox-border);
   border-radius: 2px;
   background: var(--checkbox-bg);
   cursor: pointer;
@@ -2351,12 +2348,12 @@ input[type="checkbox"] {
 #schedule-container .schedule-item input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
-  left: 3px;
-  top: 1px;
-  width: 4px;
-  height: 7px;
+  left: 26%;
+  top: 7%;
+  width: 28%;
+  height: 57%;
   border: solid var(--bg);
-  border-width: 0 1.5px 1.5px 0;
+  border-width: 0 0.14em 0.14em 0;
   transform: rotate(45deg);
 }
 
