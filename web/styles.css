@@ -1867,7 +1867,7 @@ body.panel-pinned {
 #preview mjx-container:not([display="true"]) {
   display: inline-block;
   max-width: 100% !important;
-  vertical-align: middle;
+  vertical-align: sub;
 }
 
 /* Only equations whose content actually overflows get horizontal scrolling.
