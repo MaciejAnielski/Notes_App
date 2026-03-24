@@ -2337,7 +2337,6 @@ input[type="checkbox"] {
   height: 12px;
   border-width: 1px;
   border-radius: 2px;
-  margin-block: 0;
 }
 
 #schedule-container .schedule-item input[type="checkbox"]:checked::after {
