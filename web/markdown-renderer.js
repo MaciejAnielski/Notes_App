@@ -66,8 +66,26 @@ function styleTaskListItems(container = previewDiv) {
         li.style.marginLeft = '0';
       }
       li.style.paddingLeft = '0';
-      if (!checkbox.nextSibling || checkbox.nextSibling.nodeValue !== ' ') {
-        checkbox.insertAdjacentText('afterend', ' ');
+      // Consolidate all content after the checkbox into a single span so that
+      // gap: 0.35em on the flex container only creates one gap (between the
+      // checkbox and the text), rather than fragmenting inline text nodes and
+      // elements (bold, italic, code, links) into separate flex items.
+      // Only applies to the direct-INPUT case; the <p>-wrapped case already
+      // has a single <p> element enclosing everything.
+      if (checkbox === firstChild) {
+        const siblings = [];
+        let node = checkbox.nextSibling;
+        while (node) { siblings.push(node); node = node.nextSibling; }
+        const alreadyWrapped =
+          siblings.length === 1 &&
+          siblings[0].nodeType === Node.ELEMENT_NODE &&
+          siblings[0].classList.contains('task-text');
+        if (siblings.length > 0 && !alreadyWrapped) {
+          const wrapper = document.createElement('span');
+          wrapper.className = 'task-text';
+          siblings.forEach(n => wrapper.appendChild(n));
+          li.appendChild(wrapper);
+        }
       }
     } else {
       li.classList.add('bullet-item');
