@@ -73,18 +73,28 @@ function styleTaskListItems(container = previewDiv) {
       // Only applies to the direct-INPUT case; the <p>-wrapped case already
       // has a single <p> element enclosing everything.
       if (checkbox === firstChild) {
-        const siblings = [];
+        // Collect siblings that are text content — skip task-status-dot, which
+        // must stay as a direct flex child so margin-left:auto keeps it at the
+        // right edge of the task list panel.
+        const toWrap = [];
         let node = checkbox.nextSibling;
-        while (node) { siblings.push(node); node = node.nextSibling; }
+        while (node) {
+          if (!(node.nodeType === Node.ELEMENT_NODE && node.classList.contains('task-status-dot'))) {
+            toWrap.push(node);
+          }
+          node = node.nextSibling;
+        }
         const alreadyWrapped =
-          siblings.length === 1 &&
-          siblings[0].nodeType === Node.ELEMENT_NODE &&
-          siblings[0].classList.contains('task-text');
-        if (siblings.length > 0 && !alreadyWrapped) {
+          toWrap.length === 1 &&
+          toWrap[0].nodeType === Node.ELEMENT_NODE &&
+          toWrap[0].classList.contains('task-text');
+        if (toWrap.length > 0 && !alreadyWrapped) {
           const wrapper = document.createElement('span');
           wrapper.className = 'task-text';
-          siblings.forEach(n => wrapper.appendChild(n));
-          li.appendChild(wrapper);
+          toWrap.forEach(n => wrapper.appendChild(n));
+          // Insert before the dot (if any) so flex order is [checkbox][task-text][dot]
+          const dot = li.querySelector(':scope > .task-status-dot');
+          dot ? li.insertBefore(wrapper, dot) : li.appendChild(wrapper);
         }
       }
     } else {
