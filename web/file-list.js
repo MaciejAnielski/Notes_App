@@ -396,6 +396,7 @@ async function updateTodoList(cachedNotes) {
           });
           todoLi.appendChild(checkbox);
           const span = document.createElement('span');
+          span.className = 'task-text';
           span.innerHTML = marked.parseInline(text);
           span.style.cursor = 'pointer';
           span.addEventListener('click', (e) => {
