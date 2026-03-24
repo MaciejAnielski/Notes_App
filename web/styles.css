@@ -1061,13 +1061,7 @@ textarea:focus {
 }
 
 #todo-container li {
-  margin-top: 4px;
-}
-
-#todoList li li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35em;
+  margin: 0.15em 0;
 }
 
 #todo-container .todo-note-title {
@@ -1467,7 +1461,7 @@ body.panel-pinned {
   overflow: hidden;
   box-sizing: border-box;
   display: flex;
-  gap: 4px;
+  gap: 0.35em;
   cursor: default;
 }
 
