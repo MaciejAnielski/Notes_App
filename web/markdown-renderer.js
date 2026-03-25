@@ -41,7 +41,6 @@ function styleTaskListItems(container = previewDiv) {
     ) {
       checkbox = firstChild.firstElementChild;
       firstChild.style.margin = '0';
-      firstChild.style.display = 'inline';
     } else if (
       firstChild &&
       firstChild.tagName === 'P' &&
@@ -53,6 +52,17 @@ function styleTaskListItems(container = previewDiv) {
     if (checkbox) {
       li.style.listStyleType = 'none';
       li.classList.add('task-item');
+
+      // If the checkbox was inside a <p> (loose/spaced list), hoist it out so it
+      // becomes a direct flex child of <li>. This lets align-items:center on the
+      // flex container properly centre the checkbox against the text, instead of
+      // leaving it in inline flow where vertical-align:baseline makes it sit too high.
+      if (checkbox.parentElement !== li) {
+        const p = checkbox.parentElement;
+        p.removeChild(checkbox);
+        li.insertBefore(checkbox, p);
+      }
+
       const parent = li.parentElement;
       if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL')) {
         const computed = window.getComputedStyle(parent);
@@ -70,9 +80,8 @@ function styleTaskListItems(container = previewDiv) {
       // gap: 0.35em on the flex container only creates one gap (between the
       // checkbox and the text), rather than fragmenting inline text nodes and
       // elements (bold, italic, code, links) into separate flex items.
-      // Only applies to the direct-INPUT case; the <p>-wrapped case already
-      // has a single <p> element enclosing everything.
-      if (checkbox === firstChild) {
+      // Checkbox is always a direct child at this point (hoisted above if needed).
+      {
         // Collect siblings that are text content — skip task-status-dot, which
         // must stay as a direct flex child so margin-left:auto keeps it at the
         // right edge of the task list panel.
