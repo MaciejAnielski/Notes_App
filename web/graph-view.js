@@ -425,25 +425,15 @@ function _positionTooltip(tooltip, domPos, container) {
   const offset = 14;
   const edge = 4;
 
-  // Horizontal: place on whichever side of the cursor has more space
-  const spaceRight = pRect.width - cursorX;
-  const spaceLeft = cursorX;
-  let left;
-  if (spaceRight >= spaceLeft) {
-    left = Math.min(cursorX + offset, pRect.width - tw - edge);
-  } else {
-    left = Math.max(cursorX - tw - offset, edge);
-  }
+  // Horizontal: start to the right of cursor; flip left only if it overflows
+  let left = cursorX + offset;
+  if (left + tw > pRect.width - edge) left = cursorX - tw - offset;
+  left = Math.max(edge, left);
 
-  // Vertical: place on whichever side of the cursor has more space
-  const spaceBelow = pRect.height - cursorY;
-  const spaceAbove = cursorY;
-  let top;
-  if (spaceBelow >= spaceAbove) {
-    top = Math.min(cursorY + offset, pRect.height - th - edge);
-  } else {
-    top = Math.max(cursorY - th - offset, edge);
-  }
+  // Vertical: start below cursor; flip above only if it overflows
+  let top = cursorY + offset;
+  if (top + th > pRect.height - edge) top = cursorY - th - offset;
+  top = Math.max(edge, top);
 
   tooltip.style.left = left + 'px';
   tooltip.style.top = top + 'px';
