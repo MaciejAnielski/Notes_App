@@ -411,7 +411,6 @@ button.btn-busy {
   left: 0;
   z-index: 10;
   background-color: var(--bg);
-  border: 1px solid var(--border);
   border-radius: 3px;
   box-shadow: 0 4px 12px var(--shadow);
   padding: 2px 0;
@@ -1280,7 +1279,6 @@ body.panel-pinned {
 @media (min-width: 651px) {
   body.panel-visible:not(.panel-pinned) #button-container {
     max-width: calc(100% - 306px);
-    overflow: hidden;
   }
 }
 
@@ -1660,9 +1658,6 @@ body.panel-pinned {
   width: 400px;
   max-height: 50vh;
   background-color: var(--bg);
-  border: 1px solid var(--border);
-  border-top: none;
-  border-right: none;
   border-radius: 0 0 0 4px;
   z-index: 200;
   display: flex;
@@ -2190,8 +2185,6 @@ body.panel-pinned {
     width: 100%;
     max-height: 55vh;
     border-radius: 12px 12px 0 0;
-    border: 1px solid var(--border);
-    border-bottom: none;
     box-shadow: 0 -4px 16px var(--shadow);
     padding-bottom: max(env(safe-area-inset-bottom), 24px);
     transition: bottom 0.25s ease;
@@ -2257,6 +2250,13 @@ body.panel-pinned {
   /* Toolbar max-width constraint no longer needed when the panel is hidden. */
   body.panel-visible #button-container {
     max-width: 100%;
+  }
+
+  /* Force left-alignment on narrow desktop/laptop windows.
+     Overrides the mobile justify-content:center rule which can apply on
+     touchscreen laptops where any-pointer:coarse and hover:hover both match. */
+  body:not(.electron) #button-container {
+    justify-content: flex-start;
   }
 }
 

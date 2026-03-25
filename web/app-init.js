@@ -154,7 +154,13 @@ buttonContainer.insertBefore(overflowGroup, viewGroup);
 overflowGroup.style.display = 'none';
 
 function _barOverflows() {
-  const right = buttonContainer.getBoundingClientRect().right;
+  let right = buttonContainer.getBoundingClientRect().right;
+  // Shrink the available right boundary to avoid overlapping #panel-open-btn
+  // when it is visible as a fixed element to the right of the toolbar.
+  const panelOpenBtn = document.getElementById('panel-open-btn');
+  if (panelOpenBtn && getComputedStyle(panelOpenBtn).display !== 'none') {
+    right = Math.min(right, panelOpenBtn.getBoundingClientRect().left - 4);
+  }
   const visible = Array.from(buttonContainer.children).filter(
     el => getComputedStyle(el).display !== 'none'
   );
@@ -339,6 +345,7 @@ function showPanel() {
   clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
   document.body.classList.add('panel-visible');
+  checkToolbarOverflow();
   updateBackupStatus();
 }
 
@@ -348,6 +355,7 @@ function scheduleHidePanel() {
   peekHideTimer = setTimeout(() => {
     panelLists.classList.remove('visible');
     document.body.classList.remove('panel-visible');
+    checkToolbarOverflow();
   }, 100);
 }
 
