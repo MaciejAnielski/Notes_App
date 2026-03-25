@@ -309,8 +309,6 @@ function _makeScheduleBlock(item, extraClass) {
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'schedule-item-name';
-  // Render inline markdown (including math delimiters for MathJax) instead of
-  // stripping everything to plain text.
   {
     let displayText = item.text;
     displayText = displayText.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => inner.replace(/_/g, ' ').trim());
@@ -319,9 +317,12 @@ function _makeScheduleBlock(item, extraClass) {
     displayText = displayText.replace(/^\s*[-*+]\s+/, '');
     displayText = displayText.replace(/^\s*\d+[.)]\s+/, '');
     displayText = displayText.replace(/^\s*- \[[ xX]\]\s+/, '');
-    // Strip link syntax — show only the display text, not clickable anchors.
     displayText = displayText.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1');
-    nameSpan.innerHTML = marked.parseInline(displayText);
+    // Extract plain text only — strip all remaining inline markdown syntax
+    // (bold, italic, code, etc.) by parsing and discarding the HTML markup.
+    const _tmp = document.createElement('span');
+    _tmp.innerHTML = marked.parseInline(displayText);
+    nameSpan.textContent = _tmp.textContent;
   }
   nameSpan.addEventListener('click', () => {
     loadNote(item.fileName);
