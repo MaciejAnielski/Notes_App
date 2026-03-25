@@ -777,6 +777,7 @@ textarea:focus {
 }
 
 #preview {
+  position: relative;
   width: 100%;
   padding: var(--gap);
   margin: 0;
