@@ -239,6 +239,16 @@ async function renderNoteGraph() {
 
   const network = new vis.Network(container, { nodes, edges }, options);
 
+  // Track the actual mouse viewport position in capture phase so it is
+  // always up-to-date by the time the vis.js hoverNode callback fires.
+  // This avoids the mismatch between container.getBoundingClientRect() and
+  // the inner canvas.getBoundingClientRect() that vis.js uses internally.
+  let mouseClientX = 0, mouseClientY = 0;
+  container.addEventListener('mousemove', e => {
+    mouseClientX = e.clientX;
+    mouseClientY = e.clientY;
+  }, true); // capture so it fires before vis.js processes the event
+
   // Build hover tooltip element
   const tooltip = document.createElement('div');
   tooltip.className = 'graph-tooltip';
@@ -322,7 +332,7 @@ async function renderNoteGraph() {
         `<div class="graph-tooltip-title" style="color:var(--error)">Missing: ${_escHtml(missingName)}</div>` +
         `<div class="graph-tooltip-body"><em>This note does not exist yet. Click to create it.</em></div>`;
       tooltip.style.display = 'block';
-      _positionTooltip(tooltip, params.pointer.DOM, container);
+      _positionTooltip(tooltip, mouseClientX, mouseClientY);
       return;
     }
     const content = contentPreviewMap.get(nodeId) || '';
@@ -343,7 +353,7 @@ async function renderNoteGraph() {
     if (typeof styleTaskListItems === 'function') styleTaskListItems(tooltip);
     if (typeof alignTableColumns === 'function') alignTableColumns(tooltip);
     tooltip.style.display = 'block';
-    _positionTooltip(tooltip, params.pointer.DOM, container);
+    _positionTooltip(tooltip, mouseClientX, mouseClientY);
   });
 
   network.on('blurNode', () => {
@@ -413,12 +423,13 @@ function _wrapLabel(name, maxChars = 16) {
   return lines.join('\n');
 }
 
-function _positionTooltip(tooltip, domPos, container) {
-  const cRect = container.getBoundingClientRect();
+// clientX/clientY are viewport coordinates (e.clientX / e.clientY from a native mouse event).
+// The tooltip is positioned absolutely within #preview (position:relative), so we
+// convert by subtracting #preview's viewport offset.
+function _positionTooltip(tooltip, clientX, clientY) {
   const pRect = previewDiv.getBoundingClientRect();
-  // Convert domPos (canvas-relative) to previewDiv-relative cursor coordinates
-  const cursorX = domPos.x + cRect.left - pRect.left;
-  const cursorY = domPos.y + cRect.top - pRect.top;
+  const cursorX = clientX - pRect.left;
+  const cursorY = clientY - pRect.top;
 
   const tw = tooltip.offsetWidth;
   const th = tooltip.offsetHeight;
