@@ -148,12 +148,15 @@ async function renderNoteGraph() {
       const toId = exists ? target : `__missing__${target}`;
 
       if (!exists && !addedMissingNodes.has(toId)) {
+        const missingDegree = incomingCount.get(target) || 0;
+        const missingSize = 10 + missingDegree * 5;
+        const missingFontSize = Math.max(10, 10 + missingDegree * 2);
         nodeLabelMap.set(toId, _wrapLabel(target));
         nodes.add({
           id: toId,
           label: '',  // hidden by default; shown on hover
-          size: 8,
-          font: { size: 9, color: gError, multi: true },
+          size: missingSize,
+          font: { size: missingFontSize, color: gError, multi: true },
           color: {
             background: gErrorBg,
             border: gError,
@@ -318,8 +321,8 @@ async function renderNoteGraph() {
       tooltip.innerHTML =
         `<div class="graph-tooltip-title" style="color:var(--error)">Missing: ${_escHtml(missingName)}</div>` +
         `<div class="graph-tooltip-body"><em>This note does not exist yet. Click to create it.</em></div>`;
-      _positionTooltip(tooltip, params.pointer.DOM, container);
       tooltip.style.display = 'block';
+      _positionTooltip(tooltip, params.pointer.DOM, container);
       return;
     }
     const content = contentPreviewMap.get(nodeId) || '';
@@ -339,8 +342,8 @@ async function renderNoteGraph() {
       `<div class="graph-tooltip-body">${renderedHtml}</div>`;
     if (typeof styleTaskListItems === 'function') styleTaskListItems(tooltip);
     if (typeof alignTableColumns === 'function') alignTableColumns(tooltip);
-    _positionTooltip(tooltip, params.pointer.DOM, container);
     tooltip.style.display = 'block';
+    _positionTooltip(tooltip, params.pointer.DOM, container);
   });
 
   network.on('blurNode', () => {
@@ -413,12 +416,35 @@ function _wrapLabel(name, maxChars = 16) {
 function _positionTooltip(tooltip, domPos, container) {
   const cRect = container.getBoundingClientRect();
   const pRect = previewDiv.getBoundingClientRect();
-  // domPos is relative to the container canvas
-  const x = domPos.x + cRect.left - pRect.left + 14;
-  const y = domPos.y + cRect.top - pRect.top + 14;
-  // Keep tooltip within previewDiv bounds
-  const maxX = pRect.width - tooltip.offsetWidth - 20;
-  const maxY = pRect.height - tooltip.offsetHeight - 20;
-  tooltip.style.left = Math.min(x, Math.max(0, maxX)) + 'px';
-  tooltip.style.top = Math.min(y, Math.max(0, maxY)) + 'px';
+  // Convert domPos (canvas-relative) to previewDiv-relative cursor coordinates
+  const cursorX = domPos.x + cRect.left - pRect.left;
+  const cursorY = domPos.y + cRect.top - pRect.top;
+
+  const tw = tooltip.offsetWidth;
+  const th = tooltip.offsetHeight;
+  const offset = 14;
+  const edge = 4;
+
+  // Horizontal: place on whichever side of the cursor has more space
+  const spaceRight = pRect.width - cursorX;
+  const spaceLeft = cursorX;
+  let left;
+  if (spaceRight >= spaceLeft) {
+    left = Math.min(cursorX + offset, pRect.width - tw - edge);
+  } else {
+    left = Math.max(cursorX - tw - offset, edge);
+  }
+
+  // Vertical: place on whichever side of the cursor has more space
+  const spaceBelow = pRect.height - cursorY;
+  const spaceAbove = cursorY;
+  let top;
+  if (spaceBelow >= spaceAbove) {
+    top = Math.min(cursorY + offset, pRect.height - th - edge);
+  } else {
+    top = Math.max(cursorY - th - offset, edge);
+  }
+
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
 }
