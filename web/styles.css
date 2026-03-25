@@ -2299,6 +2299,8 @@ input[type="checkbox"] {
   position: relative;
   flex-shrink: 0;
   vertical-align: middle;
+  align-self: flex-start;
+  margin-top: calc((1lh - 1em) / 2);
   transition: background-color 0.1s ease, border-color 0.1s ease;
 }
 
