@@ -177,11 +177,18 @@ async function refreshProjectsNote(cachedNotes) {
   const newContent = await generateProjectsNoteContent(cachedNotes);
   // Store locally only — the Projects note is generated from local note names and
   // preferences, so syncing its full rendered content wastes bandwidth and can
-  // cause conflicts. localStorage is used directly to bypass PowerSync.
-  const localKey = 'md_' + PROJECTS_NOTE;
-  const existing = localStorage.getItem(localKey);
-  if (existing === newContent) return;
-  localStorage.setItem(localKey, newContent);
+  // cause conflicts. On Desktop/iOS, localStorage bypasses PowerSync directly.
+  // On web, NoteStorage (IndexedDB) is used since there is no sync to bypass.
+  if (window.PowerSyncNoteStorage) {
+    const localKey = 'md_' + PROJECTS_NOTE;
+    const existing = localStorage.getItem(localKey);
+    if (existing === newContent) return;
+    localStorage.setItem(localKey, newContent);
+  } else {
+    const existing = await NoteStorage.getNote(PROJECTS_NOTE);
+    if (existing === newContent) return;
+    await NoteStorage.setNote(PROJECTS_NOTE, newContent);
+  }
   if (currentFileName === PROJECTS_NOTE) {
     textarea.value = newContent;
     await renderPreview();
@@ -454,7 +461,11 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   // It is stored in localStorage only — not in the sync database.
   if (name === PROJECTS_NOTE) {
     content = await generateProjectsNoteContent();
-    localStorage.setItem('md_' + PROJECTS_NOTE, content);
+    if (window.PowerSyncNoteStorage) {
+      localStorage.setItem('md_' + PROJECTS_NOTE, content);
+    } else {
+      await NoteStorage.setNote(PROJECTS_NOTE, content);
+    }
   }
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
   if (content === null && name === CALENDARS_NOTE) {
