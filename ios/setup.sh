@@ -40,6 +40,26 @@ if [ -f "$PBXPROJ" ]; then
   echo "Xcode project updated: User Script Sandboxing disabled for CocoaPods"
 fi
 
+# ── Ensure xcode-select points to full Xcode (not just Command Line Tools) ──
+# pod install (called by cap sync) requires xcodebuild, which is only in
+# the full Xcode app, not the standalone Command Line Tools package.
+XCODE_DEV_DIR="$(xcode-select -p 2>/dev/null)"
+if [ "$XCODE_DEV_DIR" = "/Library/Developer/CommandLineTools" ]; then
+  XCODE_APP="/Applications/Xcode.app/Contents/Developer"
+  if [ -d "$XCODE_APP" ]; then
+    echo "Switching xcode-select from Command Line Tools to Xcode..."
+    sudo xcode-select -s "$XCODE_APP"
+  else
+    echo ""
+    echo "ERROR: xcode-select is set to Command Line Tools, but pod install"
+    echo "requires the full Xcode app. Please:"
+    echo "  1. Install Xcode from the App Store"
+    echo "  2. Run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
+    echo "  3. Re-run this script"
+    exit 1
+  fi
+fi
+
 # Sync web files and native plugins (runs pod install).
 npx cap sync ios
 
