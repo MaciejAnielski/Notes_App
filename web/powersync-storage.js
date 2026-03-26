@@ -56,6 +56,40 @@
     return;
   }
 
+  // ── Minimal sync helpers stub ────────────────────────────────────────────
+  // Set unconditionally so the Settings note always renders sync controls on
+  // Desktop/iOS even if config is missing or vendor libraries fail to load.
+  // The full supabase-backed implementation below overwrites this on success.
+  const syncEnabled = localStorage.getItem('sync_enabled') === 'true';
+
+  window._syncHelpers = {
+    available: true,
+    enabled: syncEnabled,
+    authenticated: false,
+    userEmail: null,
+
+    async enable() {
+      localStorage.setItem('sync_enabled', 'true');
+      window.location.reload();
+    },
+    async disable() {
+      localStorage.removeItem('sync_enabled');
+      window.location.reload();
+    },
+    async sendMagicLink(_email) {
+      throw new Error('Sync is not configured. Please set up POWERSYNC_CONFIG and reload.');
+    },
+    async verifyOtp(_email, _token) {
+      throw new Error('Sync is not configured. Please set up POWERSYNC_CONFIG and reload.');
+    },
+    async signOut() {
+      localStorage.removeItem('sync_enabled');
+      window.location.reload();
+    },
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    onAuthStateChange: (_cb) => ({ data: { subscription: { unsubscribe: () => {} } } })
+  };
+
   try { // top-level catch so errors are never silently swallowed
 
   console.log('[powersync] Detected platform:', isElectron ? 'Electron' : 'iOS (Capacitor)');
@@ -110,10 +144,6 @@
       detectSessionInUrl: true
     }
   });
-
-  // ── Global sync helpers (available immediately, before PowerSync init) ──
-  // The Settings note reads this to show auth state and drive the sign-in flow.
-  const syncEnabled = localStorage.getItem('sync_enabled') === 'true';
 
   // Fetch the local auth-callback URL from the Electron main process.
   // This is http://127.0.0.1:<port>/auth-callback — used as emailRedirectTo
