@@ -117,6 +117,17 @@ const PROJECTS_NOTE = 'Projects';
 const CALENDARS_NOTE = 'Settings';
 const GRAPH_NOTE = 'Note Graph';
 const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
+
+// ── Encryption state ─────────────────────────────────────────────────────
+// In-memory encryption key and status. The key is loaded from KeyStorage
+// during app-init and cleared on tab close (never persisted in JS memory
+// beyond the session).
+window._encryption = {
+  key: null,        // CryptoKey (AES-GCM master key) or null
+  enabled: false,   // true if this user has encryption enabled (server record)
+  active: false,    // true if key is loaded and NoteStorage is wrapped
+  userId: null      // current user ID (for key namespacing)
+};
 // True when running as a secondary Electron window (opened via Ctrl+Shift+N).
 // Secondary windows inherit the primary window's note trail but do not write
 // back to the primary's localStorage key, so trail changes in secondary

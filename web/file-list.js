@@ -251,6 +251,22 @@ async function updateWebCalendarSettings(allNotes) {
     }
   }
 
+  // Ensure Encryption section (Desktop/iOS only — requires sync)
+  if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## 🔒 Encryption')) {
+    // Insert after Sync section if present, otherwise at end
+    const syncIdx = content.indexOf('\n## ☁️ Sync');
+    if (syncIdx !== -1) {
+      const afterSync = syncIdx + '\n## ☁️ Sync'.length;
+      const nextSecIdx = content.indexOf('\n## ', afterSync);
+      const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
+      content = content.slice(0, insertAt) +
+        '\n\n\n## 🔒 Encryption\n\nEnd-to-end encryption protects your notes so only your devices can read them.\n' +
+        content.slice(insertAt);
+    } else {
+      content += '\n\n\n## 🔒 Encryption\n\nEnd-to-end encryption protects your notes so only your devices can read them.\n';
+    }
+  }
+
   // Ensure Theme section
   if (!content.includes('## 🎨 Theme')) {
     // Insert before any existing ## heading, or append

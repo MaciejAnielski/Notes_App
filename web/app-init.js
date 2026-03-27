@@ -1135,6 +1135,42 @@ async function migrateLocalNotesToSync() {
       }
     }
 
+    // ── E2E Encryption: load master key and wrap NoteStorage ──────────────
+    // Must happen AFTER NoteStorage is assigned (IndexedDB or PowerSync) and
+    // BEFORE any note content is read. The wrapper transparently encrypts on
+    // write and decrypts on read so all downstream code works with plaintext.
+    if (window._syncHelpers?.authenticated && window._supabaseClient) {
+      try {
+        const session = await window._supabaseClient.auth.getSession();
+        const userId = session?.data?.session?.user?.id;
+        if (userId) {
+          window._encryption.userId = userId;
+
+          // Check if this user has encryption enabled (server record)
+          const encEnabled = await DevicePairing.isEncryptionEnabled(userId);
+          window._encryption.enabled = encEnabled;
+
+          if (encEnabled) {
+            // Try to load the master key from local secure storage
+            const rawKey = await KeyStorage.loadMasterKey(userId);
+            if (rawKey) {
+              const masterKey = await CryptoEngine.importKey(rawKey);
+              window._encryption.key = masterKey;
+              window._encryption.active = true;
+
+              // Wrap NoteStorage with encryption
+              window.NoteStorage = CryptoStorage.wrap(window.NoteStorage, masterKey);
+              console.log('[encryption] E2E encryption active.');
+            } else {
+              console.log('[encryption] Encryption enabled but no local key. Device pairing required.');
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[encryption] Key loading failed:', e);
+      }
+    }
+
     // Load synced preferences (theme, calendar colours, project emojis)
     setLoadingProgress(25, 'Loading preferences\u2026');
     if (typeof applySyncedPreferences === 'function') {

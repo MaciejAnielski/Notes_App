@@ -145,6 +145,9 @@
     }
   });
 
+  // Expose for device pairing module (needs direct Supabase REST access)
+  window._supabaseClient = supabase;
+
   // Fetch the local auth-callback URL from the Electron main process.
   // This is http://127.0.0.1:<port>/auth-callback — used as emailRedirectTo
   // so magic links open a local page that extracts tokens and posts them back.

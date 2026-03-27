@@ -32,5 +32,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // macOS: start/stop polling-based window drag initiated from a toolbar button.
   windowDragStart: () => ipcRenderer.send('window-drag-start'),
-  windowDragStop:  () => ipcRenderer.send('window-drag-stop')
+  windowDragStop:  () => ipcRenderer.send('window-drag-stop'),
+
+  // E2E Encryption: safeStorage-backed key persistence (OS keychain).
+  saveEncryptedKey: (id, base64Key) => ipcRenderer.invoke('notes:saveEncryptedKey', id, base64Key),
+  loadEncryptedKey: (id) => ipcRenderer.invoke('notes:loadEncryptedKey', id),
+  deleteEncryptedKey: (id) => ipcRenderer.invoke('notes:deleteEncryptedKey', id)
 });
