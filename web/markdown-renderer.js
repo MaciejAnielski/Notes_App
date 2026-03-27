@@ -1223,8 +1223,8 @@ async function renderPreview() {
   if (window.MathJax?.typesetPromise) {
     await MathJax.typesetPromise([previewDiv]);
     if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
-    markOverflowingMathContainers();
     setupClickableMathFormulas();
+    markOverflowingMathContainers();
   }
 
   // Settings note: inject interactive controls

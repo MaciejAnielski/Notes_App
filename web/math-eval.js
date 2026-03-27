@@ -457,7 +457,7 @@ function makeFormulaClickable(container, texSource, varMap, mathExpr) {
 
     if (result !== null && window.MathJax) {
       resultEl.innerHTML = `\\(${formatMathResult(result)}\\)`;
-      MathJax.typesetPromise([resultEl]);
+      MathJax.typesetPromise([resultEl]).then(markOverflowingMathContainers);
     } else {
       resultEl.textContent = result === null ? '?' : formatMathResult(result);
     }
@@ -496,15 +496,37 @@ function markOverflowingMathContainers() {
 }
 
 function setupMathWheelScroll() {
+  const LINE_HEIGHT_PX = 40;
   previewDiv.addEventListener('wheel', (e) => {
     const container = e.target.closest('mjx-container');
     if (!container) return;
     // Only intercept when the formula can actually scroll horizontally.
     if (container.scrollWidth <= container.clientWidth) return;
     e.preventDefault();
-    container.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+    // Prefer whichever axis has larger magnitude so diagonal trackpad swipes
+    // map to horizontal scroll using the user's primary intended direction.
+    const rawDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    // Normalise delta: Firefox (and some other browsers) may report deltaMode 1
+    // (lines) or 2 (pages) instead of pixels, producing a tiny raw value.
+    const normalizedDelta =
+      e.deltaMode === 1 ? rawDelta * LINE_HEIGHT_PX :
+      e.deltaMode === 2 ? rawDelta * window.innerHeight :
+      rawDelta;
+    container.scrollLeft += normalizedDelta;
   }, { passive: false });
 }
 
-// Register the wheel-scroll handler once after the DOM is ready.
-document.addEventListener('DOMContentLoaded', setupMathWheelScroll);
+function setupMathResizeObserver() {
+  let _mathResizeTimer = null;
+  const observer = new ResizeObserver(() => {
+    clearTimeout(_mathResizeTimer);
+    _mathResizeTimer = setTimeout(markOverflowingMathContainers, 150);
+  });
+  observer.observe(previewDiv);
+}
+
+// Register wheel-scroll and resize-observer handlers once after the DOM is ready.
+document.addEventListener('DOMContentLoaded', () => {
+  setupMathWheelScroll();
+  setupMathResizeObserver();
+});

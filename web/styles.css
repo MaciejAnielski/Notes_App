@@ -1871,6 +1871,12 @@ body.panel-pinned {
   /* Prevent page-level swipe-back/forward navigation while scrolling math. */
   overscroll-behavior-x: contain;
   touch-action: pan-x pan-y;
+  /* Hide scrollbar track while keeping scroll functional. */
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE / Edge legacy */
+}
+#preview mjx-container.math-overflow::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / WebKit */
 }
 
 /* Fallback for older MathJax CHTML class names */
