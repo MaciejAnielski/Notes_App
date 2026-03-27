@@ -1230,6 +1230,7 @@ async function renderPreview() {
   // Settings note: inject interactive controls
   if (currentFileName === CALENDARS_NOTE) {
     injectSyncSettings(previewDiv);
+    injectEncryptionSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
     injectProjectEmojiPickers(previewDiv);
@@ -1500,6 +1501,462 @@ function _buildSignInForm(wrap, helpers) {
 }
 
 function _appendSyncControls(section, wrap) {
+  const lists = section.querySelectorAll('ul, ol, p');
+  const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
+  if (lastEl && lastEl.nextSibling) {
+    section.insertBefore(wrap, lastEl.nextSibling);
+  } else {
+    section.appendChild(wrap);
+  }
+}
+
+// ── Encryption settings UI in Settings note preview ──────────────────────
+// Injects device pairing, key backup, and encryption status controls into
+// the "🔒 Encryption" section of the Settings note.
+
+function injectEncryptionSettings(container) {
+  // Find the <details> or parent element wrapping the "Encryption" h2
+  let encSection = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Encryption')) { encSection = details; break; }
+  }
+  if (!encSection) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Encryption')) { encSection = h.parentElement; break; }
+    }
+  }
+  if (!encSection) return;
+  if (encSection.querySelector('.encryption-controls')) return; // already injected
+
+  const helpers = window._syncHelpers;
+  const enc = window._encryption;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'encryption-controls';
+
+  // ── Sync not available (web only) ──────────────────────────────────────
+  if (!helpers || !helpers.available || !helpers.authenticated) {
+    const msg = document.createElement('p');
+    msg.className = 'sync-status-msg';
+    msg.textContent = !helpers || !helpers.available
+      ? 'Encryption requires the desktop or iOS app with sync enabled.'
+      : 'Sign in and enable sync first to use encryption.';
+    wrap.appendChild(msg);
+    _appendEncryptionControls(encSection, wrap);
+    return;
+  }
+
+  const userId = enc.userId;
+
+  // ── Encryption active (key loaded) ─────────────────────────────────────
+  if (enc.active && enc.key) {
+    _buildEncryptionActiveView(wrap, userId, enc.key);
+    _appendEncryptionControls(encSection, wrap);
+    return;
+  }
+
+  // ── Encryption enabled on server but no local key (Device B) ───────────
+  if (enc.enabled && !enc.key) {
+    _buildNeedKeyView(wrap, userId);
+    _appendEncryptionControls(encSection, wrap);
+    return;
+  }
+
+  // ── Encryption not enabled: show enable button ─────────────────────────
+  const desc = document.createElement('p');
+  desc.className = 'sync-status-msg';
+  desc.textContent = 'Encrypt your notes so only your devices can read them. The server will never see your content.';
+  wrap.appendChild(desc);
+
+  const warnP = document.createElement('p');
+  warnP.className = 'encryption-warning';
+  warnP.textContent = 'Warning: If you lose access to all your devices and have no key backup, encrypted notes cannot be recovered.';
+  wrap.appendChild(warnP);
+
+  const enableBtn = document.createElement('button');
+  enableBtn.className = 'sync-btn sync-btn-primary';
+  enableBtn.textContent = 'Enable Encryption';
+  enableBtn.addEventListener('click', async () => {
+    enableBtn.disabled = true;
+    enableBtn.textContent = 'Setting up\u2026';
+    try {
+      // Generate master key
+      const masterKey = await CryptoEngine.generateMasterKey();
+      const rawBytes = await CryptoEngine.exportKey(masterKey);
+
+      // Save locally
+      await KeyStorage.saveMasterKey(rawBytes, userId);
+
+      // Mark enabled on server
+      await DevicePairing.enableEncryption(userId);
+      await DevicePairing.registerDevice(userId);
+
+      // Migrate existing notes
+      const progressEl = document.createElement('p');
+      progressEl.className = 'sync-status-msg';
+      progressEl.textContent = 'Encrypting existing notes\u2026';
+      wrap.appendChild(progressEl);
+
+      // Use the unwrapped storage for migration (write ciphertext directly)
+      const storage = window.NoteStorage._unwrapped || window.NoteStorage;
+      const count = await CryptoStorage.migrateToEncrypted(storage, masterKey, (done, total) => {
+        progressEl.textContent = `Encrypting notes\u2026 ${done}/${total}`;
+      });
+
+      progressEl.textContent = `Encrypted ${count} note${count !== 1 ? 's' : ''}. Reloading\u2026`;
+
+      // Reload to activate the encryption wrapper
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+      console.error('[encryption] Enable failed:', e);
+      enableBtn.disabled = false;
+      enableBtn.textContent = 'Enable Encryption';
+      const errEl = document.createElement('p');
+      errEl.className = 'sync-error';
+      errEl.textContent = 'Failed: ' + e.message;
+      wrap.appendChild(errEl);
+    }
+  });
+  wrap.appendChild(enableBtn);
+
+  _appendEncryptionControls(encSection, wrap);
+}
+
+function _buildEncryptionActiveView(wrap, userId, masterKey) {
+  // Status row
+  const statusRow = document.createElement('div');
+  statusRow.className = 'sync-status-row';
+  const dot = document.createElement('span');
+  dot.className = 'sync-dot sync-dot-active';
+  statusRow.appendChild(dot);
+  const label = document.createElement('span');
+  label.className = 'sync-status-label';
+  label.textContent = 'Encryption active';
+  statusRow.appendChild(label);
+  wrap.appendChild(statusRow);
+
+  // ── Pair New Device button ─────────────────────────────────────────────
+  const pairBtn = document.createElement('button');
+  pairBtn.className = 'sync-btn sync-btn-primary';
+  pairBtn.textContent = 'Pair New Device';
+
+  const pairingArea = document.createElement('div');
+  pairingArea.className = 'pairing-area';
+  pairingArea.style.display = 'none';
+
+  pairBtn.addEventListener('click', async () => {
+    pairBtn.disabled = true;
+    pairBtn.textContent = 'Starting\u2026';
+    try {
+      const session = await DevicePairing.initiatePairing(masterKey, userId);
+
+      pairBtn.style.display = 'none';
+      pairingArea.style.display = 'block';
+      pairingArea.innerHTML = '';
+
+      const codeLabel = document.createElement('p');
+      codeLabel.className = 'sync-status-msg';
+      codeLabel.textContent = 'Enter this code on your other device, or scan the QR code:';
+      pairingArea.appendChild(codeLabel);
+
+      // QR code
+      if (session.qrDataUrl) {
+        const qrImg = document.createElement('img');
+        qrImg.src = session.qrDataUrl;
+        qrImg.className = 'pairing-qr-code';
+        qrImg.alt = 'Pairing QR code';
+        pairingArea.appendChild(qrImg);
+      }
+
+      // Large code display
+      const codeDisplay = document.createElement('div');
+      codeDisplay.className = 'pairing-code-display';
+      codeDisplay.textContent = session.code.slice(0, 3) + ' ' + session.code.slice(3);
+      pairingArea.appendChild(codeDisplay);
+
+      const waitMsg = document.createElement('p');
+      waitMsg.className = 'sync-status-msg pairing-wait-msg';
+      waitMsg.textContent = 'Waiting for the other device\u2026';
+      pairingArea.appendChild(waitMsg);
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'sync-btn sync-btn-secondary';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => {
+        session.cancel();
+        pairingArea.style.display = 'none';
+        pairBtn.style.display = '';
+        pairBtn.disabled = false;
+        pairBtn.textContent = 'Pair New Device';
+      });
+      pairingArea.appendChild(cancelBtn);
+
+      // Wait for completion in background
+      session.waitForCompletion().then(() => {
+        waitMsg.textContent = 'Device paired successfully!';
+        waitMsg.classList.add('pairing-success');
+        cancelBtn.style.display = 'none';
+        // Refresh device list
+        _refreshDeviceList(wrap, userId);
+      }).catch(err => {
+        if (err.message !== 'Pairing cancelled') {
+          waitMsg.textContent = 'Pairing failed: ' + err.message;
+          waitMsg.classList.add('pairing-error');
+        }
+      });
+    } catch (e) {
+      pairBtn.disabled = false;
+      pairBtn.textContent = 'Pair New Device';
+      console.error('[encryption] Pairing init failed:', e);
+    }
+  });
+
+  wrap.appendChild(pairBtn);
+  wrap.appendChild(pairingArea);
+
+  // ── Device list ────────────────────────────────────────────────────────
+  const devicesWrap = document.createElement('div');
+  devicesWrap.className = 'encryption-devices';
+  const devicesTitle = document.createElement('p');
+  devicesTitle.className = 'encryption-devices-title';
+  devicesTitle.textContent = 'Paired Devices';
+  devicesWrap.appendChild(devicesTitle);
+  const deviceList = document.createElement('ul');
+  deviceList.className = 'device-list';
+  devicesWrap.appendChild(deviceList);
+  wrap.appendChild(devicesWrap);
+
+  // Load devices async
+  _refreshDeviceList(wrap, userId);
+
+  // ── Key Backup buttons ─────────────────────────────────────────────────
+  const backupRow = document.createElement('div');
+  backupRow.className = 'encryption-backup-row';
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'sync-btn sync-btn-secondary';
+  exportBtn.textContent = 'Export Key Backup';
+  exportBtn.addEventListener('click', () => {
+    _showPassphrasePrompt(wrap, 'Enter a passphrase to protect your backup:', async (passphrase) => {
+      try {
+        await DevicePairing.exportKeyBackup(masterKey, passphrase);
+      } catch (e) {
+        console.error('[encryption] Export failed:', e);
+      }
+    });
+  });
+  backupRow.appendChild(exportBtn);
+
+  wrap.appendChild(backupRow);
+}
+
+function _buildNeedKeyView(wrap, userId) {
+  const msg = document.createElement('p');
+  msg.className = 'sync-status-msg';
+  msg.textContent = 'This account uses encryption. Pair this device to decrypt your notes.';
+  wrap.appendChild(msg);
+
+  // ── Enter Pairing Code ─────────────────────────────────────────────────
+  const codeInput = document.createElement('input');
+  codeInput.type = 'text';
+  codeInput.placeholder = 'Enter 6-digit code';
+  codeInput.className = 'sync-email-input';
+  codeInput.inputMode = 'numeric';
+  codeInput.maxLength = 7; // allow space in middle
+  codeInput.autocomplete = 'off';
+  wrap.appendChild(codeInput);
+
+  const pairBtn = document.createElement('button');
+  pairBtn.className = 'sync-btn sync-btn-primary';
+  pairBtn.textContent = 'Pair This Device';
+
+  const statusMsg = document.createElement('p');
+  statusMsg.className = 'sync-status-msg';
+  statusMsg.style.display = 'none';
+
+  const errorMsg = document.createElement('p');
+  errorMsg.className = 'sync-error';
+  errorMsg.style.display = 'none';
+
+  pairBtn.addEventListener('click', async () => {
+    const code = codeInput.value.replace(/\s/g, '').trim();
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      errorMsg.textContent = 'Please enter a valid 6-digit code.';
+      errorMsg.style.display = 'block';
+      return;
+    }
+    errorMsg.style.display = 'none';
+    pairBtn.disabled = true;
+    pairBtn.textContent = 'Pairing\u2026';
+    statusMsg.textContent = 'Exchanging keys\u2026';
+    statusMsg.style.display = 'block';
+
+    try {
+      const masterKeyBytes = await DevicePairing.joinPairing(code, userId);
+      await KeyStorage.saveMasterKey(masterKeyBytes, userId);
+      await DevicePairing.registerDevice(userId);
+
+      statusMsg.textContent = 'Device paired! Reloading\u2026';
+      setTimeout(() => window.location.reload(), 800);
+    } catch (e) {
+      errorMsg.textContent = 'Pairing failed: ' + e.message;
+      errorMsg.style.display = 'block';
+      pairBtn.disabled = false;
+      pairBtn.textContent = 'Pair This Device';
+      statusMsg.style.display = 'none';
+    }
+  });
+
+  codeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') pairBtn.click();
+  });
+
+  wrap.appendChild(pairBtn);
+  wrap.appendChild(statusMsg);
+  wrap.appendChild(errorMsg);
+
+  // ── Import Key Backup fallback ─────────────────────────────────────────
+  const orLabel = document.createElement('p');
+  orLabel.className = 'sync-status-msg';
+  orLabel.style.marginTop = '12px';
+  orLabel.textContent = 'Or restore from a key backup file:';
+  wrap.appendChild(orLabel);
+
+  const importBtn = document.createElement('button');
+  importBtn.className = 'sync-btn sync-btn-secondary';
+  importBtn.textContent = 'Import Key Backup';
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json';
+  fileInput.style.display = 'none';
+
+  importBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    const file = fileInput.files[0];
+    _showPassphrasePrompt(wrap, 'Enter the passphrase used when creating the backup:', async (passphrase) => {
+      try {
+        const masterKeyBytes = await DevicePairing.importKeyBackup(file, passphrase);
+        await KeyStorage.saveMasterKey(masterKeyBytes, userId);
+        await DevicePairing.registerDevice(userId);
+
+        const successEl = document.createElement('p');
+        successEl.className = 'sync-status-msg';
+        successEl.textContent = 'Key restored! Reloading\u2026';
+        wrap.appendChild(successEl);
+        setTimeout(() => window.location.reload(), 800);
+      } catch (e) {
+        const err = document.createElement('p');
+        err.className = 'sync-error';
+        err.textContent = 'Import failed: ' + (e.message || 'Wrong passphrase or corrupted file');
+        wrap.appendChild(err);
+      }
+    });
+  });
+
+  wrap.appendChild(importBtn);
+  wrap.appendChild(fileInput);
+}
+
+async function _refreshDeviceList(wrap, userId) {
+  const deviceList = wrap.querySelector('.device-list');
+  if (!deviceList) return;
+  const myDeviceId = KeyStorage.getDeviceId();
+
+  try {
+    const devices = await DevicePairing.listDevices(userId);
+    deviceList.innerHTML = '';
+    for (const d of devices) {
+      const li = document.createElement('li');
+      li.className = 'device-item';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = d.device_name || d.device_id.slice(0, 8);
+      if (d.device_id === myDeviceId) {
+        nameSpan.textContent += ' (this device)';
+        nameSpan.classList.add('device-current');
+      }
+      li.appendChild(nameSpan);
+
+      if (d.device_id !== myDeviceId) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'device-remove-btn';
+        removeBtn.textContent = '\u00d7';
+        removeBtn.title = 'Remove device';
+        removeBtn.addEventListener('click', async () => {
+          await DevicePairing.removeDevice(userId, d.device_id);
+          li.remove();
+        });
+        li.appendChild(removeBtn);
+      }
+      deviceList.appendChild(li);
+    }
+    if (devices.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'device-item';
+      li.textContent = 'No devices registered';
+      deviceList.appendChild(li);
+    }
+  } catch (e) {
+    console.error('[encryption] Failed to load devices:', e);
+  }
+}
+
+function _showPassphrasePrompt(container, labelText, onSubmit) {
+  // Remove any existing prompt
+  const existing = container.querySelector('.passphrase-prompt');
+  if (existing) existing.remove();
+
+  const promptDiv = document.createElement('div');
+  promptDiv.className = 'passphrase-prompt';
+
+  const label = document.createElement('p');
+  label.className = 'sync-status-msg';
+  label.textContent = labelText;
+  promptDiv.appendChild(label);
+
+  const input = document.createElement('input');
+  input.type = 'password';
+  input.placeholder = 'Passphrase';
+  input.className = 'sync-email-input';
+  input.autocomplete = 'off';
+  promptDiv.appendChild(input);
+
+  const row = document.createElement('div');
+  row.style.display = 'flex';
+  row.style.gap = '8px';
+  row.style.marginTop = '6px';
+
+  const okBtn = document.createElement('button');
+  okBtn.className = 'sync-btn sync-btn-primary';
+  okBtn.textContent = 'OK';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'sync-btn sync-btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => promptDiv.remove());
+
+  okBtn.addEventListener('click', () => {
+    const val = input.value;
+    if (!val) return;
+    promptDiv.remove();
+    onSubmit(val);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') okBtn.click();
+    if (e.key === 'Escape') cancelBtn.click();
+  });
+
+  row.appendChild(okBtn);
+  row.appendChild(cancelBtn);
+  promptDiv.appendChild(row);
+  container.appendChild(promptDiv);
+  input.focus();
+}
+
+function _appendEncryptionControls(section, wrap) {
   const lists = section.querySelectorAll('ul, ol, p');
   const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
   if (lastEl && lastEl.nextSibling) {

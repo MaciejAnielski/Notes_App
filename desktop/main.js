@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, screen, safeStorage } = require('electron');
 const http = require('http');
 const path = require('path');
 const os = require('os');
@@ -157,6 +157,37 @@ function registerHandlers() {
   // its own PowerSync connection.
   ipcMain.handle('notes:newWindow', () => {
     createWindow(true);
+  });
+
+  // ── E2E Encryption: safeStorage-backed key persistence ──────────────────
+  // Uses Electron's safeStorage (OS keychain) to encrypt keys before writing
+  // them to disk. This is significantly more secure than plain IndexedDB.
+  const _keyDir = path.join(app.getPath('userData'), 'encryption');
+
+  ipcMain.handle('notes:saveEncryptedKey', async (_event, id, base64Key) => {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('safeStorage encryption not available on this platform');
+    }
+    if (!fs.existsSync(_keyDir)) fs.mkdirSync(_keyDir, { recursive: true });
+    const encrypted = safeStorage.encryptString(base64Key);
+    fs.writeFileSync(path.join(_keyDir, id + '.enc'), encrypted);
+  });
+
+  ipcMain.handle('notes:loadEncryptedKey', async (_event, id) => {
+    const filePath = path.join(_keyDir, id + '.enc');
+    if (!fs.existsSync(filePath)) return null;
+    try {
+      const encrypted = fs.readFileSync(filePath);
+      return safeStorage.decryptString(encrypted);
+    } catch (e) {
+      console.error('[main] Failed to decrypt key:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('notes:deleteEncryptedKey', async (_event, id) => {
+    const filePath = path.join(_keyDir, id + '.enc');
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   });
 
   // Relay a NoteStorage method call from a secondary window to the primary
