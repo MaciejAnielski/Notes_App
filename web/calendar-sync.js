@@ -157,16 +157,35 @@ async function updateCalendarsNote() {
     if (emojiMatch) emojiBody = emojiMatch[1];
   }
 
+  // Extract existing Encryption section to preserve it across rebuilds.
+  // If it doesn't exist yet but sync is available, create the default section.
+  // This section is managed by the encryption UI in markdown-renderer.js.
+  let encryptionBody = '';
+  if (existing) {
+    const encMatch = existing.match(/## 🔒 Encryption([\s\S]*?)(?=\n##|$)/);
+    if (encMatch) encryptionBody = encMatch[1];
+  }
+  if (!encryptionBody && window._syncHelpers?.available) {
+    encryptionBody = '\nEnd-to-end encryption protects your notes so only your devices can read them.\n';
+  }
+
   // Build new note content — Sync, Theme, and Projects Note Emojis sections always present;
-  // Calendars section only when the iOS calendar plugin returned at least one calendar.
-  // Projects Note Emojis is a top-level ## section (not nested under Theme) so it is
-  // always rendered as an independent <details> and is never hidden inside a closed parent.
+  // Encryption section preserved if it existed; Calendars section only when the iOS calendar
+  // plugin returned at least one calendar. Projects Note Emojis is a top-level ## section
+  // (not nested under Theme) so it is always rendered as an independent <details> and is
+  // never hidden inside a closed parent.
   const lines = [
     '# Settings', '',
     '## ☁️ Sync' + syncBody.trimEnd(), '',
+  ];
+  // Insert Encryption section (always present when sync is available)
+  if (encryptionBody) {
+    lines.push('## 🔒 Encryption' + encryptionBody.trimEnd(), '');
+  }
+  lines.push(
     '## 🎨 Theme' + themeBody.trimEnd(), '',
     '## Projects Note Emojis' + emojiBody.trimEnd(), ''
-  ];
+  );
   if (calendars.length > 0) {
     lines.push('## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', '');
     calendars
@@ -948,18 +967,28 @@ if (window.Capacitor?.isNativePlatform()) {
 
   // Start calendar sync exactly once.  Exposed on window so app-init.js can
   // still call it explicitly (e.g. from the tap-to-sync button), but it now
-  // also fires automatically as soon as storage is ready.
+  // also fires automatically as soon as storage AND encryption are ready.
   window._startCalendarSyncIfNeeded = () => {
     if (_calendarStarted) return;
+    // Wait for encryption wrapper to be active before reading notes.
+    // If encryption is enabled but the key isn't loaded yet, reading notes
+    // would return ciphertext, causing calendar sync to miss events and
+    // later create duplicates when decrypted content becomes available.
+    if (window._encryption?.needsKey && !window._encryption?.active) {
+      console.log('[calendar-sync] Waiting for encryption key before starting...');
+      return;
+    }
     _calendarStarted = true;
     startCalendarSync();
   };
 
-  // Auto-start: fire as soon as PowerSync (or localStorage-backed) storage
-  // signals it is ready.  A 4-second fallback covers sessions that never emit
-  // the event (e.g. plain localStorage with no PowerSync).
+  // Auto-start: fire when storage is ready. If encryption is active, also
+  // wait for the encryption:ready event (fired by app-init.js after the
+  // CryptoStorage wrapper is applied).
   window.addEventListener('powersync:ready', () => window._startCalendarSyncIfNeeded(), { once: true });
-  setTimeout(() => window._startCalendarSyncIfNeeded(), 4000);
+  window.addEventListener('encryption:ready', () => window._startCalendarSyncIfNeeded(), { once: true });
+  // Longer fallback (8s) to give encryption init time to complete.
+  setTimeout(() => window._startCalendarSyncIfNeeded(), 8000);
 
   document.addEventListener('resume', () => {
     if (_calendarStarted) setTimeout(runCalendarSync, 1000);
