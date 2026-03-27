@@ -13,6 +13,8 @@ const _notifiedKeys = new Set();           // prevent duplicate notifications
 
 let _notifPermissionGranted = false;
 let _notifCheckTimer = null;
+let _midnightTimeout = null;
+let _midnightInterval = null;
 
 // ── Permission request ──────────────────────────────────────────────────────
 
@@ -92,6 +94,14 @@ function hashCode(str) {
 // ── Check for upcoming notifications ─────────────────────────────────────────
 
 async function checkScheduleNotifications() {
+  // Re-sync permission for Web/Desktop from the live API on every check.
+  // This catches the case where the user grants permission in OS Settings while
+  // the app is already running, without requiring an app restart.
+  // Capacitor's LocalNotifications has no synchronous permission check, so that
+  // path keeps using the cached flag (refreshed on each iOS app resume).
+  if (!window.Capacitor?.Plugins?.LocalNotifications && 'Notification' in window) {
+    _notifPermissionGranted = Notification.permission === 'granted';
+  }
   if (!_notifPermissionGranted) return;
 
   const now = new Date();
@@ -101,7 +111,8 @@ async function checkScheduleNotifications() {
   let items;
   try {
     items = await getScheduleItems(todayStr);
-  } catch {
+  } catch (e) {
+    console.warn('[notifications] Failed to fetch schedule items for today:', e);
     return;
   }
 
@@ -162,7 +173,8 @@ async function checkScheduleNotifications() {
     let yesterdayItems;
     try {
       yesterdayItems = await getScheduleItems(yesterdayStr);
-    } catch {
+    } catch (e) {
+      console.warn('[notifications] Failed to fetch schedule items for yesterday:', e);
       return;
     }
     const overdueTasks = yesterdayItems.filter(it => it.isTask && !it.isCompleted);
@@ -201,12 +213,17 @@ function clearStaleNotificationKeys() {
 }
 
 function scheduleMidnightClear() {
+  // Clear any previously scheduled timers before (re-)scheduling.
+  if (_midnightTimeout)  { clearTimeout(_midnightTimeout);   _midnightTimeout  = null; }
+  if (_midnightInterval) { clearInterval(_midnightInterval); _midnightInterval = null; }
+
   const now = new Date();
   const msUntilMidnight =
     new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
-  setTimeout(() => {
+  _midnightTimeout = setTimeout(() => {
+    _midnightTimeout = null;
     clearStaleNotificationKeys();
-    setInterval(clearStaleNotificationKeys, 86400000);
+    _midnightInterval = setInterval(clearStaleNotificationKeys, 86400000);
   }, msUntilMidnight);
 }
 
@@ -221,10 +238,12 @@ if (document.readyState === 'complete') {
 if (window.Capacitor?.isNativePlatform()) {
   document.addEventListener('resume', () => {
     _notifiedKeys.clear();
+    // scheduleMidnightClear is NOT called here; it runs once at module load.
+    // startNotifications re-queries permissions and restarts the check interval.
     startNotifications();
   });
   document.addEventListener('pause', stopNotifications);
 }
 
 // Clear stale keys at midnight (anchored to actual midnight, not a rolling 24h interval)
-scheduleMidnightClear();
+scheduleMidnightClear(); // called once at module load; idempotent if called again
