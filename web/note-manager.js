@@ -261,6 +261,13 @@ async function checkAttachmentRenames(prevContent, newContent, noteName) {
 async function autoSaveNote() {
   if (currentFileName === PROJECTS_NOTE) return;
 
+  // Block saving if this device needs an encryption key — writing plaintext
+  // over encrypted notes on the server would cause data loss.
+  if (window._encryption?.needsKey && !window._encryption?.active) {
+    updateStatus('Cannot save \u2014 encryption key required. Open Settings to pair this device.', false);
+    return;
+  }
+
   // Capture mutable globals at the start to avoid race conditions while
   // async operations yield to other event handlers.
   const capturedFileName = currentFileName;

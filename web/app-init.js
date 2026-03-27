@@ -837,6 +837,34 @@ let _syncKnownNames = null;
 async function handlePowerSyncChange() {
   if (!window.PowerSyncNoteStorage) return;
 
+  // ── Encryption guard: if this device needs a key but doesn't have one,
+  // detect newly-arrived encrypted content and warn the user.
+  // Do NOT process content changes — we risk corrupting data by saving
+  // decrypted-as-ciphertext or overwriting remote encrypted notes.
+  if (window._encryption.needsKey && !window._encryption.active) {
+    // Refresh cache to pick up latest note names
+    if (typeof NoteStorage.refreshCache === 'function') {
+      await NoteStorage.refreshCache();
+    }
+    // Check if encrypted content has arrived
+    try {
+      const names = await NoteStorage.getAllNoteNames();
+      for (const name of names.slice(0, 5)) { // sample a few
+        const raw = await (window.NoteStorage._unwrapped || window.NoteStorage).getNote(name);
+        if (raw && typeof raw === 'string' && raw.startsWith('enc:v1:')) {
+          updateStatus('Encrypted notes detected. Open Settings to pair this device.', false);
+          // Mark textarea as read-only to prevent edits being saved as plaintext
+          if (textarea && !textarea.readOnly) {
+            textarea.readOnly = true;
+            window._encryption._madeReadOnly = true;
+          }
+          await updateFileList();
+          return; // Do not process content changes
+        }
+      }
+    } catch { /* continue normally if check fails */ }
+  }
+
   // Capture the current loadNote generation so we can detect if the user
   // navigates to a different note while this handler is running.  If they
   // do, we bail out early to avoid overwriting the newly-loaded note.
@@ -1161,14 +1189,34 @@ async function migrateLocalNotesToSync() {
               // Wrap NoteStorage with encryption
               window.NoteStorage = CryptoStorage.wrap(window.NoteStorage, masterKey);
               console.log('[encryption] E2E encryption active.');
+
+              // Signal that encryption is ready so calendar sync and other
+              // modules that read note content can start safely.
+              window.dispatchEvent(new CustomEvent('encryption:ready'));
             } else {
+              // Encryption is enabled on the account but this device has no key.
+              // Flag this so the UI can show pairing prompts and the sync handler
+              // can avoid writing encrypted content back as plaintext.
+              window._encryption.needsKey = true;
               console.log('[encryption] Encryption enabled but no local key. Device pairing required.');
             }
+          } else {
+            // Encryption not enabled on server — but check if synced notes
+            // contain encrypted content (other device enabled it but the
+            // user_encryption table hasn't synced yet or was just created).
+            // We'll do a quick sample check after notes are loaded.
+            window._encryption._checkForEncryptedContent = true;
           }
         }
       } catch (e) {
         console.error('[encryption] Key loading failed:', e);
       }
+    }
+
+    // Fire encryption:ready even when encryption is not in use, so modules
+    // waiting for this event (e.g. calendar sync) don't stall on the timeout.
+    if (!window._encryption.active && !window._encryption.needsKey) {
+      window.dispatchEvent(new CustomEvent('encryption:ready'));
     }
 
     // Load synced preferences (theme, calendar colours, project emojis)
@@ -1211,6 +1259,29 @@ async function migrateLocalNotesToSync() {
     // This eliminates SQLite round-trips when the user clicks between notes.
     setLoadingProgress(45, 'Caching notes\u2026');
     const allNotesCached = await NoteStorage.getAllNotes();
+
+    // ── E2E Encryption: detect encrypted content on an unpaired device ────
+    // If this device has no key but synced notes contain encrypted content,
+    // flag it so the UI warns the user and the sync handler doesn't corrupt data.
+    if (window._encryption._checkForEncryptedContent || window._encryption.needsKey) {
+      const hasEncContent = allNotesCached.some(n =>
+        n.content && typeof n.content === 'string' && n.content.startsWith('enc:v1:')
+      );
+      if (hasEncContent && !window._encryption.active) {
+        window._encryption.needsKey = true;
+        window._encryption.enabled = true;
+        console.warn('[encryption] Encrypted notes detected but no key available. Pairing required.');
+      }
+      delete window._encryption._checkForEncryptedContent;
+    }
+
+    // If this device needs an encryption key, show a persistent warning and
+    // make notes read-only to prevent saving ciphertext as plaintext.
+    if (window._encryption.needsKey && !window._encryption.active) {
+      updateStatus('Your notes are encrypted. Open Settings \u2192 Encryption to pair this device.', false);
+      textarea.readOnly = true;
+      window._encryption._madeReadOnly = true;
+    }
 
     setLoadingProgress(55, 'Loading note\u2026');
     const initialContent = lastFile

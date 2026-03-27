@@ -37,11 +37,17 @@ window.CryptoStorage = {
     if (storage.noteExistsInSync) {
       wrapped.noteExistsInSync = storage.noteExistsInSync.bind(storage);
     }
-    if (storage.refreshCache) {
-      wrapped.refreshCache = storage.refreshCache.bind(storage);
-    }
     if (storage.triggerSync) {
       wrapped.triggerSync = storage.triggerSync.bind(storage);
+    }
+
+    // ── refreshCache: delegate to inner storage ─────────────────────────
+    // PowerSync's refreshCache() reads encrypted content from SQLite into
+    // its internal _noteCache. The cache holds ciphertext, which is fine —
+    // every read through the wrapper (getNote, getAllNotes) decrypts on
+    // the way out. No in-place decryption needed.
+    if (storage.refreshCache) {
+      wrapped.refreshCache = storage.refreshCache.bind(storage);
     }
 
     // ── getNote: decrypt after read ──────────────────────────────────────
