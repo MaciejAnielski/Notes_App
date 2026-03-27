@@ -41,7 +41,7 @@
       'getNote', 'setNote', 'renameNote', 'removeNote', 'trashNote',
       'getAllNoteNames', 'getAllNotes', 'refreshCache', 'triggerSync',
       'writeAttachment', 'readAttachment', 'renameAttachment',
-      'removeAttachmentDir', 'renameAttachmentDir', 'listAttachments',
+      'removeAttachmentDir', 'renameAttachmentDir', 'listAttachments', 'deleteAttachment',
     ];
     const proxy = {};
     for (const method of PROXY_METHODS) {
@@ -697,6 +697,7 @@
           'UPDATE notes SET deleted = 1, updated_at = ? WHERE name = ? AND user_id = ? AND deleted = 0',
           [now, name, userId]
         );
+        await this.removeAttachmentDir(name);
       },
 
       async getAllNoteNames() {
@@ -915,6 +916,30 @@
           }
         } catch (e) {
           console.error('[powersync] removeAttachmentDir failed:', e);
+        }
+      },
+
+      async deleteAttachment(noteName, filename) {
+        const userId = getUserId();
+        if (!userId) return;
+        try {
+          const rec = await db.get(
+            'SELECT id, storage_path FROM attachments WHERE note_name = ? AND filename = ? AND user_id = ?',
+            [noteName, filename, userId]
+          ).catch(() => null);
+          if (!rec) return;
+          await db.execute(
+            'DELETE FROM local_attachment_data WHERE attachment_id = ?',
+            [rec.id]
+          ).catch(() => {});
+          await db.execute('DELETE FROM attachments WHERE id = ?', [rec.id]);
+          if (rec.storage_path) {
+            supabase.storage.from('attachments').remove([rec.storage_path]).catch(e => {
+              console.warn('[powersync] deleteAttachment remote cleanup warning:', e.message);
+            });
+          }
+        } catch (e) {
+          console.error('[powersync] deleteAttachment failed:', e);
         }
       },
 

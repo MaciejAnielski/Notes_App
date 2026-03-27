@@ -170,6 +170,7 @@ window.NoteStorage = {
     const { tx, store } = _txStore(db, 'notes', 'readwrite');
     store.delete(name);
     await _txDone(tx);
+    await this.removeAttachmentDir(name);
   },
 
   async getAllNoteNames() {
@@ -264,6 +265,17 @@ window.NoteStorage = {
       await _txDone(tx);
     } catch (e) {
       console.error('[storage] removeAttachmentDir failed:', e);
+    }
+  },
+
+  async deleteAttachment(noteName, filename) {
+    try {
+      const db = await _getDB();
+      const { tx, store } = _txStore(db, 'attachments', 'readwrite');
+      store.delete([noteName, filename]);
+      await _txDone(tx);
+    } catch (e) {
+      console.error('[storage] deleteAttachment failed:', e);
     }
   },
 
