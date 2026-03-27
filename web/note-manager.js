@@ -197,6 +197,8 @@ async function refreshProjectsNote(cachedNotes) {
 
 // ── Attachment rename tracking ────────────────────────────────────────────
 
+const _pendingAttachmentDeletions = new Map(); // key: "noteName:filename"
+
 async function checkAttachmentRenames(prevContent, newContent, noteName) {
   if (!noteName || !prevContent || !newContent) return;
   if (!NoteStorage.renameAttachment) return;
@@ -221,6 +223,28 @@ async function checkAttachmentRenames(prevContent, newContent, noteName) {
     if (ok) {
       updatedContent = updatedContent.split(`attachment:${filename}`).join(`attachment:${newFilename}`);
       changed = true;
+    }
+  }
+
+  // Detect removed attachment refs and schedule delayed deletion (30 s undo window).
+  if (NoteStorage.deleteAttachment) {
+    for (const [filename] of oldRefs) {
+      const key = `${noteName}:${filename}`;
+      if (newRefs.has(filename)) {
+        // Ref reappeared (e.g. user pressed Ctrl+Z) — cancel pending deletion.
+        if (_pendingAttachmentDeletions.has(key)) {
+          clearTimeout(_pendingAttachmentDeletions.get(key));
+          _pendingAttachmentDeletions.delete(key);
+        }
+      } else if (!_pendingAttachmentDeletions.has(key)) {
+        // Ref was removed — schedule deletion. Only schedule once so the 30 s
+        // countdown isn't reset by subsequent saves while the ref is still absent.
+        const timer = setTimeout(async () => {
+          _pendingAttachmentDeletions.delete(key);
+          await NoteStorage.deleteAttachment(noteName, filename);
+        }, 30000);
+        _pendingAttachmentDeletions.set(key, timer);
+      }
     }
   }
 
