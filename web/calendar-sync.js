@@ -517,6 +517,7 @@ async function syncCalendarToMarkdown(calendarIds) {
 
     let content = await NoteStorage.getNote(noteName);
     if (!content) continue;
+    if (content.startsWith('enc:v1:')) continue; // decryption failed — skip corrupted note
 
     let lines = content.split('\n');
     let noteModified = false;
@@ -604,6 +605,7 @@ async function syncCalendarToMarkdown(calendarIds) {
     const noteName = dailyNoteName(dateStr);
     let content = await NoteStorage.getNote(noteName);
     if (content === null) content = `# ${noteName}\n`;
+    if (content.startsWith('enc:v1:')) continue; // decryption failed — skip corrupted note
 
     const meta = store[noteName] || { events: [] };
     const existingIds = new Set(meta.events.map(e => e.eventId));
@@ -740,6 +742,9 @@ async function syncMarkdownToCalendar(calendarIds) {
 
     // Skip notes before first sync
     if (noteDate < firstSyncYYMMDD) continue;
+
+    // Skip notes whose content could not be decrypted (corrupted ciphertext)
+    if (content && content.startsWith('enc:v1:')) continue;
 
     const mdEvents = parseMarkdownEvents(content, noteDate);
     const meta = store[name] || { events: [] };
