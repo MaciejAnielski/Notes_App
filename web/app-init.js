@@ -1220,6 +1220,7 @@ async function migrateLocalNotesToSync() {
     // Fire encryption:ready even when encryption is not in use, so modules
     // waiting for this event (e.g. calendar sync) don't stall on the timeout.
     if (!window._encryption.active && !window._encryption.needsKey) {
+      console.log('[encryption] encryption:ready dispatched (encryption not active)');
       window.dispatchEvent(new CustomEvent('encryption:ready'));
     }
 
