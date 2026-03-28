@@ -984,10 +984,11 @@ if (window.Capacitor?.isNativePlatform()) {
 
   window._runCalendarSync = runCalendarSync;
 
-  // Auto-start: fire when storage is ready. If encryption is active, also
-  // wait for the encryption:ready event (fired by app-init.js after the
-  // CryptoStorage wrapper is applied).
-  window.addEventListener('powersync:ready', () => window._startCalendarSyncIfNeeded(), { once: true });
+  // Auto-start: wait for encryption:ready, which app-init.js dispatches after
+  // the CryptoStorage wrapper has been applied (or immediately when encryption
+  // is not in use). Starting on powersync:ready instead would be too early —
+  // the wrapper is applied ~200 ms later, so NoteStorage.getNote() would
+  // return raw ciphertext and the sync would silently read nothing.
   window.addEventListener('encryption:ready', () => window._startCalendarSyncIfNeeded(), { once: true });
   // Longer fallback (8s) to give encryption init time to complete.
   setTimeout(() => window._startCalendarSyncIfNeeded(), 8000);
