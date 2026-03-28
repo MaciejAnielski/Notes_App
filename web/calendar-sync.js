@@ -36,6 +36,7 @@ function getCalendarPlugin() {
     _calendarPlugin = window.Capacitor.Plugins.CalendarPlugin;
     return _calendarPlugin;
   }
+  console.warn('[calendar-sync] CalendarPlugin not found on window.Capacitor.Plugins — native plugin may not be registered');
   return null;
 }
 
@@ -897,24 +898,38 @@ async function syncMarkdownToCalendar(calendarIds) {
 async function runCalendarSync() {
   if (_calendarSyncing) return;
   _calendarSyncing = true;
+  console.log('[calendar-sync] runCalendarSync started');
 
   try {
     const plugin = getCalendarPlugin();
-    if (!plugin) return;
+    if (!plugin) {
+      console.warn('[calendar-sync] Aborting: CalendarPlugin not available');
+      return;
+    }
 
     // Request access
     let access;
     try {
       access = await plugin.requestAccess();
-    } catch { return; }
-    if (!access.granted) return;
+    } catch (e) {
+      console.warn('[calendar-sync] requestAccess threw:', e);
+      return;
+    }
+    if (!access.granted) {
+      console.warn('[calendar-sync] Aborting: calendar access not granted');
+      return;
+    }
 
     // Ensure Settings note exists and calendar list is up to date
     await updateCalendarsNote();
 
     // Get selected calendars
     const calendarIds = await getSelectedCalendarIds();
-    if (calendarIds.length === 0) return;
+    if (calendarIds.length === 0) {
+      console.log('[calendar-sync] No calendars selected in Settings — open Settings and check [x] next to the calendars you want to sync');
+      return;
+    }
+    console.log('[calendar-sync] Syncing', calendarIds.length, 'calendar(s)');
 
     // Bidirectional sync
     await syncCalendarToMarkdown(calendarIds);
@@ -974,16 +989,21 @@ if (window.Capacitor?.isNativePlatform()) {
   // still call it explicitly (e.g. from the tap-to-sync button), but it now
   // also fires automatically as soon as storage AND encryption are ready.
   window._startCalendarSyncIfNeeded = () => {
+    console.log('[calendar-sync] _startCalendarSyncIfNeeded called, started=' + _calendarStarted
+      + ' needsKey=' + window._encryption?.needsKey
+      + ' active=' + window._encryption?.active);
     if (_calendarStarted) return;
     // Wait for encryption wrapper to be active before reading notes.
     // If encryption is enabled but the key isn't loaded yet, reading notes
     // would return ciphertext, causing calendar sync to miss events and
     // later create duplicates when decrypted content becomes available.
     if (window._encryption?.needsKey && !window._encryption?.active) {
-      console.log('[calendar-sync] Waiting for encryption key before starting...');
+      console.log('[calendar-sync] Blocked: encryption key required but not yet loaded');
       return;
     }
     _calendarStarted = true;
+    console.log('[calendar-sync] Starting calendar sync (plugin='
+      + (window.Capacitor?.Plugins?.CalendarPlugin ? 'present' : 'MISSING') + ')');
     startCalendarSync();
   };
 
@@ -994,7 +1014,10 @@ if (window.Capacitor?.isNativePlatform()) {
   // is not in use). Starting on powersync:ready instead would be too early —
   // the wrapper is applied ~200 ms later, so NoteStorage.getNote() would
   // return raw ciphertext and the sync would silently read nothing.
-  window.addEventListener('encryption:ready', () => window._startCalendarSyncIfNeeded(), { once: true });
+  window.addEventListener('encryption:ready', () => {
+    console.log('[calendar-sync] encryption:ready received');
+    window._startCalendarSyncIfNeeded();
+  }, { once: true });
   // Longer fallback (8s) to give encryption init time to complete.
   setTimeout(() => window._startCalendarSyncIfNeeded(), 8000);
 
