@@ -982,6 +982,8 @@ if (window.Capacitor?.isNativePlatform()) {
     startCalendarSync();
   };
 
+  window._runCalendarSync = runCalendarSync;
+
   // Auto-start: fire when storage is ready. If encryption is active, also
   // wait for the encryption:ready event (fired by app-init.js after the
   // CryptoStorage wrapper is applied).
