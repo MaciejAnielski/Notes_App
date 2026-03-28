@@ -1037,8 +1037,8 @@ if (window.Capacitor?.isNativePlatform()) {
         // Refresh UI with any newly-pulled notes
         await updateFileList();
         // Reload the current note if it was updated
-        if (currentNote) {
-          const fresh = await NoteStorage.getNote(currentNote);
+        if (currentFileName) {
+          const fresh = await NoteStorage.getNote(currentFileName);
           if (fresh !== null && fresh !== textarea.value) {
             textarea.value = fresh;
             _lastSavedContent = fresh;
@@ -1047,9 +1047,13 @@ if (window.Capacitor?.isNativePlatform()) {
           }
         }
         invalidateScheduleCache();
-        // Start calendar sync if not started yet
+        // Start calendar sync for the first time if not yet running, then
+        // always trigger an immediate sync pass so manual presses re-sync.
         if (typeof window._startCalendarSyncIfNeeded === 'function') {
           window._startCalendarSyncIfNeeded();
+        }
+        if (typeof window._runCalendarSync === 'function') {
+          window._runCalendarSync();
         }
         updateStatus('Sync Complete.', true);
       } catch (e) {
