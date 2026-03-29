@@ -901,10 +901,11 @@
             [noteName, userId]
           );
           // Clean up local binary data
-          for (const rec of recs) {
+          if (recs.length > 0) {
+            const ids = recs.map(r => r.id);
             await db.execute(
-              'DELETE FROM local_attachment_data WHERE attachment_id = ?',
-              [rec.id]
+              `DELETE FROM local_attachment_data WHERE attachment_id IN (${ids.map(() => '?').join(',')})`,
+              ids
             ).catch(() => {});
           }
           await db.execute(
@@ -1062,6 +1063,7 @@
 
   window.addEventListener('pagehide', () => {
     abortController.abort();
+    _psChangeChannel.close();
     db.close({ disconnect: false });
   });
 
