@@ -304,10 +304,5 @@ function _uint8ToBase64(bytes) {
 }
 
 function _base64ToUint8(b64) {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 }

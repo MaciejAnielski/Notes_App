@@ -2369,7 +2369,6 @@ async function toggleView() {
       ? textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight)
       : 0;
     const cursorOffset = textarea.selectionStart;
-    const totalLen = textarea.value.length;
 
     // Identify which heading section the cursor is in so we can expand it
     // after rendering if it happens to be collapsed.

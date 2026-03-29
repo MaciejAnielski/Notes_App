@@ -26,7 +26,10 @@ function _getKeyDB() {
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      _keyDbPromise = null; // allow retry on next call
+      reject(req.error);
+    };
   });
   return _keyDbPromise;
 }

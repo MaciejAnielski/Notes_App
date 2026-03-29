@@ -220,12 +220,13 @@ async function updateWebCalendarSettings(allNotes) {
   // Skip system notes (.calendar_metadata, .app_preferences) to prevent
   // JSON content from being misinterpreted as calendar names.
   const calendarNames = new Set();
+  const _tagRe = />\s*\d{6}(?:\s+\d{4}\s+\d{4}|\s+\d{6})?(?:\s+@(\S+))?\s*$/gm;
   for (const { name: noteName, content } of allNotes) {
     if (!content) continue;
     if (noteName.startsWith('.')) continue;
-    const tagRe = />\s*\d{6}(?:\s+\d{4}\s+\d{4}|\s+\d{6})?(?:\s+@(\S+))?\s*$/gm;
+    _tagRe.lastIndex = 0;
     let m;
-    while ((m = tagRe.exec(content)) !== null) {
+    while ((m = _tagRe.exec(content)) !== null) {
       if (m[1]) calendarNames.add(m[1]);
     }
   }
@@ -238,46 +239,42 @@ async function updateWebCalendarSettings(allNotes) {
 
   let content = existing || '# Settings\n';
 
+  // Insert a section heading + body into `text`.
+  // If afterSection is given, the new section is placed immediately after that
+  // section (i.e. before the next ## heading or at the end of the string).
+  // If afterSection is null, the new section is placed before the first ## heading
+  // (or appended if none exists).  `sep` controls the blank-line prefix.
+  function _insertSection(text, heading, body, afterSection = null, sep = '\n\n\n') {
+    let insertAt;
+    if (afterSection !== null) {
+      const refIdx = text.indexOf(afterSection);
+      if (refIdx !== -1) {
+        const after = refIdx + afterSection.length;
+        const nextSec = text.indexOf('\n## ', after);
+        insertAt = nextSec !== -1 ? nextSec : text.length;
+      } else {
+        return text + sep + heading + '\n\n' + body + '\n';
+      }
+    } else {
+      const firstSec = text.indexOf('\n## ');
+      insertAt = firstSec !== -1 ? firstSec : text.length;
+    }
+    return text.slice(0, insertAt) + sep + heading + '\n\n' + body + '\n' + text.slice(insertAt);
+  }
+
   // Ensure Sync section (Desktop/iOS only — web has no sync capability)
   if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## ☁️ Sync')) {
-    // Insert at the top (before the first ## heading), or append
-    const firstSecIdx = content.indexOf('\n## ');
-    if (firstSecIdx !== -1) {
-      content = content.slice(0, firstSecIdx) +
-        '\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n' +
-        content.slice(firstSecIdx);
-    } else {
-      content += '\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n';
-    }
+    content = _insertSection(content, '## ☁️ Sync', 'Sync notes across devices using your email address.');
   }
 
   // Ensure Encryption section (Desktop/iOS only — requires sync)
   if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## 🔒 Encryption')) {
-    // Insert after Sync section if present, otherwise at end
-    const syncIdx = content.indexOf('\n## ☁️ Sync');
-    if (syncIdx !== -1) {
-      const afterSync = syncIdx + '\n## ☁️ Sync'.length;
-      const nextSecIdx = content.indexOf('\n## ', afterSync);
-      const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
-      content = content.slice(0, insertAt) +
-        '\n\n\n## 🔒 Encryption\n\nEnd-to-end encryption protects your notes so only your devices can read them.\n' +
-        content.slice(insertAt);
-    } else {
-      content += '\n\n\n## 🔒 Encryption\n\nEnd-to-end encryption protects your notes so only your devices can read them.\n';
-    }
+    content = _insertSection(content, '## 🔒 Encryption', 'End-to-end encryption protects your notes so only your devices can read them.', '\n## ☁️ Sync');
   }
 
   // Ensure Theme section
   if (!content.includes('## 🎨 Theme')) {
-    // Insert before any existing ## heading, or append
-    const firstSecIdx = content.indexOf('\n## ');
-    if (firstSecIdx !== -1) {
-      content = content.slice(0, firstSecIdx) +
-        '\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n' +
-        content.slice(firstSecIdx);
-    } else {
-      content += '\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n';
-    }
+    content = _insertSection(content, '## 🎨 Theme', "Customise the app's background and accent colours.");
   }
 
   // Remove any old ### Projects Note Emojis section (was nested under Theme in older versions).
@@ -288,17 +285,7 @@ async function updateWebCalendarSettings(allNotes) {
 
   // Ensure top-level ## Projects Note Emojis section (not nested under Theme)
   if (!content.includes('## Projects Note Emojis')) {
-    const themeIdx = content.indexOf('\n## 🎨 Theme');
-    if (themeIdx !== -1) {
-      const afterTheme = themeIdx + '\n## 🎨 Theme'.length;
-      const nextSecIdx = content.indexOf('\n## ', afterTheme);
-      const insertAt = nextSecIdx !== -1 ? nextSecIdx : content.length;
-      content = content.slice(0, insertAt) +
-        '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n' +
-        content.slice(insertAt);
-    } else {
-      content += '\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
-    }
+    content = _insertSection(content, '## Projects Note Emojis', 'Customise the emojis used in the Projects note.', '\n## 🎨 Theme', '\n\n');
   }
 
   // Ensure Syntax & Shortcuts reference section

@@ -165,23 +165,26 @@ async function checkScheduleNotifications() {
   }
 
   // ── Overdue task reminder (once per day at morning hour) ──
+  // Check the past 7 days so tasks from earlier in the week are not missed.
   if (now.getHours() === NOTIF_MORNING_HOUR && now.getMinutes() < 2) {
-    // Check yesterday for overdue tasks
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = toYYMMDD(yesterday);
-    let yesterdayItems;
-    try {
-      yesterdayItems = await getScheduleItems(yesterdayStr);
-    } catch (e) {
-      console.warn('[notifications] Failed to fetch schedule items for yesterday:', e);
-      return;
+    let overdueCount = 0;
+    for (let daysBack = 1; daysBack <= 7; daysBack++) {
+      const pastDate = new Date(now);
+      pastDate.setDate(pastDate.getDate() - daysBack);
+      const pastDateStr = toYYMMDD(pastDate);
+      let pastItems;
+      try {
+        pastItems = await getScheduleItems(pastDateStr);
+      } catch (e) {
+        console.warn(`[notifications] Failed to fetch schedule items for ${pastDateStr}:`, e);
+        continue;
+      }
+      overdueCount += pastItems.filter(it => it.isTask && !it.isCompleted).length;
     }
-    const overdueTasks = yesterdayItems.filter(it => it.isTask && !it.isCompleted);
-    if (overdueTasks.length > 0) {
+    if (overdueCount > 0) {
       sendNotification(
         'Overdue Tasks',
-        `You have ${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''}.`,
+        `You have ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''}.`,
         `overdue-${todayStr}`
       );
     }

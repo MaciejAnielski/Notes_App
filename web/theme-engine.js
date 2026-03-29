@@ -511,6 +511,14 @@ const DEFAULT_PROJECT_EMOJIS = {
   Autumn: '🍂'
 };
 
+function _filterNonDefaultEmojis(emojis) {
+  const out = {};
+  for (const key of Object.keys(emojis)) {
+    if (emojis[key] !== DEFAULT_PROJECT_EMOJIS[key]) out[key] = emojis[key];
+  }
+  return out;
+}
+
 const EMOJI_OPTIONS = {
   active: ['🚀', '🔥', '⚡', '📍', '🎯', '💡', '🌟', '🎨', '💼', '🔔', '📌', '✏️', '🌿', '🪴', '🌙', '🦋', '🌊', '🍀', '🎀', '🪐', '💫', '🔮', '🌺', '🫧', '🐚', '🌸', '🍃', '🪷', '🎋', '🌻'],
   completed: ['✨', '🎉', '🏆', '💎', '🌈', '🎊', '✅', '🎖️', '👑', '🏅', '🌸', '🫶', '💐', '🌻', '🍵', '🕊️', '🌷', '🥂', '🪩', '💝', '🎗️', '🫰', '🍰', '🪄', '🌙', '💌', '🦢', '🌼', '🫐']
@@ -530,12 +538,7 @@ function setProjectEmoji(type, emoji) {
   const current = getProjectEmojis();
   const updated = { ...current, [type]: emoji };
   // Remove defaults to keep storage lean
-  const toStore = {};
-  for (const key of Object.keys(updated)) {
-    if (updated[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
-      toStore[key] = updated[key];
-    }
-  }
+  const toStore = _filterNonDefaultEmojis(updated);
   localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
   localStorage.setItem(EMOJI_TS_KEY, Date.now().toString());
   syncProjectEmojisToNote();
@@ -590,12 +593,7 @@ async function syncCalendarColorsToNote() {
 async function syncProjectEmojisToNote() {
   try {
     const emojis = getProjectEmojis();
-    const toStore = {};
-    for (const key of Object.keys(emojis)) {
-      if (emojis[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
-        toStore[key] = emojis[key];
-      }
-    }
+    const toStore = _filterNonDefaultEmojis(emojis);
     // Always save (even empty) so that "reset to defaults" propagates to other
     // devices, and always include the timestamp so latest-edit wins.
     const ts = parseInt(localStorage.getItem(EMOJI_TS_KEY) || '0', 10);
@@ -647,12 +645,7 @@ async function applySyncedPreferences() {
     if (syncedTs >= localTs) {
       // Replace local emojis with the synced set (don't merge) so that a
       // "reset to defaults" on one device propagates cleanly to all others.
-      const toStore = {};
-      for (const key of Object.keys(prefs.projectEmojis)) {
-        if (prefs.projectEmojis[key] !== DEFAULT_PROJECT_EMOJIS[key]) {
-          toStore[key] = prefs.projectEmojis[key];
-        }
-      }
+      const toStore = _filterNonDefaultEmojis(prefs.projectEmojis);
       if (Object.keys(toStore).length > 0) {
         localStorage.setItem(PROJECT_EMOJI_STORAGE_KEY, JSON.stringify(toStore));
       } else {

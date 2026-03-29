@@ -111,6 +111,9 @@ function _syncScroll() {
 }
 
 // ── HTML escape (raw text → safe HTML) ───────────────────────────────────
+// Escapes &, <, > — sufficient for text content inside elements.
+// graph-view.js has a separate _escHtml that also escapes " for use in
+// HTML attribute values; keeping them file-local avoids load-order coupling.
 
 function _esc(str) {
   return str

@@ -22,10 +22,24 @@ const SYNTAX_REFERENCE_TABLE = `| Feature | Syntax |
 | Preview | Ctrl+P |
 | Search & Replace | Ctrl+F |`;
 
+function _titleFromLine(line) {
+  return line.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+}
+
+function _cacheNoteContent(name, content) {
+  _perNoteSavedContent.set(name, content);
+  _perNoteRemoteContent.set(name, content);
+}
+
+function _forgetNote(name) {
+  _perNoteSavedContent.delete(name);
+  _perNoteRemoteContent.delete(name);
+}
+
 function getNoteTitle() {
   const firstLine = textarea.value.split(/\n/)[0].trim();
   if (firstLine.startsWith('#')) {
-    return firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+    return _titleFromLine(firstLine);
   }
   return null;
 }
@@ -38,7 +52,7 @@ function isNoteBodyEmpty() {
 async function handleRenameAfterReplace(noteName, newContent) {
   const firstLine = newContent.split(/\n/)[0].trim();
   if (!firstLine.startsWith('#')) return;
-  const newTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+  const newTitle = _titleFromLine(firstLine);
   if (!newTitle || newTitle === noteName) return;
   if (await NoteStorage.getNote(newTitle) !== null) return;
   // Use renameNote (in-place UPDATE) so the name change reaches Supabase as a
@@ -49,10 +63,8 @@ async function handleRenameAfterReplace(noteName, newContent) {
     await NoteStorage.setNote(newTitle, newContent);
     await NoteStorage.removeNote(noteName);
   }
-  _perNoteSavedContent.set(newTitle, newContent);
-  _perNoteRemoteContent.set(newTitle, newContent);
-  _perNoteSavedContent.delete(noteName);
-  _perNoteRemoteContent.delete(noteName);
+  _cacheNoteContent(newTitle, newContent);
+  _forgetNote(noteName);
   await NoteStorage.renameAttachmentDir(noteName, newTitle);
   if (currentFileName === noteName) {
     currentFileName = newTitle;
@@ -421,10 +433,8 @@ async function autoSaveNote() {
       return;
     }
     _lastSavedContent = capturedContent;
-    _perNoteSavedContent.delete(capturedFileName);
-    _perNoteRemoteContent.delete(capturedFileName);
-    _perNoteSavedContent.set(name, capturedContent);
-    _perNoteRemoteContent.set(name, capturedContent);
+    _forgetNote(capturedFileName);
+    _cacheNoteContent(name, capturedContent);
     _pendingRename = null;
     try {
       await NoteStorage.renameAttachmentDir(capturedFileName, name);
@@ -499,10 +509,8 @@ async function applyPendingRename() {
     return;
   }
   _lastSavedContent = content;
-  _perNoteSavedContent.delete(oldName);
-  _perNoteRemoteContent.delete(oldName);
-  _perNoteSavedContent.set(newName, content);
-  _perNoteRemoteContent.set(newName, content);
+  _forgetNote(oldName);
+  _cacheNoteContent(newName, content);
   try {
     await NoteStorage.renameAttachmentDir(oldName, newName);
   } catch (e) {
@@ -608,8 +616,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   textarea.value = content;
   _lastSavedContent = content;
   _lastRemoteContent = content;
-  _perNoteSavedContent.set(name, content);
-  _perNoteRemoteContent.set(name, content);
+  _cacheNoteContent(name, content);
   currentFileName = name;
   refreshHighlight();
   localStorage.setItem('current_file', name);
@@ -653,10 +660,8 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
         const capturedName = currentFileName;
         await NoteStorage.renameNote(capturedName, headerTitle, content);
         if (gen !== _loadNoteGeneration) return;
-        _perNoteSavedContent.delete(capturedName);
-        _perNoteRemoteContent.delete(capturedName);
-        _perNoteSavedContent.set(headerTitle, content);
-        _perNoteRemoteContent.set(headerTitle, content);
+        _forgetNote(capturedName);
+        _cacheNoteContent(headerTitle, content);
         currentFileName = headerTitle;
         localStorage.setItem('current_file', headerTitle);
         const chainIdx = linkedNoteChain.indexOf(capturedName);
@@ -753,8 +758,7 @@ async function deleteNote() {
 
   _pendingRename = null;
   await NoteStorage.trashNote(name);
-  _perNoteSavedContent.delete(name);
-  _perNoteRemoteContent.delete(name);
+  _forgetNote(name);
   textarea.value = '';
   refreshHighlight();
   if (isPreview) toggleView();
@@ -792,8 +796,7 @@ async function deleteSelectedNotes() {
   _pendingRename = null;
   await Promise.all(notes.map(async name => {
     await NoteStorage.trashNote(name);
-    _perNoteSavedContent.delete(name);
-    _perNoteRemoteContent.delete(name);
+    _forgetNote(name);
     if (currentFileName === name) {
       textarea.value = '';
       refreshHighlight();
