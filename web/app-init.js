@@ -1289,15 +1289,28 @@ async function migrateLocalNotesToSync() {
     }
 
     setLoadingProgress(55, 'Loading note\u2026');
-    const initialContent = lastFile
-      ? (allNotesCached.find(n => n.name === lastFile)?.content ?? null)
-      : null;
-    if (initialContent !== null) {
+
+    // ── First-launch welcome note ──────────────────────────────────────────
+    // On first launch, create the "The Thread" welcome note and open it in
+    // preview mode so new users see rendered links, tasks, and schedule items.
+    const isFirstLaunch = !localStorage.getItem('has_launched');
+    if (isFirstLaunch) {
+      setLoadingProgress(60, 'Preparing your thread\u2026');
+      await createWelcomeNote();
+      localStorage.setItem('has_launched', '1');
       setLoadingProgress(65, 'Opening note\u2026');
-      await loadNote(lastFile, true, initialContent);
+      await loadNote('The Thread');
     } else {
-      setLoadingProgress(65, 'Creating note\u2026');
-      await newNote();
+      const initialContent = lastFile
+        ? (allNotesCached.find(n => n.name === lastFile)?.content ?? null)
+        : null;
+      if (initialContent !== null) {
+        setLoadingProgress(65, 'Opening note\u2026');
+        await loadNote(lastFile, true, initialContent);
+      } else {
+        setLoadingProgress(65, 'Creating note\u2026');
+        await newNote();
+      }
     }
 
     // Build the file list and sidebar while still on the loading screen so
@@ -1306,7 +1319,10 @@ async function migrateLocalNotesToSync() {
     await updateFileList();
 
     setLoadingProgress(90, 'Almost ready\u2026');
-    if (savedPreview && !isPreview) {
+    if (isFirstLaunch) {
+      // Force preview mode for the welcome note so users see rendered content
+      if (!isPreview) await toggleView();
+    } else if (savedPreview && !isPreview) {
       await toggleView();
     }
 
