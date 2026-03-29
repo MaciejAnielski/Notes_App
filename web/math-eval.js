@@ -5,6 +5,11 @@
 // ($$…$$) formulas in the note, then evaluates the expression and shows
 // the result (≤ 10 significant figures) or "?" when unsolvable.
 
+// Escape a string for safe use inside a RegExp constructor.
+function _escapeRegex(s) {
+  return s.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
 function extractAllMathExpressions(markdown) {
   const exprs = [];
   let i = 0;
@@ -103,7 +108,7 @@ function substituteVarsInLatex(texExpr, varMap) {
   let result = texExpr;
 
   for (const [varName, val] of latexVars) {
-    const esc = varName.replace(/[\\{}()[\]^$.*+?|]/g, '\\$&');
+    const esc = _escapeRegex(varName);
     result = result.replace(new RegExp(esc + '(?![a-zA-Z])', 'g'), `(${val})`);
   }
 
@@ -295,7 +300,7 @@ function substituteVarsInMermaid(mermaidSource, varMap) {
   const entries = Object.entries(mermaidMap).sort(([a], [b]) => b.length - a.length);
   let result = mermaidSource;
   for (const [name, val] of entries) {
-    const escaped = name.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+    const escaped = _escapeRegex(name);
     // Only use \b where the name boundary is a word character; names ending with
     // non-word chars like } (e.g. P_{\text{Sleep}}) must not use a trailing \b.
     const startBound = /^[a-zA-Z0-9_]/.test(name) ? '\\b' : '';

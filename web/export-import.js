@@ -4,6 +4,16 @@
 // and importing from ZIP or markdown files. All platforms trigger a browser
 // download for exports and backups.
 
+// Escape user-supplied strings before inserting into HTML markup.
+// Used for note names that appear as visible text or in attributes.
+function _esc(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // ── Export rendering helpers ───────────────────────────────────────────────
 
 // Reads current CSS custom properties and returns a :root block string so
@@ -252,7 +262,7 @@ async function generateNotebookHtml(noteEntries) {
   const noteNameSet = new Set(noteEntries.map(e => e.name));
 
   const tocItems = noteEntries.map(({ name }) =>
-    `<li><a href="#${noteNameToId(name)}">${name}</a></li>`
+    `<li><a href="#${noteNameToId(name)}">${_esc(name)}</a></li>`
   ).join('\n      ');
 
   // Build and pre-process each note container sequentially (avoids mermaid ID
@@ -296,7 +306,7 @@ async function generateNotebookHtml(noteEntries) {
 
   const sections = noteContainers
     .map(({ name, container }) =>
-      `<article id="${noteNameToId(name)}">\n${container.innerHTML}\n</article>`)
+      `<article id="${noteNameToId(name)}" aria-label="${_esc(name)}">\n${container.innerHTML}\n</article>`)
     .join('\n\n');
 
   const cssRoot = getExportThemeCSSRoot();

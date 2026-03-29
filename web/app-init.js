@@ -24,7 +24,7 @@ function setupMobileButtonGroup(button, action) {
   let expanded = false;
 
   button.addEventListener('click', e => {
-    const isMobileTouch = mobileTouchQuery.matches;
+    const isMobileTouch = mobileMediaQuery.matches;
     if (isMobileTouch) {
       if (!expanded) {
         e.preventDefault();
@@ -1058,7 +1058,7 @@ if (window.Capacitor?.isNativePlatform()) {
         updateStatus('Sync Complete.', true);
       } catch (e) {
         console.error('[sync] Sync failed:', e);
-        updateStatus('Sync failed.', true);
+        updateStatus('Sync failed.', false);
       }
     });
   };

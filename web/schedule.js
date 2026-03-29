@@ -395,15 +395,12 @@ async function _doRenderSchedule(cachedNotes) {
   const timedItems  = allItems.filter(it => !it.isAllDay);
 
   // ── Conflict detection: timed items whose starts are < 15 min apart ─────
+  // Pre-compute once so the inner comparison never recalculates.
+  const _startMins = timedItems.map(item =>
+    parseInt(item.startTime.slice(0, 2)) * 60 + parseInt(item.startTime.slice(2))
+  );
   timedItems.forEach((item, i) => {
-    const startMin = parseInt(item.startTime.slice(0, 2)) * 60 +
-                     parseInt(item.startTime.slice(2));
-    item._conflict = timedItems.some((other, j) => {
-      if (i === j) return false;
-      const otherMin = parseInt(other.startTime.slice(0, 2)) * 60 +
-                       parseInt(other.startTime.slice(2));
-      return Math.abs(startMin - otherMin) < 15;
-    });
+    item._conflict = _startMins.some((m, j) => j !== i && Math.abs(_startMins[i] - m) < 15);
   });
 
   const ROW_H   = 40;
