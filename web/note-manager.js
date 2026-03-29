@@ -22,10 +22,14 @@ const SYNTAX_REFERENCE_TABLE = `| Feature | Syntax |
 | Preview | Ctrl+P |
 | Search & Replace | Ctrl+F |`;
 
+function _titleFromLine(line) {
+  return line.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+}
+
 function getNoteTitle() {
   const firstLine = textarea.value.split(/\n/)[0].trim();
   if (firstLine.startsWith('#')) {
-    return firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+    return _titleFromLine(firstLine);
   }
   return null;
 }
@@ -38,7 +42,7 @@ function isNoteBodyEmpty() {
 async function handleRenameAfterReplace(noteName, newContent) {
   const firstLine = newContent.split(/\n/)[0].trim();
   if (!firstLine.startsWith('#')) return;
-  const newTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+  const newTitle = _titleFromLine(firstLine);
   if (!newTitle || newTitle === noteName) return;
   if (await NoteStorage.getNote(newTitle) !== null) return;
   // Use renameNote (in-place UPDATE) so the name change reaches Supabase as a

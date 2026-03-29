@@ -16,11 +16,9 @@ const gsResults         = document.getElementById('gs-results');
 
 let gsCurrentResults = [];
 let gsSelectedIndex  = -1;
-let gsKeyboardOffset = 0;
 
 function openGlobalSearch() {
   globalSearchPanel.classList.remove('gs-hidden');
-  globalSearchPanel.style.bottom = gsKeyboardOffset > 0 ? gsKeyboardOffset + 'px' : '';
   gsSearchInput.focus();
   gsSearchInput.select();
 }

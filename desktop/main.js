@@ -140,10 +140,10 @@ function registerHandlers() {
   // system default application (e.g. double-click image in preview).
   ipcMain.handle('notes:openAttachmentFile', async (_event, filename, base64data) => {
     try {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notesapp-'));
+      const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'notesapp-'));
       const tmpFile = path.join(tmpDir, filename);
       const buffer = Buffer.from(base64data, 'base64');
-      fs.writeFileSync(tmpFile, buffer);
+      await fs.promises.writeFile(tmpFile, buffer);
       await shell.openPath(tmpFile);
       return true;
     } catch (e) {

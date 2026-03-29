@@ -75,7 +75,6 @@ async function renderNoteGraph() {
   );
 
   const { linkMap, incomingCount, noteNameSet } = parseNoteLinks(graphNotes);
-  const graphNoteNameSet = new Set(graphNotes.map(n => n.name));
 
   // Build title bar
   let totalEdges = 0;
@@ -144,7 +143,7 @@ async function renderNoteGraph() {
 
   for (const [source, targets] of linkMap) {
     for (const target of targets) {
-      const exists = graphNoteNameSet.has(target);
+      const exists = noteNameSet.has(target);
       const toId = exists ? target : `__missing__${target}`;
 
       if (!exists && !addedMissingNodes.has(toId)) {
@@ -358,6 +357,7 @@ async function renderNoteGraph() {
 
   network.on('blurNode', () => {
     // Defer so the mouse has time to enter the tooltip before we decide to hide.
+    clearTimeout(blurTimeout);
     blurTimeout = setTimeout(() => {
       if (!tooltipHovered) _hideTooltipNow();
     }, 80);
@@ -386,6 +386,9 @@ function _stripHeavyBlocks(text) {
   return text;
 }
 
+// Escapes &, <, >, " — the extra " escape is needed here because this
+// function is used inside HTML attribute values in tooltip markup.
+// syntax-highlight.js has a narrower _esc that omits " for element content.
 function _escHtml(str) {
   return str
     .replace(/&/g, '&amp;')
