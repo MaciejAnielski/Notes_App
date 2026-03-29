@@ -301,6 +301,11 @@ async function updateWebCalendarSettings(allNotes) {
     }
   }
 
+  // Ensure Syntax & Shortcuts reference section
+  if (!content.includes('## 🧶 Syntax & Shortcuts')) {
+    content += '\n\n## 🧶 Syntax & Shortcuts\n\n' + SYNTAX_REFERENCE_TABLE + '\n';
+  }
+
   // Clean up any corrupted lines in the Calendars section (e.g. JSON fragments
   // from .calendar_metadata that were erroneously appended in older versions).
   const corruptRe = /^- .+[{}"\[\]].{10,}$/gm;
@@ -451,6 +456,14 @@ async function updateTodoList(cachedNotes) {
       }
     }
   }
+  // Empty-state hint when there are no tasks
+  if (todoList.children.length === 0) {
+    const hint = document.createElement('li');
+    hint.className = 'panel-hint';
+    hint.innerHTML = 'Write <code>- [ ]</code> in any note<br>to track it here.';
+    todoList.appendChild(hint);
+  }
+
   styleTaskListItems(todoList);
   await setupNoteLinks(todoList);
   if (window.MathJax?.typesetPromise) {

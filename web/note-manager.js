@@ -3,6 +3,25 @@
 // Handles creating, loading, saving, deleting, and renaming notes,
 // the Projects virtual note, and attachment rename tracking.
 
+const SYNTAX_REFERENCE_TABLE = `| Feature | Syntax |
+|---|---|
+| **Name a note** | \`# Title\` (first line) |
+| **Bold** / *Italic* | \`**text**\` / \`*text*\` |
+| ==Highlight== | \`==text==\` |
+| Link notes | \`[[Note Name]]\` |
+| Task | \`- [ ] text\` |
+| Complete task | \`- [x] text\` |
+| Schedule (all day) | \`> YYMMDD\` |
+| Schedule (timed) | \`> YYMMDD HHMM HHMM\` |
+| Schedule (multi-day) | \`> YYMMDD YYMMDD\` |
+| Calendar tag | \`> YYMMDD @CalName\` |
+| Collapse heading | \`## Title >\` |
+| Math (inline) | \`$E = mc^2$\` |
+| Footnote | \`text[^1]\` / \`[^1]: note\` |
+| New note | Ctrl+N |
+| Preview | Ctrl+P |
+| Search & Replace | Ctrl+F |`;
+
 function getNoteTitle() {
   const firstLine = textarea.value.split(/\n/)[0].trim();
   if (firstLine.startsWith('#')) {
@@ -44,6 +63,82 @@ async function handleRenameAfterReplace(noteName, newContent) {
     linkedNoteChain[chainIdx] = newTitle;
     saveChain();
   }
+}
+
+// ── Welcome note ("The Thread") ───────────────────────────────────────────
+
+async function createWelcomeNote() {
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const today = yy + mm + dd;
+
+  const content = `# The Thread
+
+In the myth, Ariadne gave Theseus a ball of thread before he entered the labyrinth — not a map, not instructions, just a way to find his way back.
+
+This is your thread. As you write, link, and explore, you'll leave a trail through your own labyrinth of ideas. There's no wrong way to wander.
+
+
+## Pick up the thread
+
+A few things to try. You'll notice these appear in the ==Tasks== panel →
+
+- [ ] Tap **New** to create your first note
+- [ ] Open [[Settings]] to make this place yours
+- [ ] Explore the **Note Graph** to see your labyrinth take shape
+
+*Tip — type \`[[\` in any note to link to another. These links are your thread.*
+
+
+## Mark your path
+
+Any line can be placed on the calendar. This one is already there →
+
+- [ ] Find your way > ${today}
+
+*(Look at the ==Schedule== panel to see it.)*
+
+The format is \`> YYMMDD\` for an all-day event, or \`> YYMMDD HHMM HHMM\` for a timed one.
+
+
+## Hidden passages >
+
+You opened this. Some paths are tucked away.
+
+Add \`>\` after any heading to make it start folded — a passage waiting to be discovered.
+
+
+## Deeper into the labyrinth >
+
+There's more to find as you explore:
+
+| What | How |
+|---|---|
+| **Bold** / *Italic* | \`**text**\` / \`*text*\` |
+| ==Highlight== | \`==text==\` |
+| Link notes | \`[[Note Name]]\` |
+| Task | \`- [ ] thing to face\` |
+| Schedule | \`> YYMMDD\` after any line |
+| Fold a heading | \`## Title >\` |
+| Math | \`$E = mc^2$\` |
+| New note | Ctrl+N |
+| Preview / Edit | Ctrl+P |
+| Search | Ctrl+F |
+
+*You can always find this reference in [[Settings]].*
+
+
+## Go
+
+Every labyrinth is different. Yours starts here.
+
+Delete this note whenever you're ready — you won't need it. The thread is already in your hands.
+`;
+
+  await NoteStorage.setNote('The Thread', content);
+  return content;
 }
 
 // ── Projects note ─────────────────────────────────────────────────────────
@@ -500,7 +595,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   }
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
   if (content === null && name === CALENDARS_NOTE) {
-    content = '# Settings\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n';
+    content = '# Settings\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n\n\n## 🧶 Syntax & Shortcuts\n\n' + SYNTAX_REFERENCE_TABLE + '\n';
     await NoteStorage.setNote(name, content);
   } else if (content === null) {
     alert('File not found.');

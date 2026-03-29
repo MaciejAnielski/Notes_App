@@ -500,6 +500,20 @@ async function _doRenderSchedule(cachedNotes) {
     scheduleGrid.appendChild(block);
   });
 
+  // Empty-state hint when there are no items for the selected day
+  if (allItems.length === 0 && wrapper) {
+    const existing = wrapper.querySelector('.schedule-panel-hint');
+    if (!existing) {
+      const hint = document.createElement('div');
+      hint.className = 'panel-hint schedule-panel-hint';
+      hint.innerHTML = 'Add <code>> YYMMDD</code> after any line<br>to place it on the calendar.';
+      wrapper.insertBefore(hint, scheduleGrid);
+    }
+  } else if (wrapper) {
+    const existing = wrapper.querySelector('.schedule-panel-hint');
+    if (existing) existing.remove();
+  }
+
   // Current time indicator + auto-scroll to now (today only)
   if (dateStr === toYYMMDD(new Date())) {
     updateNowIndicator();
