@@ -14,6 +14,25 @@ function _esc(str) {
     .replace(/"/g, '&quot;');
 }
 
+// Derive a note name from the first-line # header, falling back to the
+// file's base name when no header is present.
+function _noteNameFromContent(fileBaseName, content) {
+  const firstLine = content.split('\n')[0].trim();
+  if (firstLine.startsWith('#')) {
+    const title = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
+    if (title) return title;
+  }
+  return fileBaseName;
+}
+
+// Return the appropriate MathJax block: inlined CSS when available (offline
+// export), or a CDN <script> tag for online viewing.
+function _mathJaxSection(mathJaxCSS) {
+  return mathJaxCSS
+    ? `<style>${mathJaxCSS}</style>`
+    : `<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]},chtml:{linebreaks:{automatic:true}}};</script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>`;
+}
+
 // ── Export rendering helpers ───────────────────────────────────────────────
 
 // Reads current CSS custom properties and returns a :root block string so
@@ -236,9 +255,7 @@ async function generateHtmlContent(title, markdown, noteName) {
     ${_EXPORT_SHARED_CSS}
   `;
 
-  const mathSection = mathJaxCSS
-    ? `<style>${mathJaxCSS}</style>`
-    : `<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]},chtml:{linebreaks:{automatic:true}}};</script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>`;
+  const mathSection = _mathJaxSection(mathJaxCSS);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -326,9 +343,7 @@ async function generateNotebookHtml(noteEntries) {
     ${_EXPORT_SHARED_CSS}
   `;
 
-  const mathSection = mathJaxCSS
-    ? `<style>${mathJaxCSS}</style>`
-    : `<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']]},chtml:{linebreaks:{automatic:true}}};</script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>`;
+  const mathSection = _mathJaxSection(mathJaxCSS);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -501,12 +516,7 @@ async function importNotesFromMd(files) {
       const content = await file.text();
       // Use the first-line # header as the note name so that the name always
       // matches the header, falling back to the filename if no header is present.
-      const firstLine = content.split(/\n/)[0].trim();
-      let name = fileBaseName;
-      if (firstLine.startsWith('#')) {
-        const headerTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
-        if (headerTitle) name = headerTitle;
-      }
+      const name = _noteNameFromContent(fileBaseName, content);
       if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) continue;
       entries.push({ name, content });
     }
@@ -559,12 +569,7 @@ async function importNotesFromZip(file) {
       if (fileBaseName === PROJECTS_NOTE || fileBaseName === GRAPH_NOTE || fileBaseName === CALENDARS_NOTE) return null;
       // Use the first-line # header as the note name so that the name always
       // matches the header, falling back to the filename if no header is present.
-      const firstLine = content.split(/\n/)[0].trim();
-      let name = fileBaseName;
-      if (firstLine.startsWith('#')) {
-        const headerTitle = firstLine.replace(/^#+\s*/, '').replace(/\s*>\s*$/, '').trim();
-        if (headerTitle) name = headerTitle;
-      }
+      const name = _noteNameFromContent(fileBaseName, content);
       if (name === PROJECTS_NOTE || name === GRAPH_NOTE || name === CALENDARS_NOTE) return null;
       return { name, fileBaseName, content };
     }))).filter(Boolean);

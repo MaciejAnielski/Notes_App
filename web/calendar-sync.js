@@ -21,6 +21,8 @@ const CALENDAR_META_RE = /<!-- calendar_events: ({.*?}) -->/;
 const CALENDAR_METADATA_NOTE = '.calendar_metadata';
 const CALENDAR_SYNC_INTERVAL = 300000; // 5 minutes
 const NOTES_APP_CALENDAR_NAME = 'Notes App Events';
+const DAILY_NOTE_RE = /^(\d{6}) Daily Note$/;
+const CALENDAR_LINE_RE = /^\[([xX])\]\s+(.+?)\s*\{([^}]+)\}\s*$/;
 
 let _calendarPlugin = null;
 let _calendarSyncTimer = null;
@@ -104,9 +106,8 @@ async function getSelectedCalendarIds() {
   const ids = [];
   const lines = content.split('\n');
   // Lines format: [x] CalendarTitle {calendarId}
-  const re = /^\[([xX])\]\s+(.+?)\s*\{([^}]+)\}\s*$/;
   for (const line of lines) {
-    const m = line.match(re);
+    const m = line.match(CALENDAR_LINE_RE);
     if (m) {
       ids.push(m[3]);
     }
@@ -129,9 +130,8 @@ async function updateCalendarsNote() {
   const existing = await NoteStorage.getNote(CALENDARS_NOTE);
   const selectedIds = new Set();
   if (existing) {
-    const re = /^\[([xX])\]\s+(.+?)\s*\{([^}]+)\}\s*$/;
     for (const line of existing.split('\n')) {
-      const m = line.match(re);
+      const m = line.match(CALENDAR_LINE_RE);
       if (m) selectedIds.add(m[3]);
     }
   }
@@ -320,11 +320,10 @@ function insertEventsUnderHeading(content, newLines) {
 
 async function migrateInlineMetadata(store) {
   const allNotes = await NoteStorage.getAllNotes();
-  const dailyNoteRe = /^(\d{6}) Daily Note$/;
 
   for (const { name, content } of allNotes) {
     if (name === CALENDAR_METADATA_NOTE) continue;
-    if (!dailyNoteRe.test(name)) continue;
+    if (!DAILY_NOTE_RE.test(name)) continue;
 
     const m = content.match(CALENDAR_META_RE);
     if (!m) continue;
@@ -351,7 +350,7 @@ async function migrateInlineMetadata(store) {
 
 // ── Parse markdown events from daily note ────────────────────────────────────
 
-function parseMarkdownEvents(content, noteDate) {
+function parseMarkdownEvents(content) {
   const events = [];
   const lines = content.split('\n');
   // Timed: Text > YYMMDD HHMM HHMM [@CalendarName]
@@ -508,7 +507,7 @@ async function syncCalendarToMarkdown(calendarIds) {
   // Process notes whose dates fall within the current sync window.
   const noteNames = Object.keys(store);
   for (const noteName of noteNames) {
-    const nm = noteName.match(/^(\d{6}) Daily Note$/);
+    const nm = noteName.match(DAILY_NOTE_RE);
     if (!nm) continue;
     const noteDate = nm[1];
     if (noteDate < startYYMMDD || noteDate > endYYMMDD) continue;
@@ -561,12 +560,11 @@ async function syncCalendarToMarkdown(calendarIds) {
             const lineIdx = findEventLine(lines, me);
             if (lineIdx !== -1) {
               lines[lineIdx] = newMdLine;
+              me.lineText    = newMdLine;
+              me.title       = icloudEvt.title;
+              me.calendarTag = newCalTag;
               noteModified = true;
             }
-            me.lineText    = newMdLine;
-            me.title       = icloudEvt.title;
-            me.calendarTag = newCalTag;
-            noteModified = true;
           }
         }
       }
@@ -614,6 +612,8 @@ async function syncCalendarToMarkdown(calendarIds) {
 
     // Collect events that need a new line in the note
     const toInsert = [];
+    // Pre-parse once; re-parse only if content is modified during the loop.
+    let existingMdEvents = parseMarkdownEvents(content);
 
     for (const evt of events) {
       if (existingIds.has(evt.eventId)) continue;
@@ -628,7 +628,6 @@ async function syncCalendarToMarkdown(calendarIds) {
 
       // Content-based duplicate detection: look for a line with the same
       // title and time already present in the note (possibly without @calendar).
-      const existingMdEvents = parseMarkdownEvents(content, dateStr);
       const duplicate = existingMdEvents.find(e => {
         if (e.text !== evt.title) return false;
         if (evt.allDay) return e.allDay;
@@ -643,6 +642,7 @@ async function syncCalendarToMarkdown(calendarIds) {
         if (!duplicate.calendarTag && calendarTag) {
           curLines[duplicate.lineIndex] = curLines[duplicate.lineIndex].trimEnd() + ` @${calendarTag}`;
           content = curLines.join('\n');
+          existingMdEvents = parseMarkdownEvents(content);
         }
         meta.events.push({
           eventId: evt.eventId,
@@ -734,10 +734,9 @@ async function syncMarkdownToCalendar(calendarIds) {
 
   // Find all daily notes from first sync date onwards
   const allNotes = await NoteStorage.getAllNotes();
-  const dailyNoteRe = /^(\d{6}) Daily Note$/;
 
   for (const { name, content } of allNotes) {
-    const m = name.match(dailyNoteRe);
+    const m = name.match(DAILY_NOTE_RE);
     if (!m) continue;
     const noteDate = m[1];
 
@@ -747,7 +746,7 @@ async function syncMarkdownToCalendar(calendarIds) {
     // Skip notes whose content could not be decrypted (corrupted ciphertext)
     if (content && content.startsWith('enc:v1:')) continue;
 
-    const mdEvents = parseMarkdownEvents(content, noteDate);
+    const mdEvents = parseMarkdownEvents(content);
     const meta = store[name] || { events: [] };
 
     // Skip notes with no current events and no previously synced events
