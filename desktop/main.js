@@ -168,26 +168,28 @@ function registerHandlers() {
     if (!safeStorage.isEncryptionAvailable()) {
       throw new Error('safeStorage encryption not available on this platform');
     }
-    if (!fs.existsSync(_keyDir)) fs.mkdirSync(_keyDir, { recursive: true });
+    await fs.promises.mkdir(_keyDir, { recursive: true });
     const encrypted = safeStorage.encryptString(base64Key);
-    fs.writeFileSync(path.join(_keyDir, id + '.enc'), encrypted);
+    await fs.promises.writeFile(path.join(_keyDir, id + '.enc'), encrypted);
   });
 
   ipcMain.handle('notes:loadEncryptedKey', async (_event, id) => {
     const filePath = path.join(_keyDir, id + '.enc');
-    if (!fs.existsSync(filePath)) return null;
     try {
-      const encrypted = fs.readFileSync(filePath);
+      const encrypted = await fs.promises.readFile(filePath);
       return safeStorage.decryptString(encrypted);
     } catch (e) {
-      console.error('[main] Failed to decrypt key:', e);
+      if (e.code !== 'ENOENT') console.error('[main] Failed to decrypt key:', e);
       return null;
     }
   });
 
   ipcMain.handle('notes:deleteEncryptedKey', async (_event, id) => {
-    const filePath = path.join(_keyDir, id + '.enc');
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    try {
+      await fs.promises.unlink(path.join(_keyDir, id + '.enc'));
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.error('[main] Failed to delete encrypted key:', e);
+    }
   });
 
   // Relay a NoteStorage method call from a secondary window to the primary
@@ -220,14 +222,13 @@ function registerHandlers() {
     if (!win) return;
     const id = event.sender.id;
     // Clear any previous drag for this window.
-    const prev = _dragState.get(id);
-    if (prev) clearInterval(prev);
+    _clearDragState(id);
 
     const { x: cursorX0, y: cursorY0 } = screen.getCursorScreenPoint();
     const [winX0, winY0] = win.getPosition();
 
     const timer = setInterval(() => {
-      if (win.isDestroyed()) { clearInterval(timer); _dragState.delete(id); return; }
+      if (win.isDestroyed()) { _clearDragState(id); return; }
       const { x, y } = screen.getCursorScreenPoint();
       win.setPosition(winX0 + (x - cursorX0), winY0 + (y - cursorY0));
     }, 16);
@@ -236,9 +237,7 @@ function registerHandlers() {
   });
 
   ipcMain.on('window-drag-stop', (event) => {
-    const id = event.sender.id;
-    const timer = _dragState.get(id);
-    if (timer) { clearInterval(timer); _dragState.delete(id); }
+    _clearDragState(event.sender.id);
   });
 }
 
@@ -267,6 +266,11 @@ function getWebPath() {
 // Keyed per window so multiple windows can coexist safely.
 const _dragState = new Map();
 
+function _clearDragState(id) {
+  const timer = _dragState.get(id);
+  if (timer) { clearInterval(timer); _dragState.delete(id); }
+}
+
 function createWindow(secondary = false) {
   const isMac = process.platform === 'darwin';
   const win = new BrowserWindow({
@@ -294,11 +298,7 @@ function createWindow(secondary = false) {
 
   // Clear any button-drag interval when this window loses focus so we never
   // leak a running interval if mouseup fires outside the window.
-  win.on('blur', () => {
-    const id = win.webContents.id;
-    const timer = _dragState.get(id);
-    if (timer) { clearInterval(timer); _dragState.delete(id); }
-  });
+  win.on('blur', () => { _clearDragState(win.webContents.id); });
 
   // The first window ever created becomes the primary window that owns
   // the auth/PowerSync connection.

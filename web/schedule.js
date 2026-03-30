@@ -9,13 +9,17 @@
 // ── Schedule cache ────────────────────────────────────────────────────────
 let _scheduleCache = null;
 
+// Module-level regex constants — defined once, not per render or per line.
+const _RE_TIMED    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
+const _RE_MULTIDAY = />\s*(\d{6})\s+(\d{6})(?:\s+@(\S+))?\s*$/;
+const _RE_ALLDAY   = />\s*(\d{6})(?:\s+@(\S+))?\s*$/;
+const _RE_IS_TASK      = /^- \[[ xX]\]/;
+const _RE_IS_COMPLETED = /^- \[[xX]\]/;
+const _RE_MATH_CONTENT = /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/;
+
 async function _buildScheduleCache(cachedNotes) {
   const cache = {};
   cache._multiday = [];
-
-  const reTimed    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
-  const reMultiDay = />\s*(\d{6})\s+(\d{6})(?:\s+@(\S+))?\s*$/;
-  const reAllDay   = />\s*(\d{6})(?:\s+@(\S+))?\s*$/;
 
   const allNotes = cachedNotes || await NoteStorage.getAllNotes();
   for (const { name: fileName, content } of allNotes) {
@@ -23,18 +27,18 @@ async function _buildScheduleCache(cachedNotes) {
     if (!content) continue;
     content.split(/\n/).forEach((line, idx) => {
       const trimmed = line.trim();
-      const isTask      = /^- \[[ xX]\]/.test(trimmed);
-      const isCompleted = /^- \[[xX]\]/.test(trimmed);
+      const isTask      = _RE_IS_TASK.test(trimmed);
+      const isCompleted = _RE_IS_COMPLETED.test(trimmed);
 
       let m;
-      if ((m = line.match(reTimed))) {
+      if ((m = line.match(_RE_TIMED))) {
         // Timed: > YYMMDD HHMM HHMM — validate that hours/minutes are in range
         const startH = parseInt(m[2].slice(0, 2), 10), startM = parseInt(m[2].slice(2), 10);
         const endH   = parseInt(m[3].slice(0, 2), 10), endM   = parseInt(m[3].slice(2), 10);
         if (startH <= 23 && startM <= 59 && endH <= 23 && endM <= 59) {
           const dateStr = m[1];
           if (!cache[dateStr]) cache[dateStr] = [];
-          let text = trimmed.replace(reTimed, '');
+          let text = trimmed.replace(_RE_TIMED, '');
           if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
           cache[dateStr].push({
             fileName, lineIndex: idx, text: text.trim(),
@@ -43,10 +47,10 @@ async function _buildScheduleCache(cachedNotes) {
             calendarTag: m[4] || null
           });
         }
-      } else if ((m = line.match(reMultiDay))) {
+      } else if ((m = line.match(_RE_MULTIDAY))) {
         // Multi-day: > YYMMDD YYMMDD
         const startDate = m[1], endDate = m[2];
-        let text = trimmed.replace(reMultiDay, '');
+        let text = trimmed.replace(_RE_MULTIDAY, '');
         if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
         cache._multiday.push({
           fileName, lineIndex: idx, text: text.trim(),
@@ -54,11 +58,11 @@ async function _buildScheduleCache(cachedNotes) {
           isTask, isCompleted, isAllDay: true,
           calendarTag: m[3] || null
         });
-      } else if ((m = line.match(reAllDay))) {
+      } else if ((m = line.match(_RE_ALLDAY))) {
         // Single all-day: > YYMMDD
         const dateStr = m[1];
         if (!cache[dateStr]) cache[dateStr] = [];
-        let text = trimmed.replace(reAllDay, '');
+        let text = trimmed.replace(_RE_ALLDAY, '');
         if (isTask) text = text.replace(/^- \[[ xX]\]\s*/, '');
         cache[dateStr].push({
           fileName, lineIndex: idx, text: text.trim(),
@@ -161,20 +165,12 @@ function scrollScheduleToNow(smooth = false) {
 function updateNowIndicator() {
   const ROW_H   = 40;
   const START_H = 0;
-  const END_H   = 24;
   const now = new Date();
   const totalMinutes = now.getHours() * 60 + now.getMinutes();
-  const startMinutes = START_H * 60;
-  const endMinutes   = END_H   * 60;
 
   let indicator = scheduleGrid.querySelector('.schedule-now-indicator');
 
-  if (totalMinutes < startMinutes || totalMinutes > endMinutes) {
-    if (indicator) indicator.remove();
-    return;
-  }
-
-  const top = ((totalMinutes - startMinutes) / 30) * ROW_H;
+  const top = ((totalMinutes - START_H * 60) / 30) * ROW_H;
 
   if (!indicator) {
     indicator = document.createElement('div');
@@ -529,9 +525,7 @@ async function _doRenderSchedule(cachedNotes) {
   // math content in any of the current items.
   const scheduleContainer = wrapper || scheduleGrid;
   if (scheduleContainer) {
-    const hasMath = allItems.some(it =>
-      /\$\$[\s\S]+?\$\$|\$[^\n$]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/.test(it.text || '')
-    );
+    const hasMath = allItems.some(it => _RE_MATH_CONTENT.test(it.text || ''));
     if (hasMath && window.MathJax?.typesetPromise) {
       MathJax.typesetPromise([scheduleContainer]).catch(() => {});
     }

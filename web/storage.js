@@ -148,28 +148,28 @@ window.NoteStorage = {
   },
 
   async setNote(name, content) {
-    _noteNamesCache = null;
     const db = await _getDB();
     const { tx, store } = _txStore(db, 'notes', 'readwrite');
     store.put({ name, content });
     await _txDone(tx);
+    _noteNamesCache = null;
   },
 
   async removeNote(name) {
-    _noteNamesCache = null;
     const db = await _getDB();
     const { tx, store } = _txStore(db, 'notes', 'readwrite');
     store.delete(name);
     await _txDone(tx);
+    _noteNamesCache = null;
   },
 
   async trashNote(name) {
     // Web (IndexedDB) has no trash — just remove the note.
-    _noteNamesCache = null;
     const db = await _getDB();
     const { tx, store } = _txStore(db, 'notes', 'readwrite');
     store.delete(name);
     await _txDone(tx);
+    _noteNamesCache = null;
     await this.removeAttachmentDir(name);
   },
 
@@ -200,12 +200,12 @@ window.NoteStorage = {
   },
 
   async renameNote(oldName, newName, content) {
-    _noteNamesCache = null;
     const db = await _getDB();
     const { tx, store } = _txStore(db, 'notes', 'readwrite');
     store.put({ name: newName, content });
     store.delete(oldName);
     await _txDone(tx);
+    _noteNamesCache = null;
   },
 
   // ── Attachment methods ────────────────────────────────────────────────

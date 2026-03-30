@@ -474,6 +474,9 @@ document.addEventListener('keydown', e => {
 
 // ── Wiki-link autocomplete ────────────────────────────────────────────────
 // Shows a floating dropdown of note names when the user types [[ or [ in the editor.
+// Regex constants hoisted out of the per-keystroke input handler.
+const _RE_AC_WIKI = /\[\[([^\]\n]*)$/;
+const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
 
 {
   const dropdown = document.getElementById('wikilink-dropdown');
@@ -597,14 +600,14 @@ document.addEventListener('keydown', e => {
     const before = textarea.value.slice(0, pos);
 
     // Priority 1: unclosed [[ before cursor (wiki-link syntax [[Note Name]])
-    const wikiM = before.match(/\[\[([^\]\n]*)$/);
+    const wikiM = before.match(_RE_AC_WIKI);
     if (wikiM) {
       _handleMatch(wikiM[1].toLowerCase(), before.length - wikiM[0].length, 'wiki');
       return;
     }
 
     // Priority 2: [Text]( before cursor (markdown link syntax [Text](Note Name))
-    const mdM = before.match(/\[[^\[\]\n]*\]\(([^)\n]*)$/);
+    const mdM = before.match(_RE_AC_MD);
     if (mdM) {
       // _acStart points at the '(' so completion replaces only (partial → (name)
       const acStart = before.length - mdM[1].length - 1;

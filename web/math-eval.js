@@ -67,10 +67,13 @@ function expandLatexFrac(expr) {
   return result;
 }
 
+const _SQRT_NTH_RE = /\\sqrt\[([^\]]+)\]/;
+const _SQRT_RE     = /\\sqrt(?!\[)/;
+
 function expandLatexSqrt(expr) {
   let result = expr;
   for (let iter = 0; iter < 50; iter++) {
-    const nthMatch = result.match(/\\sqrt\[([^\]]+)\]/);
+    const nthMatch = result.match(_SQRT_NTH_RE);
     if (nthMatch) {
       let i = nthMatch.index + nthMatch[0].length;
       while (i < result.length && result[i] === ' ') i++;
@@ -82,7 +85,7 @@ function expandLatexSqrt(expr) {
         continue;
       }
     }
-    const sqrtIdx = result.search(/\\sqrt(?!\[)/);
+    const sqrtIdx = result.search(_SQRT_RE);
     if (sqrtIdx !== -1) {
       let i = sqrtIdx + 5;
       while (i < result.length && result[i] === ' ') i++;

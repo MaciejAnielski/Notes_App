@@ -6,6 +6,10 @@
 // Broken links (pointing to non-existent notes) are shown in red.
 // Click a node to open that note; hover to see a preview tooltip.
 
+// Module-level regex constants — defined once, lastIndex reset before each use.
+const _wikiRe = /\[\[([^\]]+)\]\]/g;
+const _mdRe   = /\[[^\]]*\]\(([^)]+)\)/g;
+
 function parseNoteLinks(allNotes) {
   const noteNameSet = new Set(allNotes.map(n => n.name));
   // linkMap: source note name → Set of target note names it links to
@@ -17,15 +21,15 @@ function parseNoteLinks(allNotes) {
     const targets = new Set();
 
     // Extract [[Note Name]] wiki-style links
-    const wikiRe = /\[\[([^\]]+)\]\]/g;
     let m;
-    while ((m = wikiRe.exec(content)) !== null) {
+    _wikiRe.lastIndex = 0;
+    while ((m = _wikiRe.exec(content)) !== null) {
       targets.add(m[1].trim());
     }
 
     // Extract [text](target) markdown links — internal only
-    const mdRe = /\[[^\]]*\]\(([^)]+)\)/g;
-    while ((m = mdRe.exec(content)) !== null) {
+    _mdRe.lastIndex = 0;
+    while ((m = _mdRe.exec(content)) !== null) {
       const raw = decodeURIComponent(m[1]).replace(/_/g, ' ').trim();
       // Skip external URLs, anchors, and attachment refs
       if (/^[a-zA-Z]+:\/\//.test(raw)) continue;

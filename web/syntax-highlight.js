@@ -122,6 +122,27 @@ function _esc(str) {
     .replace(/>/g, '&gt;');
 }
 
+// ── Module-level regex constants for _applyInline ────────────────────────
+// Defined once at load time rather than being recreated on every keystroke.
+const _RE_CODE       = /`([^`\n]+)`/g;
+const _RE_BOLD_STAR  = /\*\*\*([^*\n]+?)\*\*\*/g;
+const _RE_BOLD_UNDER = /___([^_\n]+?)___/g;
+const _RE_BOLD2_STAR = /\*\*([^*\n]+?)\*\*/g;
+const _RE_BOLD2_UNDR = /__([^_\n]+?)__/g;
+const _RE_ITALIC     = /(?<![*\\])\*([^*\n]+?)\*(?![*])/g;
+const _RE_STRIKE     = /~~([^~\n]+?)~~/g;
+const _RE_HILITE     = /==([^=\n]+?)==/g;
+const _RE_IMAGE      = /!\[([^\]\n]*)\]\(([^()\n]*(?:\([^()\n]*\)[^()\n]*)*)\)/g;
+const _RE_LINK       = /\[([^\]\n]*)\]\(([^()\n]*(?:\([^()\n]*\)[^()\n]*)*)\)/g;
+const _RE_WIKI       = /\[\[([^\]\n]+)\]\]/g;
+const _RE_TASK       = /^(\s*)([-*+]\s\[[ xX]\])(\s)/;
+const _RE_ULIST      = /^(\s*)([-*+])(\s)/;
+const _RE_OLIST      = /^(\s*)(\d+[.)]|[a-zA-Z][.)])(\s)/;
+const _RE_FOOTNOTE   = /\[\^([^\]\n]+)\]/g;
+const _RE_SCHEDULE   = /(\s*&gt;\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?(?:\s+@\S+)?\s*)$/;
+const _RE_SLOT       = /\x00(\d+)\x00/g;
+const _RE_TASK_MARKER = /hl-task-marker/;
+
 // ── Inline token highlighter ─────────────────────────────────────────────
 // Processes a single already-HTML-escaped line.
 // Returns the line with <span class="hl-*"> wrappers applied.
@@ -130,78 +151,62 @@ function _applyInline(line) {
   // 1. Protect inline code `...` from being processed by other patterns.
   //    Replace each `code` span with a null-byte placeholder.
   const slots = [];
-  line = line.replace(/`([^`\n]+)`/g, (_, inner) => {
+  line = line.replace(_RE_CODE, (_, inner) => {
     const idx = slots.length;
     slots.push(`<span class="hl-code">\`${inner}\`</span>`);
     return `\x00${idx}\x00`;
   });
 
   // 2. Bold-italic (*** or ___)
-  line = line.replace(/\*\*\*([^*\n]+?)\*\*\*/g,
-    '<span class="hl-bold-italic">***$1***</span>');
-  line = line.replace(/___([^_\n]+?)___/g,
-    '<span class="hl-bold-italic">___$1___</span>');
+  line = line.replace(_RE_BOLD_STAR,  '<span class="hl-bold-italic">***$1***</span>');
+  line = line.replace(_RE_BOLD_UNDER, '<span class="hl-bold-italic">___$1___</span>');
 
   // 3. Bold (** or __)
-  line = line.replace(/\*\*([^*\n]+?)\*\*/g,
-    '<span class="hl-bold">**$1**</span>');
-  line = line.replace(/__([^_\n]+?)__/g,
-    '<span class="hl-bold">__$1__</span>');
+  line = line.replace(_RE_BOLD2_STAR, '<span class="hl-bold">**$1**</span>');
+  line = line.replace(_RE_BOLD2_UNDR, '<span class="hl-bold">__$1__</span>');
 
   // 4. Italic — asterisks only (* text *), not underscores
   // Underscores no longer trigger italic emphasis
-  line = line.replace(/(?<![*\\])\*([^*\n]+?)\*(?![*])/g,
-    '<span class="hl-italic">*$1*</span>');
+  line = line.replace(_RE_ITALIC, '<span class="hl-italic">*$1*</span>');
 
   // 5. Strikethrough ~~text~~
-  line = line.replace(/~~([^~\n]+?)~~/g,
-    '<span class="hl-strike">~~$1~~</span>');
+  line = line.replace(_RE_STRIKE, '<span class="hl-strike">~~$1~~</span>');
 
   // 6. Highlight ==text== (custom extension)
-  line = line.replace(/==([^=\n]+?)==/g,
+  line = line.replace(_RE_HILITE,
     '<span class="hl-highlight">==<span class="hl-highlight-text">$1</span>==</span>');
 
   // 7. Image syntax ![alt](url) — must come before links to avoid partial match
   // URL group allows one level of balanced parentheses (e.g. Wikipedia URLs).
-  line = line.replace(/!\[([^\]\n]*)\]\(([^()\n]*(?:\([^()\n]*\)[^()\n]*)*)\)/g,
-    '<span class="hl-image">![$1]($2)</span>');
+  line = line.replace(_RE_IMAGE, '<span class="hl-image">![$1]($2)</span>');
 
   // 8. Links [text](url)
   // URL group allows one level of balanced parentheses (e.g. Wikipedia URLs).
-  line = line.replace(/\[([^\]\n]*)\]\(([^()\n]*(?:\([^()\n]*\)[^()\n]*)*)\)/g,
-    '<span class="hl-link">[$1]($2)</span>');
+  line = line.replace(_RE_LINK, '<span class="hl-link">[$1]($2)</span>');
 
   // 9. Wiki links [[text]]
-  line = line.replace(/\[\[([^\]\n]+)\]\]/g,
-    '<span class="hl-wiki">[[$1]]</span>');
+  line = line.replace(_RE_WIKI, '<span class="hl-wiki">[[$1]]</span>');
 
   // 10. Task list checkboxes: - [ ] or - [x] — highlight full marker including checkbox
-  line = line.replace(/^(\s*)([-*+]\s\[[ xX]\])(\s)/,
-    '$1<span class="hl-task-marker">$2</span>$3');
+  line = line.replace(_RE_TASK, '$1<span class="hl-task-marker">$2</span>$3');
 
   // 11. Unordered list markers at line start (-, *, +) — skip if already handled as task
-  if (!/hl-task-marker/.test(line)) {
-    line = line.replace(/^(\s*)([-*+])(\s)/,
-      '$1<span class="hl-list-marker">$2</span>$3');
+  if (!_RE_TASK_MARKER.test(line)) {
+    line = line.replace(_RE_ULIST, '$1<span class="hl-list-marker">$2</span>$3');
   }
 
   // 12. Ordered list markers at line start (1. / 1)) and lettered (a. / a))
-  line = line.replace(/^(\s*)(\d+[.)]|[a-zA-Z][.)])(\s)/,
-    '$1<span class="hl-list-marker">$2</span>$3');
+  line = line.replace(_RE_OLIST, '$1<span class="hl-list-marker">$2</span>$3');
 
   // 13. Footnote references [^id]
-  line = line.replace(/\[\^([^\]\n]+)\]/g,
-    '<span class="hl-footnote">[^$1]</span>');
+  line = line.replace(_RE_FOOTNOTE, '<span class="hl-footnote">[^$1]</span>');
 
   // 14. Schedule syntax at end of line — > YYMMDD [HHMM HHMM | YYMMDD] [@cal]
   //     (the > is HTML-escaped as &gt; at this point)
-  line = line.replace(
-    /(\s*&gt;\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?(?:\s+@\S+)?\s*)$/,
-    '<span class="hl-schedule">$1</span>'
-  );
+  line = line.replace(_RE_SCHEDULE, '<span class="hl-schedule">$1</span>');
 
   // Restore protected inline code slots
-  line = line.replace(/\x00(\d+)\x00/g, (_, i) => slots[+i]);
+  line = line.replace(_RE_SLOT, (_, i) => slots[+i]);
 
   return line;
 }
@@ -224,7 +229,7 @@ function highlightMarkdown(rawText) {
         inFence = true;
         fenceMarker = marker;
         return `<span class="hl-fence">${line}</span>`;
-      } else if (line.trim() === fenceMarker || line.trim().startsWith(fenceMarker) && line.trim().length === fenceMarker.length) {
+      } else if (line.trim() === fenceMarker) {
         inFence = false;
         fenceMarker = '';
         return `<span class="hl-fence">${line}</span>`;

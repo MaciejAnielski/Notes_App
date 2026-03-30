@@ -4,6 +4,10 @@
 // highlight syntax, indentation, footnotes, note links, table alignment,
 // attachment resolution, and the preview toggle.
 
+// Matches the opening/closing line of a fenced code block (``` or ~~~).
+const _FENCE_RE    = /^[ \t]*(`{3,}|~{3,})/;
+const _PLAIN_CB_RE = /^(\s*)\[( |[xX])\]\s/;
+
 // Custom marked renderer: prevent CSP violations for attachment: images.
 // Instead of <img src="attachment:file">, emit <img data-attachment="file" src="">
 // so the browser doesn't try to load the unsupported scheme. resolveAttachments()
@@ -120,7 +124,7 @@ function preprocessMarkdown(text) {
     const lines = text.split('\n');
     let inFence = false;
     text = lines.map(line => {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; return line; }
       if (inFence) return line;
       const codes = [];
       let safe = line.replace(/`[^`\n]+`/g, m => { codes.push(m); return '\x01' + (codes.length - 1) + '\x01'; });
@@ -138,7 +142,7 @@ function preprocessMarkdown(text) {
     const out = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; }
       if (!inFence && /^[ \t]*(-{3,}|={3,})[ \t]*$/.test(line) && i > 0 && out.length > 0 && out[out.length - 1].trim() !== '') {
         out.push('');
       }
@@ -210,7 +214,7 @@ function preprocessMarkdown(text) {
     const hlLines = text.split('\n');
     let inFence = false;
     text = hlLines.map(line => {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; return line; }
       if (inFence) return line;
       return line.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
     }).join('\n');
@@ -239,7 +243,7 @@ function preprocessMarkdown(text) {
     };
 
     for (const line of lines) {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) {
+      if (_FENCE_RE.test(line)) {
         flushPendingList();
         inFence = !inFence;
         out.push(line);
@@ -321,7 +325,7 @@ function preprocessMarkdown(text) {
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; out.push(line); i++; continue; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; out.push(line); i++; continue; }
       if (inFence) { out.push(line); i++; continue; }
       const m = line.match(/^(\s*)([a-zA-Z])[.)]\s+(.*)$/);
       if (m) {
@@ -362,7 +366,7 @@ function preprocessMarkdown(text) {
     let i = 0;
     while (i < cbLines.length) {
       const line = cbLines[i];
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; cbOut.push(line); i++; continue; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; cbOut.push(line); i++; continue; }
       if (inFence) { cbOut.push(line); i++; continue; }
       // Match lines starting with [ ] or [x]/[X] that are NOT preceded by "- "
       const m = line.match(/^(\s*)\[( |[xX])\]\s(.*)$/);
@@ -1085,16 +1089,15 @@ function setupPlainCheckboxes(container) {
     cb.addEventListener('change', () => {
       // Find all plain checkboxes in source and toggle the matching one
       const lines = textarea.value.split('\n');
-      const plainCbRe = /^(\s*)\[( |[xX])\]\s/;
       let cbIndex = 0;
       const allPlainCbs = container.querySelectorAll('input[data-plain-cb]');
       const targetIdx = Array.from(allPlainCbs).indexOf(cb);
 
       for (let i = 0; i < lines.length; i++) {
-        const m = lines[i].match(plainCbRe);
+        const m = lines[i].match(_PLAIN_CB_RE);
         if (m && !/^\s*- \[/.test(lines[i])) {
           if (cbIndex === targetIdx) {
-            lines[i] = lines[i].replace(plainCbRe, `$1[${cb.checked ? 'x' : ' '}] `);
+            lines[i] = lines[i].replace(_PLAIN_CB_RE, `$1[${cb.checked ? 'x' : ' '}] `);
             break;
           }
           cbIndex++;
@@ -1266,21 +1269,21 @@ function injectSyncSettings(container) {
     msg.className = 'sync-status-msg';
     msg.textContent = 'Sync is available in the desktop and iOS apps.';
     wrap.appendChild(msg);
-    _appendSyncControls(syncSection, wrap);
+    _appendControls(syncSection, wrap);
     return;
   }
 
   // ── Sync enabled + authenticated: show status and sign-out ──────────────
   if (helpers.enabled && helpers.authenticated) {
     _buildSignedInView(wrap, helpers);
-    _appendSyncControls(syncSection, wrap);
+    _appendControls(syncSection, wrap);
     return;
   }
 
   // ── Sync enabled but not signed in: show sign-in form ───────────────────
   if (helpers.enabled && !helpers.authenticated) {
     _buildSignInForm(wrap, helpers);
-    _appendSyncControls(syncSection, wrap);
+    _appendControls(syncSection, wrap);
     return;
   }
 
@@ -1300,7 +1303,7 @@ function injectSyncSettings(container) {
   });
   wrap.appendChild(enableBtn);
 
-  _appendSyncControls(syncSection, wrap);
+  _appendControls(syncSection, wrap);
 }
 
 function _buildSignedInView(wrap, helpers) {
@@ -1500,7 +1503,7 @@ function _buildSignInForm(wrap, helpers) {
   });
 }
 
-function _appendSyncControls(section, wrap) {
+function _appendControls(section, wrap) {
   const lists = section.querySelectorAll('ul, ol, p');
   const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
   if (lastEl && lastEl.nextSibling) {
@@ -1543,7 +1546,7 @@ function injectEncryptionSettings(container) {
       ? 'Encryption requires the desktop or iOS app with sync enabled.'
       : 'Sign in and enable sync first to use encryption.';
     wrap.appendChild(msg);
-    _appendEncryptionControls(encSection, wrap);
+    _appendControls(encSection, wrap);
     return;
   }
 
@@ -1552,14 +1555,14 @@ function injectEncryptionSettings(container) {
   // ── Encryption active (key loaded) ─────────────────────────────────────
   if (enc.active && enc.key) {
     _buildEncryptionActiveView(wrap, userId, enc.key);
-    _appendEncryptionControls(encSection, wrap);
+    _appendControls(encSection, wrap);
     return;
   }
 
   // ── Encryption enabled on server but no local key (Device B) ───────────
   if (enc.enabled && !enc.key) {
     _buildNeedKeyView(wrap, userId);
-    _appendEncryptionControls(encSection, wrap);
+    _appendControls(encSection, wrap);
     return;
   }
 
@@ -1620,7 +1623,7 @@ function injectEncryptionSettings(container) {
   });
   wrap.appendChild(enableBtn);
 
-  _appendEncryptionControls(encSection, wrap);
+  _appendControls(encSection, wrap);
 }
 
 function _buildEncryptionActiveView(wrap, userId, masterKey) {
@@ -1956,15 +1959,6 @@ function _showPassphrasePrompt(container, labelText, onSubmit) {
   input.focus();
 }
 
-function _appendEncryptionControls(section, wrap) {
-  const lists = section.querySelectorAll('ul, ol, p');
-  const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
-  if (lastEl && lastEl.nextSibling) {
-    section.insertBefore(wrap, lastEl.nextSibling);
-  } else {
-    section.appendChild(wrap);
-  }
-}
 
 // ── Calendar colour pickers in Settings note preview ─────────────────────
 

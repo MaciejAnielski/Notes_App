@@ -261,7 +261,7 @@ async function generateHtmlContent(title, markdown, noteName) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>${title}</title>
+<title>${_esc(title)}</title>
 <style>${style}</style>
 ${mathSection}
 </head>
