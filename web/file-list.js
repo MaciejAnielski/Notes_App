@@ -3,6 +3,9 @@
 // Manages the notes sidebar list with search filtering, the tasks panel
 // with checkbox toggling, and preview task checkbox interaction.
 
+// Matches a schedule date (and optional time/multi-day range) at end of a task line.
+const _SCHEDULE_DATE_RE = />\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/;
+
 async function getVisibleNotes(cachedNotes) {
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
@@ -429,7 +432,7 @@ async function updateTodoList(cachedNotes) {
           todoLi.appendChild(span);
 
           // Extract primary date from any schedule format for dot coloring
-          const schedDateMatch = t.line.match(/>\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/);
+          const schedDateMatch = t.line.match(_SCHEDULE_DATE_RE);
           const dot = document.createElement('span');
           dot.className = 'task-status-dot';
           dot.classList.add(getTaskDotClass(schedDateMatch ? schedDateMatch[1] : null));
@@ -495,7 +498,7 @@ function setupPreviewTaskCheckboxes() {
     if (!isCompleted) {
       const dot = document.createElement('span');
       dot.className = 'task-status-dot dot-inline';
-      const schedDateMatch = sourceLine && sourceLine.match(/>\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/);
+      const schedDateMatch = sourceLine && sourceLine.match(_SCHEDULE_DATE_RE);
       dot.classList.add(getTaskDotClass(schedDateMatch ? schedDateMatch[1] : null));
       const li = cb.closest('li');
       if (li) {

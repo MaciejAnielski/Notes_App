@@ -161,20 +161,12 @@ function scrollScheduleToNow(smooth = false) {
 function updateNowIndicator() {
   const ROW_H   = 40;
   const START_H = 0;
-  const END_H   = 24;
   const now = new Date();
   const totalMinutes = now.getHours() * 60 + now.getMinutes();
-  const startMinutes = START_H * 60;
-  const endMinutes   = END_H   * 60;
 
   let indicator = scheduleGrid.querySelector('.schedule-now-indicator');
 
-  if (totalMinutes < startMinutes || totalMinutes > endMinutes) {
-    if (indicator) indicator.remove();
-    return;
-  }
-
-  const top = ((totalMinutes - startMinutes) / 30) * ROW_H;
+  const top = ((totalMinutes - START_H * 60) / 30) * ROW_H;
 
   if (!indicator) {
     indicator = document.createElement('div');

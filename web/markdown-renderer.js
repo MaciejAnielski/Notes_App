@@ -4,6 +4,9 @@
 // highlight syntax, indentation, footnotes, note links, table alignment,
 // attachment resolution, and the preview toggle.
 
+// Matches the opening/closing line of a fenced code block (``` or ~~~).
+const _FENCE_RE = /^[ \t]*(`{3,}|~{3,})/;
+
 // Custom marked renderer: prevent CSP violations for attachment: images.
 // Instead of <img src="attachment:file">, emit <img data-attachment="file" src="">
 // so the browser doesn't try to load the unsupported scheme. resolveAttachments()
@@ -120,7 +123,7 @@ function preprocessMarkdown(text) {
     const lines = text.split('\n');
     let inFence = false;
     text = lines.map(line => {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; return line; }
       if (inFence) return line;
       const codes = [];
       let safe = line.replace(/`[^`\n]+`/g, m => { codes.push(m); return '\x01' + (codes.length - 1) + '\x01'; });
@@ -138,7 +141,7 @@ function preprocessMarkdown(text) {
     const out = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; }
       if (!inFence && /^[ \t]*(-{3,}|={3,})[ \t]*$/.test(line) && i > 0 && out.length > 0 && out[out.length - 1].trim() !== '') {
         out.push('');
       }
@@ -210,7 +213,7 @@ function preprocessMarkdown(text) {
     const hlLines = text.split('\n');
     let inFence = false;
     text = hlLines.map(line => {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; return line; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; return line; }
       if (inFence) return line;
       return line.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
     }).join('\n');
@@ -239,7 +242,7 @@ function preprocessMarkdown(text) {
     };
 
     for (const line of lines) {
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) {
+      if (_FENCE_RE.test(line)) {
         flushPendingList();
         inFence = !inFence;
         out.push(line);
@@ -321,7 +324,7 @@ function preprocessMarkdown(text) {
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; out.push(line); i++; continue; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; out.push(line); i++; continue; }
       if (inFence) { out.push(line); i++; continue; }
       const m = line.match(/^(\s*)([a-zA-Z])[.)]\s+(.*)$/);
       if (m) {
@@ -362,7 +365,7 @@ function preprocessMarkdown(text) {
     let i = 0;
     while (i < cbLines.length) {
       const line = cbLines[i];
-      if (/^[ \t]*(`{3,}|~{3,})/.test(line)) { inFence = !inFence; cbOut.push(line); i++; continue; }
+      if (_FENCE_RE.test(line)) { inFence = !inFence; cbOut.push(line); i++; continue; }
       if (inFence) { cbOut.push(line); i++; continue; }
       // Match lines starting with [ ] or [x]/[X] that are NOT preceded by "- "
       const m = line.match(/^(\s*)\[( |[xX])\]\s(.*)$/);
