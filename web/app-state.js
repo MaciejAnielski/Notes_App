@@ -553,11 +553,14 @@ function stripMarkdownText(text) {
 // ── Expand collapsed <details> ancestors ─────────────────────────────────
 // Opens the given element and all ancestor <details> elements up to previewDiv.
 // Used to reveal content that is hidden inside a collapsed heading section.
+// Never opens <details> elements that carry a collapse-marker (autocollapsed
+// with ">") — those must remain closed unless the user opens them manually.
 function expandCollapsedAncestors(el) {
   let node = el;
   while (node && node !== previewDiv) {
     if (node.tagName === 'DETAILS' && !node.open) {
-      node.open = true;
+      const hasCollapseMarker = node.querySelector('summary .collapse-marker');
+      if (!hasCollapseMarker) node.open = true;
     }
     node = node.parentElement;
   }

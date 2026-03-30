@@ -1103,10 +1103,22 @@ textarea:focus {
 }
 
 /* ── Tables ── */
+
+/* Scrollable wrapper: allows wide tables to scroll horizontally rather than
+   overflow the page. max-width:100% automatically accounts for the pinned
+   sidebar because the wrapper is a child of the content area. */
+#preview .table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  margin: 0.75em 0;
+}
+
 #preview table {
   border-collapse: collapse;
-  margin: 0.75em 0;
+  margin: 0;
   width: auto;
+  min-width: max-content;
 }
 
 #preview th,
@@ -2088,6 +2100,13 @@ body.panel-pinned {
   fill: var(--mermaid-text, var(--text));
 }
 
+/* Gantt — active tasks use amber (like done tasks but amber instead of green) */
+.mermaid-diagram .task.active rect,
+.mermaid-diagram rect.task.active {
+  fill: var(--warning) !important;
+  stroke: var(--warning) !important;
+}
+
 /* Pie chart — title and legend text */
 .mermaid-diagram .pieTitleText {
   fill: var(--mermaid-text, var(--text));
@@ -2754,5 +2773,19 @@ input[type="checkbox"] {
 .wikilink-item-active {
   background: var(--accent);
   color: #fff;
+}
+
+/* Notes not yet created — shown with a muted "new" label */
+.wikilink-item-new {
+  opacity: 0.75;
+}
+.wikilink-item-new::after {
+  content: ' (new)';
+  font-size: 0.8em;
+  opacity: 0.65;
+}
+.wikilink-item-new:hover::after,
+.wikilink-item-active.wikilink-item-new::after {
+  opacity: 0.85;
 }
 
