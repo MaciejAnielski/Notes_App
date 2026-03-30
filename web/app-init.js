@@ -484,12 +484,57 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
   let _acIdx = -1;
   let _acStart = -1; // char offset of the opening [[ or [ in textarea
   let _acMode = 'wiki'; // 'wiki' for [[...]] syntax, 'md' for [...](url) syntax
+  let _acWantedSet = new Set(); // names in _acItems that don't yet exist as notes
 
-  function _renderDropdown(names) {
+  // Cache of [[linked]] note names that don't exist yet, built by scanning all
+  // notes. Refreshed periodically so newly created notes are reflected.
+  let _wantedNotesCache = null;
+  let _wantedNotesCacheTime = 0;
+  const _WANTED_CACHE_TTL = 30000; // 30 s
+
+  async function _getWantedNoteNames() {
+    const now = Date.now();
+    if (_wantedNotesCache && now - _wantedNotesCacheTime < _WANTED_CACHE_TTL) {
+      return _wantedNotesCache;
+    }
+    const [allNotes, allNames] = await Promise.all([
+      NoteStorage.getAllNotes(),
+      NoteStorage.getAllNoteNames(),
+    ]);
+    const existingSet = new Set(allNames);
+    const wikiRe = /\[\[([^\]]+)\]\]/g;
+    const wanted = new Set();
+    for (const { content } of allNotes) {
+      let m;
+      wikiRe.lastIndex = 0;
+      while ((m = wikiRe.exec(content)) !== null) {
+        const name = m[1].trim();
+        if (!existingSet.has(name) && !name.startsWith('.')) wanted.add(name);
+      }
+    }
+    _wantedNotesCache = [...wanted];
+    _wantedNotesCacheTime = now;
+    return _wantedNotesCache;
+  }
+
+  // Invalidate the wanted-notes cache whenever a note is created so the new
+  // note no longer appears as a suggestion for notes not yet created.
+  const _origSetNote = NoteStorage.setNote?.bind(NoteStorage);
+  if (_origSetNote) {
+    NoteStorage.setNote = async function(name, content) {
+      _wantedNotesCache = null;
+      return _origSetNote(name, content);
+    };
+  }
+
+  function _renderDropdown(names, wantedSet) {
     dropdown.innerHTML = '';
     names.forEach((name, i) => {
       const item = document.createElement('div');
-      item.className = 'wikilink-item' + (i === _acIdx ? ' wikilink-item-active' : '');
+      const isWanted = wantedSet && wantedSet.has(name);
+      item.className = 'wikilink-item' +
+        (isWanted ? ' wikilink-item-new' : '') +
+        (i === _acIdx ? ' wikilink-item-active' : '');
       item.setAttribute('role', 'option');
       // For []() md links, show and insert with underscores instead of spaces
       item.textContent = _acMode === 'md' ? name.replace(/ /g, '_') : name;
@@ -567,6 +612,7 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     _acIdx = -1;
     _acStart = -1;
     _acMode = 'wiki';
+    _acWantedSet = new Set();
   }
 
   function _handleMatch(partial, newStart, mode) {
@@ -574,9 +620,14 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     _acStart = newStart;
     _acMode = mode;
 
-    NoteStorage.getAllNoteNames().then(names => {
+    Promise.all([
+      NoteStorage.getAllNoteNames(),
+      _getWantedNoteNames(),
+    ]).then(([names, wantedNames]) => {
       // For md mode, the user may type underscores; normalise to spaces for matching
       const normPartial = mode === 'md' ? partial.replace(/_/g, ' ') : partial;
+
+      const existingSet = new Set(names);
       const filtered = names
         .filter(n => !n.startsWith('.') && n.toLowerCase().includes(normPartial))
         .sort((a, b) => {
@@ -586,10 +637,23 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
         })
         .slice(0, 10);
 
-      if (filtered.length === 0) { _hide(); return; }
-      _acItems = filtered;
+      // Include wanted notes (referenced but not yet created) after existing ones.
+      const filteredWanted = wantedNames
+        .filter(n => !existingSet.has(n) && n.toLowerCase().includes(normPartial))
+        .sort((a, b) => {
+          const as = a.toLowerCase().startsWith(normPartial);
+          const bs = b.toLowerCase().startsWith(normPartial);
+          return (bs - as) || a.localeCompare(b);
+        })
+        .slice(0, 5);
+
+      const combined = [...filtered, ...filteredWanted].slice(0, 10);
+      if (combined.length === 0) { _hide(); return; }
+
+      _acItems = combined;
+      _acWantedSet = new Set(filteredWanted);
       _acIdx = 0;
-      _renderDropdown(filtered);
+      _renderDropdown(combined, _acWantedSet);
       // Only reposition when trigger is first typed; anchor stays fixed after that.
       if (isNewTrigger) _positionDropdown();
     });
@@ -624,11 +688,11 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       _acIdx = (_acIdx + 1) % _acItems.length;
-      _renderDropdown(_acItems);
+      _renderDropdown(_acItems, _acWantedSet);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       _acIdx = (_acIdx - 1 + _acItems.length) % _acItems.length;
-      _renderDropdown(_acItems);
+      _renderDropdown(_acItems, _acWantedSet);
     } else if (e.key === 'Enter' || e.key === 'Tab') {
       if (_acIdx >= 0 && _acItems[_acIdx]) {
         e.preventDefault();

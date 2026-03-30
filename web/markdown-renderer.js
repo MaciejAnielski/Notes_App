@@ -604,6 +604,19 @@ function alignTableColumns(container) {
   });
 }
 
+// Wrap every table in a scrollable div so wide tables scroll horizontally
+// instead of overflowing, and so the pinned sidebar is accounted for
+// (the wrapper's max-width is constrained by the body width automatically).
+function wrapTablesForScroll(container) {
+  container.querySelectorAll('table').forEach(table => {
+    if (table.parentElement?.classList.contains('table-wrapper')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-wrapper';
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  });
+}
+
 // ── Table smart features: sorting, filtering, copy ─────────────────────────
 
 // Per-table sort state: maps table element → { colIndex, direction }
@@ -1213,6 +1226,7 @@ async function renderPreview() {
   });
 
   alignTableColumns(previewDiv);
+  wrapTablesForScroll(previewDiv);
   setupTableFeatures(previewDiv);
   setupPreviewTaskCheckboxes();
   setupPlainCheckboxes(previewDiv);
@@ -2343,22 +2357,192 @@ function refreshSettingsPickerUI() {
 
 window._refreshSettingsPickerUI = refreshSettingsPickerUI;
 
+// ── Toggle-view scroll helpers ─────────────────────────────────────────────
+
+// Strip markdown syntax from a single source line to get comparable plain text.
+function _mdLineToPlain(line) {
+  return line
+    .replace(/^#{1,6}\s+/, '')                    // heading markers
+    .replace(/\s*>\s*$/, '')                       // autocollapse ">"
+    .replace(/<[^>]*>/g, '')                       // injected HTML spans
+    .replace(/\*\*([^*\n]*)\*\*/g, '$1')           // bold **
+    .replace(/\*([^*\n]*)\*/g, '$1')               // italic *
+    .replace(/__([^_\n]*)__/g, '$1')               // bold __
+    .replace(/_([^_\n]*)_/g, '$1')                 // italic _
+    .replace(/`([^`\n]*)`/g, '$1')                 // inline code
+    .replace(/\[([^\]]*)\]\([^)]+\)/g, '$1')       // [text](url)
+    .replace(/^\s*[-*+]\s+/, '')                   // bullet markers
+    .replace(/^\s*\d+\.\s+/, '')                   // numbered list
+    .replace(/^\s*>\s*/, '')                        // blockquote >
+    .replace(/[|]/g, ' ')                          // table pipes
+    .replace(/\u200b/g, '')                        // zero-width spaces
+    .trim();
+}
+
+// Find the source line that appears at the top of the textarea viewport.
+// Uses binary search on line offsets with getLineScrollY for accuracy.
+// Returns the stripped plain text of the first content line found, or ''.
+function _getEditorScrollAnchor(ta) {
+  const scrollTop = ta.scrollTop;
+  const text = ta.value;
+  if (!text.trim()) return '';
+
+  const lines = text.split('\n');
+
+  // If at the very top, use the first content line.
+  if (scrollTop <= 2) {
+    for (const line of lines) {
+      const plain = _mdLineToPlain(line);
+      if (plain.length > 5) return plain.slice(0, 50);
+    }
+    return '';
+  }
+
+  // Build cumulative char offsets for each line start.
+  const lineOffsets = [];
+  let off = 0;
+  for (const l of lines) {
+    lineOffsets.push(off);
+    off += l.length + 1;
+  }
+
+  // Binary search: find the last line whose visual top Y ≤ scrollTop.
+  let lo = 0, hi = lines.length - 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi + 1) / 2);
+    if (getLineScrollY(ta, lineOffsets[mid]) <= scrollTop) lo = mid;
+    else hi = mid - 1;
+  }
+
+  // Scan forward from that line for a meaningful content snippet.
+  // Skip table rows (contain '|') as they produce unreliable anchors.
+  for (let i = lo; i < Math.min(lo + 8, lines.length); i++) {
+    if (lines[i].trim().startsWith('|')) continue;
+    const plain = _mdLineToPlain(lines[i]);
+    if (plain.length > 5) return plain.slice(0, 50);
+  }
+  return '';
+}
+
+// Scroll the preview so the element containing anchorText is near the top.
+// Skips text inside closed <details> (autocollapsed sections).
+// Returns true if a match was found and scrolled, false otherwise.
+function _scrollPreviewToText(anchorText) {
+  if (!anchorText || anchorText.length < 4) return false;
+
+  // Try the anchor as-is, then with markdown formatting stripped.
+  const needles = [anchorText.slice(0, 40).toLowerCase()];
+  const stripped = anchorText.replace(/^#+\s*/, '').replace(/[*_`]/g, '').trim();
+  if (stripped !== anchorText && stripped.length > 3) {
+    needles.push(stripped.slice(0, 40).toLowerCase());
+  }
+
+  const candidates = previewDiv.querySelectorAll(
+    'p,h1,h2,h3,h4,h5,h6,li,td,th,pre,blockquote'
+  );
+
+  for (const needle of needles) {
+    for (const el of candidates) {
+      // Skip elements hidden inside closed <details>.
+      let hidden = false;
+      let p = el.parentElement;
+      while (p && p !== previewDiv) {
+        if (p.tagName === 'DETAILS' && !p.open) { hidden = true; break; }
+        p = p.parentElement;
+      }
+      if (hidden) continue;
+
+      const elText = el.textContent.replace(/\u200b/g, '').toLowerCase();
+      if (elText.includes(needle)) {
+        const elTop = el.getBoundingClientRect().top;
+        const contTop = previewDiv.getBoundingClientRect().top;
+        previewDiv.scrollTop += (elTop - contTop) - 8;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Find the first visible block element near the top of the preview and
+// return a text snippet suitable for locating in the source markdown.
+function _getPreviewTopAnchorText() {
+  const rect = previewDiv.getBoundingClientRect();
+  const topThreshold = rect.top;
+
+  const candidates = previewDiv.querySelectorAll(
+    'h1,h2,h3,h4,h5,h6,p,li,td,th,pre,blockquote'
+  );
+
+  for (const el of candidates) {
+    const r = el.getBoundingClientRect();
+    if (r.height === 0) continue;               // collapsed / hidden element
+    if (r.bottom < topThreshold + 4) continue;  // above the visible area
+    if (r.top > rect.bottom) break;             // below the visible area
+    const text = el.textContent.replace(/\u200b/g, '').trim();
+    if (text.length >= 4) return text.slice(0, 60);
+  }
+  return '';
+}
+
+// Scroll textarea to show the line containing anchorText.
+// Tries direct match, then with heading '#' prefixes, then stripped markdown.
+// Returns true if found and scrolled.
+function _scrollEditorToText(ta, anchorText) {
+  if (!anchorText || anchorText.length < 4) return false;
+  const source = ta.value;
+
+  const snippet = anchorText.slice(0, 25);
+  let idx = source.indexOf(snippet);
+
+  // Try with heading markers.
+  if (idx < 0) {
+    for (let hashes = 1; idx < 0 && hashes <= 6; hashes++) {
+      const headingLine = '#'.repeat(hashes) + ' ' + snippet.slice(0, 20);
+      const found = source.indexOf(headingLine);
+      if (found >= 0) idx = found;
+    }
+  }
+
+  // Fallback: strip common markdown characters and try a shorter snippet.
+  if (idx < 0) {
+    const bare = anchorText.replace(/[*_`#>|[\]()]/g, '').trim().slice(0, 20);
+    if (bare.length > 4) idx = source.indexOf(bare);
+  }
+
+  if (idx < 0) return false;
+
+  const y = getLineScrollY(ta, idx);
+  ta.scrollTop = Math.max(0, y - 8);
+  return true;
+}
+
 async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
     // Flush any active table sort to markdown before switching to edit mode.
     _saveAllTableSorts(previewDiv);
+
+    // Capture a text anchor from the top of the visible preview.
+    const previewAnchor = _getPreviewTopAnchorText();
     const scrollRatio = (previewDiv.scrollHeight - previewDiv.clientHeight) > 0
       ? previewDiv.scrollTop / (previewDiv.scrollHeight - previewDiv.clientHeight)
       : 0;
+
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
     toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
-    const maxScroll = textarea.scrollHeight - textarea.clientHeight;
-    textarea.scrollTop = maxScroll > 0 ? scrollRatio * maxScroll : 0;
+
+    // Scroll editor to the same visible text; fall back to proportional ratio.
+    if (!_scrollEditorToText(textarea, previewAnchor)) {
+      const maxScroll = textarea.scrollHeight - textarea.clientHeight;
+      textarea.scrollTop = maxScroll > 0 ? scrollRatio * maxScroll : 0;
+    }
   } else {
+    // Capture a text anchor from the top of the visible editor before rendering.
+    const editorAnchor = _getEditorScrollAnchor(textarea);
     const scrollRatio = (textarea.scrollHeight - textarea.clientHeight) > 0
       ? textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight)
       : 0;
@@ -2374,13 +2558,9 @@ async function toggleView() {
       charCount += sourceLines[li].length + 1;
     }
     let cursorSectionHeading = null;
-    let cursorSectionDefaultCollapsed = false;
     for (let li = cursorLineIdx; li >= 0; li--) {
       const hm = sourceLines[li].match(/^#{1,6}\s+(.*?)$/);
       if (hm) {
-        // Check if this heading is default-collapsed (has trailing ">")
-        cursorSectionDefaultCollapsed = /\s*>\s*$/.test(hm[1]);
-        // Strip trailing collapse marker ">" and any injected HTML
         cursorSectionHeading = hm[1].replace(/\s*>\s*$/, '').replace(/<[^>]*>/g, '').trim();
         break;
       }
@@ -2402,21 +2582,23 @@ async function toggleView() {
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
 
-    // Expand any collapsed heading section that contains the cursor position,
-    // but only if the heading is not default-collapsed (marked with ">").
-    // Respecting default-collapsed markers prevents repeated toggle from
-    // permanently uncollapsing sections the user intended to keep collapsed.
-    if (cursorSectionHeading && !cursorSectionDefaultCollapsed) {
+    // Expand the heading section that contains the cursor, unless it (or any
+    // of its ancestors) is autocollapsed with ">". expandCollapsedAncestors
+    // enforces the collapse-marker constraint.
+    if (cursorSectionHeading) {
       for (const d of previewDiv.querySelectorAll('details')) {
         const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
-        if (h && h.textContent.trim() === cursorSectionHeading) {
+        if (h && h.textContent.replace(/\u200b/g, '').trim() === cursorSectionHeading) {
           expandCollapsedAncestors(d);
           break;
         }
       }
     }
 
-    const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
-    if (maxScroll > 0) previewDiv.scrollTop = scrollRatio * maxScroll;
+    // Scroll preview to match the editor's previous visible text.
+    if (!_scrollPreviewToText(editorAnchor)) {
+      const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
+      if (maxScroll > 0) previewDiv.scrollTop = scrollRatio * maxScroll;
+    }
   }
 }

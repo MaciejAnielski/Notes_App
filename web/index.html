@@ -80,6 +80,8 @@
 
         // Done-task text must contrast against successColor background
         var doneTaskText = contrastText(successColor);
+        // Active-task text must contrast against warningColor (amber) background
+        var activeTaskText = contrastText(warningColor);
         // Crit-task text must contrast against errorColor background
         var critTaskText = contrastText(errorColor);
 
@@ -176,7 +178,8 @@
           taskBkgColor: surface, taskBorderColor: accent,
           taskTextColor: text, taskTextOutsideColor: text, taskTextLightColor: text,
           taskTextDarkColor: text, taskTextClickableColor: activeColor,
-          activeTaskBkgColor: schedHighlightBg, activeTaskBorderColor: activeColor,
+          activeTaskBkgColor: warningColor, activeTaskBorderColor: warningColor,
+          activeTaskTextColor: activeTaskText,
           doneTaskBkgColor: successColor, doneTaskBorderColor: successColor,
           doneTaskTextColor: doneTaskText,
           critBkgColor: errorColor, critBorderColor: errorColor,
