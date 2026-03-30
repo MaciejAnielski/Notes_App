@@ -5,7 +5,8 @@
 // attachment resolution, and the preview toggle.
 
 // Matches the opening/closing line of a fenced code block (``` or ~~~).
-const _FENCE_RE = /^[ \t]*(`{3,}|~{3,})/;
+const _FENCE_RE    = /^[ \t]*(`{3,}|~{3,})/;
+const _PLAIN_CB_RE = /^(\s*)\[( |[xX])\]\s/;
 
 // Custom marked renderer: prevent CSP violations for attachment: images.
 // Instead of <img src="attachment:file">, emit <img data-attachment="file" src="">
@@ -1088,16 +1089,15 @@ function setupPlainCheckboxes(container) {
     cb.addEventListener('change', () => {
       // Find all plain checkboxes in source and toggle the matching one
       const lines = textarea.value.split('\n');
-      const plainCbRe = /^(\s*)\[( |[xX])\]\s/;
       let cbIndex = 0;
       const allPlainCbs = container.querySelectorAll('input[data-plain-cb]');
       const targetIdx = Array.from(allPlainCbs).indexOf(cb);
 
       for (let i = 0; i < lines.length; i++) {
-        const m = lines[i].match(plainCbRe);
+        const m = lines[i].match(_PLAIN_CB_RE);
         if (m && !/^\s*- \[/.test(lines[i])) {
           if (cbIndex === targetIdx) {
-            lines[i] = lines[i].replace(plainCbRe, `$1[${cb.checked ? 'x' : ' '}] `);
+            lines[i] = lines[i].replace(_PLAIN_CB_RE, `$1[${cb.checked ? 'x' : ' '}] `);
             break;
           }
           cbIndex++;
@@ -1269,21 +1269,21 @@ function injectSyncSettings(container) {
     msg.className = 'sync-status-msg';
     msg.textContent = 'Sync is available in the desktop and iOS apps.';
     wrap.appendChild(msg);
-    _appendSyncControls(syncSection, wrap);
+    _appendControls(syncSection, wrap);
     return;
   }
 
   // ── Sync enabled + authenticated: show status and sign-out ──────────────
   if (helpers.enabled && helpers.authenticated) {
     _buildSignedInView(wrap, helpers);
-    _appendSyncControls(syncSection, wrap);
+    _appendControls(syncSection, wrap);
     return;
   }
 
   // ── Sync enabled but not signed in: show sign-in form ───────────────────
   if (helpers.enabled && !helpers.authenticated) {
     _buildSignInForm(wrap, helpers);
-    _appendSyncControls(syncSection, wrap);
+    _appendControls(syncSection, wrap);
     return;
   }
 
@@ -1303,7 +1303,7 @@ function injectSyncSettings(container) {
   });
   wrap.appendChild(enableBtn);
 
-  _appendSyncControls(syncSection, wrap);
+  _appendControls(syncSection, wrap);
 }
 
 function _buildSignedInView(wrap, helpers) {
@@ -1503,7 +1503,7 @@ function _buildSignInForm(wrap, helpers) {
   });
 }
 
-function _appendSyncControls(section, wrap) {
+function _appendControls(section, wrap) {
   const lists = section.querySelectorAll('ul, ol, p');
   const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
   if (lastEl && lastEl.nextSibling) {
@@ -1546,7 +1546,7 @@ function injectEncryptionSettings(container) {
       ? 'Encryption requires the desktop or iOS app with sync enabled.'
       : 'Sign in and enable sync first to use encryption.';
     wrap.appendChild(msg);
-    _appendEncryptionControls(encSection, wrap);
+    _appendControls(encSection, wrap);
     return;
   }
 
@@ -1555,14 +1555,14 @@ function injectEncryptionSettings(container) {
   // ── Encryption active (key loaded) ─────────────────────────────────────
   if (enc.active && enc.key) {
     _buildEncryptionActiveView(wrap, userId, enc.key);
-    _appendEncryptionControls(encSection, wrap);
+    _appendControls(encSection, wrap);
     return;
   }
 
   // ── Encryption enabled on server but no local key (Device B) ───────────
   if (enc.enabled && !enc.key) {
     _buildNeedKeyView(wrap, userId);
-    _appendEncryptionControls(encSection, wrap);
+    _appendControls(encSection, wrap);
     return;
   }
 
@@ -1623,7 +1623,7 @@ function injectEncryptionSettings(container) {
   });
   wrap.appendChild(enableBtn);
 
-  _appendEncryptionControls(encSection, wrap);
+  _appendControls(encSection, wrap);
 }
 
 function _buildEncryptionActiveView(wrap, userId, masterKey) {
@@ -1959,15 +1959,6 @@ function _showPassphrasePrompt(container, labelText, onSubmit) {
   input.focus();
 }
 
-function _appendEncryptionControls(section, wrap) {
-  const lists = section.querySelectorAll('ul, ol, p');
-  const lastEl = lists.length > 0 ? lists[lists.length - 1] : null;
-  if (lastEl && lastEl.nextSibling) {
-    section.insertBefore(wrap, lastEl.nextSibling);
-  } else {
-    section.appendChild(wrap);
-  }
-}
 
 // ── Calendar colour pickers in Settings note preview ─────────────────────
 

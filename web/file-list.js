@@ -6,6 +6,14 @@
 // Matches a schedule date (and optional time/multi-day range) at end of a task line.
 const _SCHEDULE_DATE_RE = />\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/;
 
+// Module-level regex constants for updateWebCalendarSettings.
+// _RE_CAL_TAG and _RE_CAL_NAME/_RE_CAL_CB have the /g flag (used with exec) —
+// always reset .lastIndex = 0 before each while loop.
+const _RE_CAL_TAG     = />\s*\d{6}(?:\s+\d{4}\s+\d{4}|\s+\d{6})?(?:\s+@(\S+))?\s*$/gm;
+const _RE_CORRUPT_LINE = /^- .+[{}"\[\]].{10,}$/gm;
+const _RE_CAL_NAME    = /^- (.+?)\s*$/gm;
+const _RE_CAL_CB      = /^\[[ xX]\]\s+(.+?)\s*\{[^}]+\}\s*$/gm;
+
 async function getVisibleNotes(cachedNotes) {
   const raw = searchBox.value.trim().toLowerCase();
   const matches = createSearchPredicate(raw, makeNoteTermPredicate);
@@ -223,13 +231,12 @@ async function updateWebCalendarSettings(allNotes) {
   // Skip system notes (.calendar_metadata, .app_preferences) to prevent
   // JSON content from being misinterpreted as calendar names.
   const calendarNames = new Set();
-  const _tagRe = />\s*\d{6}(?:\s+\d{4}\s+\d{4}|\s+\d{6})?(?:\s+@(\S+))?\s*$/gm;
   for (const { name: noteName, content } of allNotes) {
     if (!content) continue;
     if (noteName.startsWith('.')) continue;
-    _tagRe.lastIndex = 0;
+    _RE_CAL_TAG.lastIndex = 0;
     let m;
-    while ((m = _tagRe.exec(content)) !== null) {
+    while ((m = _RE_CAL_TAG.exec(content)) !== null) {
       if (m[1]) calendarNames.add(m[1]);
     }
   }
@@ -298,8 +305,7 @@ async function updateWebCalendarSettings(allNotes) {
 
   // Clean up any corrupted lines in the Calendars section (e.g. JSON fragments
   // from .calendar_metadata that were erroneously appended in older versions).
-  const corruptRe = /^- .+[{}"\[\]].{10,}$/gm;
-  content = content.replace(corruptRe, '');
+  content = content.replace(_RE_CORRUPT_LINE, '');
   // Remove excessive blank line runs (allow up to 2 blank lines = 3 newlines for section spacing)
   content = content.replace(/\n{4,}/g, '\n\n\n');
 
@@ -322,14 +328,14 @@ async function updateWebCalendarSettings(allNotes) {
   const existingNamesNorm = new Set();
   const calSection = content.match(/## 📅 Calendars([\s\S]*?)(?=\n##|$)/);
   if (calSection) {
-    const nameRe = /^- (.+?)\s*$/gm;
+    _RE_CAL_NAME.lastIndex = 0;
     let nm;
-    while ((nm = nameRe.exec(calSection[1])) !== null) {
+    while ((nm = _RE_CAL_NAME.exec(calSection[1])) !== null) {
       existingNames.add(nm[1]);
       existingNamesNorm.add(nm[1].toLowerCase().replace(/\s+/g, ''));
     }
-    const cbRe = /^\[[ xX]\]\s+(.+?)\s*\{[^}]+\}\s*$/gm;
-    while ((nm = cbRe.exec(calSection[1])) !== null) {
+    _RE_CAL_CB.lastIndex = 0;
+    while ((nm = _RE_CAL_CB.exec(calSection[1])) !== null) {
       existingNames.add(nm[1]);
       existingNamesNorm.add(nm[1].toLowerCase().replace(/\s+/g, ''));
     }

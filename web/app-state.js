@@ -390,20 +390,32 @@ function insertAtCursor(text) {
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+// Module-level regex constants — hoisted out of frequently-called functions.
+const _RE_ATTACH_REF    = /!?\[([^\]]*)\]\(attachment:([^)\s]+)\)/g;
+const _RE_QUOTE_DOUBLE  = /[\u201C\u201D\u201E\u201F\u2033\u2036]/g;
+const _RE_QUOTE_SINGLE  = /[\u2018\u2019\u201A\u201B\u2032\u2035]/g;
+const _RE_MATH_BLOCK_AS = /\$\$([^$]+)\$\$/g;
+const _RE_MATH_INLINE_AS = /\$([^$\n]+)\$/g;
+const _RE_MATH_PAREN_AS  = /\\\((.+?)\\\)/gs;
+const _RE_MATH_BRACK_AS  = /\\\[(.+?)\\\]/gs;
+const _RE_TS_TIMED    = />\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/;
+const _RE_TS_MULTIDAY = />\s*(\d{6})\s+(\d{6})\s*$/;
+const _RE_TS_ALLDAY   = />\s*(\d{6})\s*$/;
+
 function parseAttachmentRefs(content) {
   const refs = new Map();
   if (!content) return refs;
-  const re = /!?\[([^\]]*)\]\(attachment:([^)\s]+)\)/g;
+  _RE_ATTACH_REF.lastIndex = 0;
   let m;
-  while ((m = re.exec(content)) !== null) refs.set(m[2], m[1]);
+  while ((m = _RE_ATTACH_REF.exec(content)) !== null) refs.set(m[2], m[1]);
   return refs;
 }
 
 // ── Search predicates ─────────────────────────────────────────────────────
 
 function normalizeQuotes(str) {
-  return str.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
-            .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
+  return str.replace(_RE_QUOTE_DOUBLE, '"')
+            .replace(_RE_QUOTE_SINGLE, "'");
 }
 
 function createSearchPredicate(query, makeTermPredicate) {
@@ -485,14 +497,14 @@ function makeTaskTermPredicate(token) {
 function getTaskScheduleStatus(line) {
   const todayStr = toYYMMDD(new Date());
   // Timed: > YYMMDD HHMM HHMM
-  let m = line.match(/>\s*(\d{6})\s+\d{4}\s+\d{4}\s*$/);
+  let m = line.match(_RE_TS_TIMED);
   if (m) {
     if (m[1] < todayStr) return 'overdue';
     if (m[1] === todayStr) return 'today';
     return 'future';
   }
   // Multi-day: > YYMMDD YYMMDD (start end)
-  m = line.match(/>\s*(\d{6})\s+(\d{6})\s*$/);
+  m = line.match(_RE_TS_MULTIDAY);
   if (m) {
     const endDate = m[2];
     if (endDate < todayStr) return 'overdue';
@@ -500,7 +512,7 @@ function getTaskScheduleStatus(line) {
     return 'future';
   }
   // All-day: > YYMMDD
-  m = line.match(/>\s*(\d{6})\s*$/);
+  m = line.match(_RE_TS_ALLDAY);
   if (m) {
     if (m[1] < todayStr) return 'overdue';
     if (m[1] === todayStr) return 'today';
@@ -527,10 +539,10 @@ function stripMarkdownText(text) {
   text = text.replace(/^\s*\d+[.)]\s+/, '');
   // Strip math delimiters so plain-text consumers (notifications, search)
   // receive readable content instead of raw LaTeX syntax.
-  text = text.replace(/\$\$([^$]+)\$\$/g, '$1');
-  text = text.replace(/\$([^$\n]+)\$/g, '$1');
-  text = text.replace(/\\\((.+?)\\\)/gs, '$1');
-  text = text.replace(/\\\[(.+?)\\\]/gs, '$1');
+  text = text.replace(_RE_MATH_BLOCK_AS, '$1');
+  text = text.replace(_RE_MATH_INLINE_AS, '$1');
+  text = text.replace(_RE_MATH_PAREN_AS, '$1');
+  text = text.replace(_RE_MATH_BRACK_AS, '$1');
   const tmp = document.createElement('span');
   tmp.innerHTML = marked.parseInline(text);
   text = tmp.textContent;
