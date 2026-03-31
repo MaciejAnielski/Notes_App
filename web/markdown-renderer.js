@@ -2546,25 +2546,6 @@ async function toggleView() {
     const scrollRatio = (textarea.scrollHeight - textarea.clientHeight) > 0
       ? textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight)
       : 0;
-    const cursorOffset = textarea.selectionStart;
-
-    // Identify which heading section the cursor is in so we can expand it
-    // after rendering if it happens to be collapsed.
-    const sourceLines = textarea.value.split('\n');
-    let charCount = 0;
-    let cursorLineIdx = 0;
-    for (let li = 0; li < sourceLines.length; li++) {
-      if (charCount + sourceLines[li].length >= cursorOffset) { cursorLineIdx = li; break; }
-      charCount += sourceLines[li].length + 1;
-    }
-    let cursorSectionHeading = null;
-    for (let li = cursorLineIdx; li >= 0; li--) {
-      const hm = sourceLines[li].match(/^#{1,6}\s+(.*?)$/);
-      if (hm) {
-        cursorSectionHeading = hm[1].replace(/\s*>\s*$/, '').replace(/<[^>]*>/g, '').trim();
-        break;
-      }
-    }
 
     // Flush any pending auto-save and apply a pending title rename so the
     // preview and file list immediately reflect the committed note name.
@@ -2582,20 +2563,8 @@ async function toggleView() {
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
 
-    // Expand the heading section that contains the cursor, unless it (or any
-    // of its ancestors) is autocollapsed with ">". expandCollapsedAncestors
-    // enforces the collapse-marker constraint.
-    if (cursorSectionHeading) {
-      for (const d of previewDiv.querySelectorAll('details')) {
-        const h = d.querySelector('summary h1,summary h2,summary h3,summary h4,summary h5,summary h6');
-        if (h && h.textContent.replace(/\u200b/g, '').trim() === cursorSectionHeading) {
-          expandCollapsedAncestors(d);
-          break;
-        }
-      }
-    }
-
-    // Scroll preview to match the editor's previous visible text.
+    // Heading collapse state is always driven purely by the ">" syntax —
+    // toggle never forces any section open. Scroll to the matching text.
     if (!_scrollPreviewToText(editorAnchor)) {
       const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
       if (maxScroll > 0) previewDiv.scrollTop = scrollRatio * maxScroll;
