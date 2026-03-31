@@ -1989,6 +1989,16 @@ body.panel-pinned {
   transition: background-color 1.5s ease, outline-color 1.5s ease;
 }
 
+/* Collapse breadcrumb highlight — same visual as schedule-highlight but also
+   applies inside <summary> elements (visible even when <details> is closed).
+   Applied/removed by JS; no CSS transition so it appears/disappears instantly. */
+#preview summary .schedule-highlight,
+#preview summary.schedule-highlight {
+  background-color: var(--sched-highlight-bg);
+  border-radius: 3px;
+  outline: 2px solid var(--sched-highlight-outline);
+}
+
 /* ── Highlight syntax (==text==) ── */
 #preview mark {
   background-color: var(--mark-bg);

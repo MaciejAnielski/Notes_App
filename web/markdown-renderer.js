@@ -2517,9 +2517,122 @@ function _scrollEditorToText(ta, anchorText) {
   return true;
 }
 
+// ── Collapse breadcrumb trail ──────────────────────────────────────────────
+// When toggling edit→view, if the cursor's line lives inside collapsed
+// heading(s), highlight the outermost closed heading's summary so the user
+// knows where they were. Each time the user expands a highlighted section the
+// highlight advances to the next inner collapsed ancestor, forming a breadcrumb
+// trail. Once all ancestors are open the cursor's own content element is
+// highlighted. Everything expires 30 s after the toggle.
+
+let _breadcrumbCleanup = null;
+
+function _setupCollapseBreadcrumb(sourceText, cursorOffset) {
+  // Dismiss any breadcrumb from a previous toggle.
+  if (_breadcrumbCleanup) { _breadcrumbCleanup(); _breadcrumbCleanup = null; }
+
+  // Find the source line the cursor is on.
+  const lines = sourceText.split('\n');
+  let charCount = 0;
+  let cursorLineText = '';
+  for (const line of lines) {
+    if (charCount + line.length >= cursorOffset) { cursorLineText = line; break; }
+    charCount += line.length + 1;
+  }
+
+  const plain = _mdLineToPlain(cursorLineText);
+  if (!plain || plain.length < 3) return;
+
+  // Find the rendered element that corresponds to the cursor line.
+  const needle = plain.slice(0, 40).toLowerCase();
+  const candidates = previewDiv.querySelectorAll(
+    'p,li,td,th,h1,h2,h3,h4,h5,h6,pre,blockquote'
+  );
+  let targetEl = null;
+  for (const el of candidates) {
+    if (el.textContent.replace(/\u200b/g, '').toLowerCase().includes(needle)) {
+      targetEl = el;
+      break;
+    }
+  }
+  if (!targetEl) return;
+
+  // Walk up from targetEl to collect all <details> ancestors, outermost first.
+  const chain = [];
+  let node = targetEl.parentElement;
+  while (node && node !== previewDiv) {
+    if (node.tagName === 'DETAILS') chain.push(node);
+    node = node.parentElement;
+  }
+  chain.reverse(); // outermost → innermost
+
+  // Nothing to trail if cursor content is already fully visible.
+  if (chain.length === 0 || chain.every(d => d.open)) return;
+
+  let activeEl = null;
+  const handlers = new Map();
+
+  function removeHighlight() {
+    if (activeEl) { activeEl.classList.remove('schedule-highlight'); activeEl = null; }
+  }
+
+  function applyHighlight(el) {
+    removeHighlight();
+    el.classList.add('schedule-highlight');
+    activeEl = el;
+    // Scroll the highlighted element into view if it's off-screen.
+    const elTop = el.getBoundingClientRect().top;
+    const contTop = previewDiv.getBoundingClientRect().top;
+    if (elTop < contTop + 4 || elTop > contTop + previewDiv.clientHeight * 0.75) {
+      previewDiv.scrollTop += (elTop - contTop) - 20;
+    }
+  }
+
+  function advance() {
+    const nextClosed = chain.find(d => !d.open);
+    if (nextClosed) {
+      // Highlight the heading inside the next still-collapsed summary.
+      const h = nextClosed.querySelector(
+        ':scope > summary h1,:scope > summary h2,:scope > summary h3,' +
+        ':scope > summary h4,:scope > summary h5,:scope > summary h6'
+      );
+      applyHighlight(h || nextClosed.querySelector(':scope > summary'));
+    } else {
+      // All ancestors open — highlight the cursor's actual content element.
+      applyHighlight(targetEl);
+    }
+  }
+
+  function handleToggle(e) {
+    if (e.target.open) advance(); // user expanded a section — move highlight inward
+  }
+
+  chain.forEach(d => {
+    d.addEventListener('toggle', handleToggle);
+    handlers.set(d, handleToggle);
+  });
+
+  advance(); // start by highlighting the outermost closed heading
+
+  const expireTimer = setTimeout(cleanup, 30000);
+
+  function cleanup() {
+    clearTimeout(expireTimer);
+    removeHighlight();
+    handlers.forEach((fn, d) => d.removeEventListener('toggle', fn));
+    handlers.clear();
+    if (_breadcrumbCleanup === cleanup) _breadcrumbCleanup = null;
+  }
+
+  _breadcrumbCleanup = cleanup;
+}
+
 async function toggleView() {
   if (currentFileName === PROJECTS_NOTE) return;
   if (isPreview) {
+    // Dismiss any active breadcrumb when going back to edit mode.
+    if (_breadcrumbCleanup) { _breadcrumbCleanup(); _breadcrumbCleanup = null; }
+
     // Flush any active table sort to markdown before switching to edit mode.
     _saveAllTableSorts(previewDiv);
 
@@ -2541,7 +2654,9 @@ async function toggleView() {
       textarea.scrollTop = maxScroll > 0 ? scrollRatio * maxScroll : 0;
     }
   } else {
-    // Capture a text anchor from the top of the visible editor before rendering.
+    // Capture cursor position and scroll anchor before any async work.
+    const cursorOffset = textarea.selectionStart;
+    const sourceSnapshot = textarea.value;
     const editorAnchor = _getEditorScrollAnchor(textarea);
     const scrollRatio = (textarea.scrollHeight - textarea.clientHeight) > 0
       ? textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight)
@@ -2569,5 +2684,9 @@ async function toggleView() {
       const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
       if (maxScroll > 0) previewDiv.scrollTop = scrollRatio * maxScroll;
     }
+
+    // Set up breadcrumb trail: if the cursor was inside collapsed heading(s),
+    // highlight them so the user can follow the trail to their position.
+    _setupCollapseBreadcrumb(sourceSnapshot, cursorOffset);
   }
 }
