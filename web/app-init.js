@@ -840,8 +840,13 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     if (compactRe.test(last) && values.every(v => compactRe.test(v))) {
       const toMs = v => {
         const [, yr, mo, dy] = v.match(compactRe);
+        const moNum = parseInt(mo, 10);
+        const dyNum = parseInt(dy, 10);
+        // Reject values that aren't valid calendar month/day to avoid
+        // false-positives on plain 6-digit integers.
+        if (moNum < 1 || moNum > 12 || dyNum < 1 || dyNum > 31) return NaN;
         const fullYear = yr.length === 2 ? 2000 + parseInt(yr, 10) : parseInt(yr, 10);
-        return new Date(fullYear, parseInt(mo, 10) - 1, parseInt(dy, 10)).getTime();
+        return new Date(fullYear, moNum - 1, dyNum).getTime();
       };
       const mss = values.map(toMs);
       if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
@@ -1014,7 +1019,10 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     if (currentLine !== '|') { _trHide(); return; }
 
     const linesAbove = text.slice(0, lineStart).split('\n');
-    const bodyRows   = _getTableBodyRowsAbove(linesAbove, linesAbove.length);
+    // text.slice(0, lineStart) always ends with \n so split always has a trailing
+    // empty string — pass length-1 so _getTableBodyRowsAbove starts at the actual
+    // last table row, not the empty sentinel.
+    const bodyRows   = _getTableBodyRowsAbove(linesAbove, linesAbove.length - 1);
     if (!bodyRows) { _trHide(); return; }
 
     const suggestion = _buildSuggestion(bodyRows);
