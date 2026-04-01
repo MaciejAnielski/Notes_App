@@ -4,7 +4,7 @@
 //   alignTableColumns, wrapTablesForScroll, setupTableFeatures
 // Source cleanup (called from markdown-renderer.js on view toggle):
 //   _cleanupMarkdownTables, _saveAllTableSorts
-// Editor autofill (attaches to textarea; requires textarea + _highlightPre globals):
+// Editor autofill (attaches to textarea directly, requires textarea + _highlightPre globals):
 //   Table row autofill suggestion block
 //
 // Globals used: textarea, _highlightPre, _lastRenderedContent, currentFileName, updateStatus
