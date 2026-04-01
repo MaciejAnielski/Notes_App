@@ -709,6 +709,353 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
   textarea.addEventListener('blur', () => setTimeout(_hide, 150));
 }
 
+// ── Table row autofill suggestion ────────────────────────────────────────
+// Shows a faded ghost-text suggestion for the predicted next table row when
+// the user types "|" as the first character of a new line immediately below
+// a markdown table with ≥ 2 body rows.  Enter accepts; any other key dismisses.
+{
+  const _trDiv = document.createElement('div');
+  _trDiv.id = 'table-row-suggestion';
+  _trDiv.style.display = 'none';
+  document.body.appendChild(_trDiv);
+
+  let _trSuggestion = null; // full predicted row string, e.g. "| 3 | 2024-01-03 |"
+
+  function _trHide() {
+    _trDiv.style.display = 'none';
+    _trSuggestion = null;
+  }
+
+  // Position the ghost div at the cursor using the same mirror technique as the
+  // wiki-link dropdown so metrics match the textarea font exactly.
+  function _trPosition(cursorOffset) {
+    const cs = window.getComputedStyle(textarea);
+    const mirror = document.createElement('div');
+    mirror.style.cssText =
+      'position:absolute;top:-9999px;left:-9999px;visibility:hidden;' +
+      'white-space:pre-wrap;word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
+      'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
+      'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
+    mirror.appendChild(document.createTextNode(textarea.value.slice(0, cursorOffset)));
+    const anchor = document.createElement('span');
+    anchor.textContent = '\u200b';
+    mirror.appendChild(anchor);
+    document.body.appendChild(mirror);
+    const anchorTop  = anchor.offsetTop;
+    const anchorLeft = anchor.offsetLeft;
+    document.body.removeChild(mirror);
+
+    const taRect = textarea.getBoundingClientRect();
+    _trDiv.style.font       = cs.font;
+    _trDiv.style.lineHeight = cs.lineHeight;
+    _trDiv.style.color      = cs.color;
+    _trDiv.style.top        = (taRect.top  + anchorTop  - textarea.scrollTop)  + 'px';
+    _trDiv.style.left       = (taRect.left + anchorLeft - textarea.scrollLeft) + 'px';
+    _trDiv.style.maxWidth   = (taRect.right - taRect.left - anchorLeft - 4) + 'px';
+  }
+
+  // ── Date / number helpers ────────────────────────────────────────────────
+
+  const _MONTHS_FULL  = ['January','February','March','April','May','June',
+                          'July','August','September','October','November','December'];
+  const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+                          'Jul','Aug','Sep','Oct','Nov','Dec'];
+  const _DAYS_SHORT   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  function _ordinalSuffix(n) {
+    const s = n % 100;
+    if (s >= 11 && s <= 13) return 'th';
+    return ['th','st','nd','rd','th'][Math.min(n % 10, 4)];
+  }
+
+  // Convert unicode subscript digit string → integer
+  function _subToNum(s) {
+    return parseInt(s.replace(/[\u2080-\u2089]/g, c => c.charCodeAt(0) - 0x2080), 10);
+  }
+  // Convert integer → unicode subscript digit string
+  function _numToSub(n) {
+    return String(n).replace(/\d/g, d => String.fromCharCode(0x2080 + +d));
+  }
+
+  // Try to parse an ordinal-day-month string like "Mon 1st April" or "1st Apr 2024".
+  // Returns a Date if successful, null otherwise.  Also returns style flags for formatting.
+  function _parseOrdinalDate(v) {
+    // Optional day-of-week, day+ordinal, month (full or short), optional year
+    const re = /^(?:([A-Za-z]{3})\s+)?(\d{1,2})(?:st|nd|rd|th)\s+([A-Za-z]+?)(?:,?\s*(\d{4}))?$/;
+    const m = v.match(re);
+    if (!m) return null;
+    const [, dow, dayStr, monthStr, yearStr] = m;
+    const day = parseInt(dayStr, 10);
+    const monthFull  = _MONTHS_FULL.findIndex(mo => mo.toLowerCase() === monthStr.toLowerCase());
+    const monthShort = _MONTHS_SHORT.findIndex(mo => mo.toLowerCase() === monthStr.toLowerCase());
+    const monthIdx   = monthFull >= 0 ? monthFull : monthShort;
+    if (monthIdx < 0) return null;
+    const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear();
+    const date = new Date(year, monthIdx, day);
+    if (isNaN(date.getTime())) return null;
+    return {
+      date,
+      hasDow:       !!dow,
+      shortMonth:   monthFull < 0,
+      hasYear:      !!yearStr,
+    };
+  }
+
+  function _formatOrdinalDate(date, style) {
+    const day      = date.getDate();
+    const monthIdx = date.getMonth();
+    const parts    = [];
+    if (style.hasDow)   parts.push(_DAYS_SHORT[date.getDay()]);
+    parts.push(day + _ordinalSuffix(day));
+    parts.push(style.shortMonth ? _MONTHS_SHORT[monthIdx] : _MONTHS_FULL[monthIdx]);
+    if (style.hasYear)  parts.push(String(date.getFullYear()));
+    return parts.join(' ');
+  }
+
+  // ── Per-cell pattern prediction ──────────────────────────────────────────
+
+  function _predictCell(values) {
+    if (values.length < 2) return values[values.length - 1] || '';
+    const last = values[values.length - 1];
+
+    // Helper: check all consecutive differences in an array of numbers are equal
+    function _allDiffsEqual(nums) {
+      if (nums.length < 2) return false;
+      const d = nums[1] - nums[0];
+      for (let i = 2; i < nums.length; i++) if (nums[i] - nums[i-1] !== d) return false;
+      return d !== 0;
+    }
+
+    // 1. ISO date YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(last)) {
+      const dates = values.map(v => new Date(v).getTime());
+      if (dates.every(d => !isNaN(d)) && _allDiffsEqual(dates)) {
+        const next = new Date(dates[dates.length - 1] + (dates[1] - dates[0]));
+        return next.toISOString().slice(0, 10);
+      }
+    }
+
+    // 2. Compact date YYMMDD (6 digits) or YYYYMMDD (8 digits)
+    const compactRe = /^(\d{2}|\d{4})(\d{2})(\d{2})$/;
+    if (compactRe.test(last) && values.every(v => compactRe.test(v))) {
+      const toMs = v => {
+        const [, yr, mo, dy] = v.match(compactRe);
+        const fullYear = yr.length === 2 ? 2000 + parseInt(yr, 10) : parseInt(yr, 10);
+        return new Date(fullYear, parseInt(mo, 10) - 1, parseInt(dy, 10)).getTime();
+      };
+      const mss = values.map(toMs);
+      if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
+        const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
+        const yLen = last.length === 6 ? 2 : 4;
+        const yr   = yLen === 2
+          ? String(next.getFullYear()).slice(-2)
+          : String(next.getFullYear());
+        const mo   = String(next.getMonth() + 1).padStart(2, '0');
+        const dy   = String(next.getDate()).padStart(2, '0');
+        return yr + mo + dy;
+      }
+    }
+
+    // 3. Ordinal day-month: "Mon 1st April", "1st Apr", "2nd January 2024" etc.
+    const ordParsed = values.map(_parseOrdinalDate);
+    if (ordParsed.every(p => p !== null)) {
+      const mss = ordParsed.map(p => p.date.getTime());
+      if (_allDiffsEqual(mss)) {
+        const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
+        return _formatOrdinalDate(next, ordParsed[ordParsed.length - 1]);
+      }
+    }
+
+    // 4. Slash date DD/MM/YYYY or MM/DD/YYYY
+    const slashRe = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    if (slashRe.test(last) && values.every(v => slashRe.test(v))) {
+      const [, a0, b0] = values[0].match(slashRe);
+      const isDMY = parseInt(a0, 10) > 12;
+      const toMs = v => {
+        const [, a, b, y] = v.match(slashRe);
+        return isDMY
+          ? new Date(`${y}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`).getTime()
+          : new Date(`${y}-${a.padStart(2,'0')}-${b.padStart(2,'0')}`).getTime();
+      };
+      const mss = values.map(toMs);
+      if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
+        const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
+        const dd = String(next.getDate()).padStart(2,'0');
+        const mm = String(next.getMonth()+1).padStart(2,'0');
+        const yy = next.getFullYear();
+        return isDMY ? `${dd}/${mm}/${yy}` : `${mm}/${dd}/${yy}`;
+      }
+    }
+
+    // 5. Pure integer (no leading zeros, no extra characters)
+    if (/^-?\d+$/.test(last) && values.every(v => /^-?\d+$/.test(v))) {
+      const nums = values.map(Number);
+      if (_allDiffsEqual(nums)) return String(nums[nums.length - 1] + (nums[1] - nums[0]));
+    }
+
+    // 6. Float with consistent decimal places
+    const floatRe = /^-?\d+\.\d+$/;
+    if (floatRe.test(last) && values.every(v => floatRe.test(v))) {
+      const nums = values.map(Number);
+      if (_allDiffsEqual(nums)) {
+        const decimals = last.split('.')[1].length;
+        return (nums[nums.length - 1] + (nums[1] - nums[0])).toFixed(decimals);
+      }
+    }
+
+    // 7. Unicode subscript digits suffix: "x₁", "α₃", "f₁₂"
+    const subRe = /^(.*?)([\u2080-\u2089]+)$/;
+    if (subRe.test(last)) {
+      const lastM = last.match(subRe);
+      const prefix = lastM[1];
+      const allMatch = values.every(v => {
+        const m = v.match(subRe);
+        return m && m[1] === prefix;
+      });
+      if (allMatch) {
+        const nums = values.map(v => _subToNum(v.match(subRe)[2]));
+        if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
+          return prefix + _numToSub(nums[nums.length - 1] + (nums[1] - nums[0]));
+        }
+      }
+    }
+
+    // 8. Markdown/LaTeX subscript: "x_1", "x_{12}", "\alpha_{3}"
+    const latexSubRe = /^(.*?)_(\{?)(\d+)\}?$/;
+    if (latexSubRe.test(last)) {
+      const lastM = last.match(latexSubRe);
+      const prefix   = lastM[1];
+      const hasBrace = lastM[2] === '{';
+      const allMatch = values.every(v => {
+        const m = v.match(latexSubRe);
+        return m && m[1] === prefix;
+      });
+      if (allMatch) {
+        const nums = values.map(v => parseInt(v.match(latexSubRe)[3], 10));
+        if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
+          const next = nums[nums.length - 1] + (nums[1] - nums[0]);
+          return hasBrace ? `${prefix}_{${next}}` : `${prefix}_${next}`;
+        }
+      }
+    }
+
+    // 9. Text + number suffix ("Item 1", "Row 3") with consistent prefix
+    const tnRe = /^(.*?)(\d+)$/;
+    if (tnRe.test(last)) {
+      const lastM = last.match(tnRe);
+      const prefix = lastM[1];
+      const allMatch = values.every(v => {
+        const m = v.match(tnRe);
+        return m && m[1] === prefix;
+      });
+      if (allMatch) {
+        const nums = values.map(v => parseInt(v.match(tnRe)[2], 10));
+        if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
+          return prefix + (nums[nums.length - 1] + (nums[1] - nums[0]));
+        }
+      }
+    }
+
+    // 10. Fallback: repeat last value
+    return last;
+  }
+
+  // ── Table structure helpers ──────────────────────────────────────────────
+
+  function _parseCells(line) {
+    const raw = line.trim();
+    return raw.slice(1, raw.lastIndexOf('|')).split('|').map(c => c.trim());
+  }
+
+  // Returns the body rows of the table immediately preceding lineIndex, or null.
+  // Requires ≥ 2 body rows for pattern detection.
+  function _getTableBodyRowsAbove(lines, lineIndex) {
+    const rows = [];
+    let i = lineIndex - 1;
+    while (i >= 0 && /^\s*\|/.test(lines[i])) {
+      rows.unshift(lines[i]);
+      i--;
+    }
+    if (rows.length < 2) return null;
+    // Find the separator line (cells = :?-+:? only)
+    const sepIdx = rows.findIndex(row => {
+      const cells = _parseCells(row);
+      return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+    });
+    if (sepIdx < 0) return null; // no separator → not a real table
+    const bodyRows = rows.slice(sepIdx + 1);
+    return bodyRows.length >= 2 ? bodyRows : null;
+  }
+
+  function _buildSuggestion(bodyRows) {
+    const parsed  = bodyRows.map(_parseCells);
+    const numCols = parsed[0].length;
+    if (!numCols) return null;
+    const cells = [];
+    for (let c = 0; c < numCols; c++) {
+      cells.push(_predictCell(parsed.map(r => r[c] !== undefined ? r[c] : '')));
+    }
+    return '| ' + cells.join(' | ') + ' |';
+  }
+
+  // ── Event listeners ──────────────────────────────────────────────────────
+
+  textarea.addEventListener('input', () => {
+    // Don't compete with wiki-link autocomplete
+    const wikidrop = document.getElementById('wikilink-dropdown');
+    if (wikidrop && wikidrop.style.display !== 'none') { _trHide(); return; }
+
+    const pos      = textarea.selectionStart;
+    const text     = textarea.value;
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    const currentLine = text.slice(lineStart, pos);
+
+    // Only trigger when the current line is exactly '|'
+    if (currentLine !== '|') { _trHide(); return; }
+
+    const linesAbove = text.slice(0, lineStart).split('\n');
+    const bodyRows   = _getTableBodyRowsAbove(linesAbove, linesAbove.length);
+    if (!bodyRows) { _trHide(); return; }
+
+    const suggestion = _buildSuggestion(bodyRows);
+    if (!suggestion) { _trHide(); return; }
+
+    _trSuggestion = suggestion;
+    // Ghost shows everything after the '|' the user already typed
+    _trDiv.textContent = suggestion.slice(1);
+    _trPosition(pos);
+    _trDiv.style.display = 'block';
+  });
+
+  textarea.addEventListener('keydown', e => {
+    if (_trSuggestion === null) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      const pos       = textarea.selectionStart;
+      const text      = textarea.value;
+      const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+      const before    = text.slice(0, lineStart);
+      const after     = text.slice(pos);
+      // Replace the lone '|' with the full suggestion then add a newline
+      textarea.value  = before + _trSuggestion + '\n' + after;
+      const newPos    = before.length + _trSuggestion.length + 1;
+      textarea.selectionStart = textarea.selectionEnd = newPos;
+      _trHide();
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      _trHide();
+    }
+  }, true); // capture phase — same priority as wiki dropdown
+
+  textarea.addEventListener('blur',   () => setTimeout(_trHide, 150));
+  textarea.addEventListener('scroll', () => {
+    if (_trSuggestion !== null) _trPosition(textarea.selectionStart);
+  });
+}
+
 // ── Mobile Swipe Navigation ──────────────────────────────────────────────
 {
   const mobileRightPanel = document.getElementById('mobile-right-panel');

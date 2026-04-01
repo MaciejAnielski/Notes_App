@@ -2799,3 +2799,13 @@ input[type="checkbox"] {
   opacity: 0.85;
 }
 
+/* ── Table row autofill ghost text ──────────────────────────────────────── */
+#table-row-suggestion {
+  position: fixed;
+  pointer-events: none;
+  z-index: 98;
+  white-space: pre;
+  opacity: 0.38;
+  overflow: hidden;
+}
+
