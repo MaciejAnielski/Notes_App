@@ -670,6 +670,44 @@ function _findMarkdownTables(text) {
   return tables;
 }
 
+// Normalise markdown table formatting: single-space cell padding, '| - |' separators.
+// Called when leaving edit mode so the source is always consistently formatted.
+function _cleanupMarkdownTables(text) {
+  const lines = text.split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    if (
+      i + 1 < lines.length &&
+      /^\s*\|/.test(lines[i]) &&
+      /^\s*\|[\s\-:|]+\|/.test(lines[i + 1])
+    ) {
+      lines[i] = _normalizeTableRow(lines[i]);        // header
+      i++;
+      lines[i] = _normalizeTableSeparator(lines[i]);  // separator
+      i++;
+      while (i < lines.length && /^\s*\|/.test(lines[i])) {
+        lines[i] = _normalizeTableRow(lines[i]);       // body
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+  return lines.join('\n');
+}
+
+function _normalizeTableRow(line) {
+  const raw = line.trim();
+  const cells = raw.slice(1, raw.lastIndexOf('|')).split('|');
+  return '|' + cells.map(c => ' ' + c.trim() + ' ').join('|') + '|';
+}
+
+function _normalizeTableSeparator(line) {
+  const raw = line.trim();
+  const cells = raw.slice(1, raw.lastIndexOf('|')).split('|');
+  return '|' + cells.map(() => ' - ').join('|') + '|';
+}
+
 // Rewrite textarea.value so that sorted tables are persisted to the markdown source.
 // Called only when leaving preview mode (view toggle or note switch) so that
 // textarea.value is never modified mid-session — the original markdown rows
@@ -2670,6 +2708,13 @@ async function toggleView() {
       await autoSaveNote();
     }
     await applyPendingRename();
+
+    // Clean up table formatting before switching to preview.
+    const _cleanedText = _cleanupMarkdownTables(textarea.value);
+    if (_cleanedText !== textarea.value) {
+      textarea.value = _cleanedText;
+      await autoSaveNote();
+    }
 
     await renderPreview();
     previewDiv.style.display = 'block';
