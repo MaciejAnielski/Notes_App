@@ -748,7 +748,6 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     const taRect = textarea.getBoundingClientRect();
     _trDiv.style.font       = cs.font;
     _trDiv.style.lineHeight = cs.lineHeight;
-    _trDiv.style.color      = cs.color;
     _trDiv.style.top        = (taRect.top  + anchorTop  - textarea.scrollTop)  + 'px';
     _trDiv.style.left       = (taRect.left + anchorLeft - textarea.scrollLeft) + 'px';
     _trDiv.style.maxWidth   = (taRect.right - taRect.left - anchorLeft - 4) + 'px';
