@@ -2803,8 +2803,9 @@ input[type="checkbox"] {
 #table-row-suggestion {
   position: fixed;
   pointer-events: none;
-  z-index: 98;
+  z-index: 2;           /* above textarea (z-index:1) and highlight (z-index:0) */
   white-space: pre;
+  color: var(--text);   /* must not inherit from textarea which uses color:transparent */
   opacity: 0.38;
   overflow: hidden;
 }
