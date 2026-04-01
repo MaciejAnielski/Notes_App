@@ -753,6 +753,46 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     _trDiv.style.maxWidth   = (taRect.right - taRect.left - anchorLeft - 4) + 'px';
   }
 
+  // Position the ghost div using the Range API on the syntax-highlight <pre>.
+  // The pre uses CSS transform for scrolling so getBoundingClientRect() on Range
+  // objects already returns scroll-adjusted viewport coordinates — no manual
+  // scroll offset needed.  Falls back to _trPosition() if the pre isn't ready.
+  function _trPositionFromPre(cursorOffset) {
+    if (typeof _highlightPre === 'undefined' || !_highlightPre) return false;
+    try {
+      let remaining = cursorOffset;
+      let node = null;
+      let nodeOffset = 0;
+      const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
+      let textNode;
+      while ((textNode = walker.nextNode())) {
+        if (remaining <= textNode.length) {
+          node = textNode;
+          nodeOffset = remaining;
+          break;
+        }
+        remaining -= textNode.length;
+      }
+      if (!node) return false;
+      const range = document.createRange();
+      range.setStart(node, nodeOffset);
+      range.setEnd(node, nodeOffset);
+      const rects = range.getClientRects();
+      if (!rects || rects.length === 0) return false;
+      const rect = rects[0];
+      const cs = window.getComputedStyle(textarea);
+      _trDiv.style.font       = cs.font;
+      _trDiv.style.lineHeight = cs.lineHeight;
+      _trDiv.style.top        = rect.top + 'px';
+      _trDiv.style.left       = rect.left + 'px';
+      const taRect = textarea.getBoundingClientRect();
+      _trDiv.style.maxWidth   = (taRect.right - rect.left - 4) + 'px';
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ── Date / number helpers ────────────────────────────────────────────────
 
   const _MONTHS_FULL  = ['January','February','March','April','May','June',
@@ -760,6 +800,7 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
   const _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
                           'Jul','Aug','Sep','Oct','Nov','Dec'];
   const _DAYS_SHORT   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const _DAYS_FULL    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
   function _ordinalSuffix(n) {
     const s = n % 100;
@@ -776,11 +817,11 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     return String(n).replace(/\d/g, d => String.fromCharCode(0x2080 + +d));
   }
 
-  // Try to parse an ordinal-day-month string like "Mon 1st April" or "1st Apr 2024".
+  // Try to parse an ordinal-day-month string like "Mon 1st April", "Wednesday 2nd March 2025".
   // Returns a Date if successful, null otherwise.  Also returns style flags for formatting.
   function _parseOrdinalDate(v) {
-    // Optional day-of-week, day+ordinal, month (full or short), optional year
-    const re = /^(?:([A-Za-z]{3})\s+)?(\d{1,2})(?:st|nd|rd|th)\s+([A-Za-z]+?)(?:,?\s*(\d{4}))?$/;
+    // Optional day-of-week (3-char short or full name), day+ordinal, month, optional year
+    const re = /^(?:([A-Za-z]{3,9})\s+)?(\d{1,2})(?:st|nd|rd|th)\s+([A-Za-z]+?)(?:,?\s*(\d{4}))?$/;
     const m = v.match(re);
     if (!m) return null;
     const [, dow, dayStr, monthStr, yearStr] = m;
@@ -789,14 +830,24 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     const monthShort = _MONTHS_SHORT.findIndex(mo => mo.toLowerCase() === monthStr.toLowerCase());
     const monthIdx   = monthFull >= 0 ? monthFull : monthShort;
     if (monthIdx < 0) return null;
+    // Validate day-of-week string if provided (must be a recognised short or full name)
+    let shortDow = false;
+    if (dow) {
+      const dowLower = dow.toLowerCase();
+      const isShort = _DAYS_SHORT.some(d => d.toLowerCase() === dowLower);
+      const isFull  = _DAYS_FULL.some(d => d.toLowerCase() === dowLower);
+      if (!isShort && !isFull) return null;
+      shortDow = isShort;
+    }
     const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear();
     const date = new Date(year, monthIdx, day);
     if (isNaN(date.getTime())) return null;
     return {
       date,
-      hasDow:       !!dow,
-      shortMonth:   monthFull < 0,
-      hasYear:      !!yearStr,
+      hasDow:     !!dow,
+      shortDow,
+      shortMonth: monthFull < 0,
+      hasYear:    !!yearStr,
     };
   }
 
@@ -804,7 +855,7 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     const day      = date.getDate();
     const monthIdx = date.getMonth();
     const parts    = [];
-    if (style.hasDow)   parts.push(_DAYS_SHORT[date.getDay()]);
+    if (style.hasDow) parts.push(style.shortDow ? _DAYS_SHORT[date.getDay()] : _DAYS_FULL[date.getDay()]);
     parts.push(day + _ordinalSuffix(day));
     parts.push(style.shortMonth ? _MONTHS_SHORT[monthIdx] : _MONTHS_FULL[monthIdx]);
     if (style.hasYear)  parts.push(String(date.getFullYear()));
@@ -924,21 +975,46 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
       }
     }
 
-    // 8. Markdown/LaTeX subscript: "x_1", "x_{12}", "\alpha_{3}"
-    const latexSubRe = /^(.*?)_(\{?)(\d+)\}?$/;
+    // 8. Markdown/LaTeX subscript: "x_1", "x_{12}", "\alpha_{3}", "$f_{240101}$"
+    //    Suffix capture handles closing delimiters like trailing "$".
+    const latexSubRe = /^(.*?)_(\{?)(\d+)\}?(.*)$/;
     if (latexSubRe.test(last)) {
       const lastM = last.match(latexSubRe);
       const prefix   = lastM[1];
       const hasBrace = lastM[2] === '{';
+      const suffix   = lastM[4];
       const allMatch = values.every(v => {
         const m = v.match(latexSubRe);
-        return m && m[1] === prefix;
+        return m && m[1] === prefix && m[4] === suffix;
       });
       if (allMatch) {
-        const nums = values.map(v => parseInt(v.match(latexSubRe)[3], 10));
+        const subVals = values.map(v => v.match(latexSubRe)[3]);
+        // Check if subscript values are compact dates (YYMMDD / YYYYMMDD)
+        const compactSubRe = /^(\d{2}|\d{4})(\d{2})(\d{2})$/;
+        if (subVals.every(s => compactSubRe.test(s))) {
+          const toMs = s => {
+            const [, yr, mo, dy] = s.match(compactSubRe);
+            const moNum = parseInt(mo, 10);
+            const dyNum = parseInt(dy, 10);
+            if (moNum < 1 || moNum > 12 || dyNum < 1 || dyNum > 31) return NaN;
+            const fullYear = yr.length === 2 ? 2000 + parseInt(yr, 10) : parseInt(yr, 10);
+            return new Date(fullYear, moNum - 1, dyNum).getTime();
+          };
+          const mss = subVals.map(toMs);
+          if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
+            const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
+            const yLen = subVals[0].length === 6 ? 2 : 4;
+            const yr   = yLen === 2 ? String(next.getFullYear()).slice(-2) : String(next.getFullYear());
+            const mo   = String(next.getMonth() + 1).padStart(2, '0');
+            const dy   = String(next.getDate()).padStart(2, '0');
+            const nextSub = yr + mo + dy;
+            return hasBrace ? `${prefix}_{${nextSub}}${suffix}` : `${prefix}_${nextSub}${suffix}`;
+          }
+        }
+        const nums = subVals.map(s => parseInt(s, 10));
         if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
           const next = nums[nums.length - 1] + (nums[1] - nums[0]);
-          return hasBrace ? `${prefix}_{${next}}` : `${prefix}_${next}`;
+          return hasBrace ? `${prefix}_{${next}}${suffix}` : `${prefix}_${next}${suffix}`;
         }
       }
     }
@@ -1030,8 +1106,14 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     _trSuggestion = suggestion;
     // Ghost shows everything after the '|' the user already typed
     _trDiv.textContent = suggestion.slice(1);
-    _trPosition(pos);
-    _trDiv.style.display = 'block';
+    // Defer display by one animation frame so the 10ms syntax-highlight debounce
+    // has fired and the <pre> reflects the current text.  The Range API then gives
+    // pixel-perfect viewport coordinates without needing a mirror div.
+    requestAnimationFrame(() => {
+      if (_trSuggestion === null) return; // dismissed during the rAF delay
+      if (!_trPositionFromPre(pos)) _trPosition(pos);
+      _trDiv.style.display = 'block';
+    });
   });
 
   textarea.addEventListener('keydown', e => {
@@ -1059,7 +1141,10 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
 
   textarea.addEventListener('blur',   () => setTimeout(_trHide, 150));
   textarea.addEventListener('scroll', () => {
-    if (_trSuggestion !== null) _trPosition(textarea.selectionStart);
+    if (_trSuggestion !== null) {
+      const pos = textarea.selectionStart;
+      if (!_trPositionFromPre(pos)) _trPosition(pos);
+    }
   });
 }
 
