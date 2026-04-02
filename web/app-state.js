@@ -426,12 +426,27 @@ function createSearchPredicate(query, makeTermPredicate) {
     makeTermPredicate = (term) => (n, c) => n.includes(term) || c.includes(term);
   }
 
-  const tokens = query.split(/\s+/).filter(Boolean);
+  // Tokenize by splitting on explicit AND/OR/NOT keywords (word boundaries,
+  // case-insensitive). Everything between keywords is a single literal term
+  // that may contain spaces — spaces are NOT implicit AND operators.
+  const rawParts = query.split(/\b(AND|OR|NOT)\b/i);
+  const tokens = [];
+  for (const part of rawParts) {
+    const up = part.trim().toUpperCase();
+    if (up === 'AND' || up === 'OR' || up === 'NOT') {
+      tokens.push(up);
+    } else {
+      const literal = part.trim();
+      if (literal) tokens.push(literal);
+    }
+  }
+  if (tokens.length === 0) return () => true;
+
   let index = 0;
 
   function parseExpression() {
     let left = parseTerm();
-    while (tokens[index] && tokens[index].toUpperCase() === 'OR') {
+    while (tokens[index] && tokens[index] === 'OR') {
       index++;
       const right = parseTerm();
       const prev = left;
@@ -442,10 +457,8 @@ function createSearchPredicate(query, makeTermPredicate) {
 
   function parseTerm() {
     let left = parseFactor();
-    while (tokens[index] && tokens[index].toUpperCase() !== 'OR') {
-      if (tokens[index].toUpperCase() === 'AND') {
-        index++;
-      }
+    while (tokens[index] && tokens[index] === 'AND') {
+      index++;
       const right = parseFactor();
       const prev = left;
       left = (...args) => prev(...args) && right(...args);
@@ -454,7 +467,7 @@ function createSearchPredicate(query, makeTermPredicate) {
   }
 
   function parseFactor() {
-    if (tokens[index] && tokens[index].toUpperCase() === 'NOT') {
+    if (tokens[index] && tokens[index] === 'NOT') {
       index++;
       const next = parseFactor();
       return (...args) => !next(...args);

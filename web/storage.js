@@ -137,6 +137,14 @@ function _txDone(tx) {
 
 let _noteNamesCache = null;
 
+// ── Cross-tab change notifications via BroadcastChannel ──────────────────
+// Notifies other open tabs/windows of note changes so they can refresh their
+// view or editor content. Falls back gracefully if BroadcastChannel is not
+// supported (older browsers).
+const _notesBroadcast = (typeof BroadcastChannel !== 'undefined')
+  ? new BroadcastChannel('notes:idb:change')
+  : null;
+
 // ── NoteStorage interface ─────────────────────────────────────────────────
 
 window.NoteStorage = {
@@ -153,6 +161,7 @@ window.NoteStorage = {
     store.put({ name, content });
     await _txDone(tx);
     _noteNamesCache = null;
+    _notesBroadcast?.postMessage({ type: 'set', name, content });
   },
 
   async removeNote(name) {
@@ -161,6 +170,7 @@ window.NoteStorage = {
     store.delete(name);
     await _txDone(tx);
     _noteNamesCache = null;
+    _notesBroadcast?.postMessage({ type: 'remove', name });
   },
 
   async trashNote(name) {
@@ -171,6 +181,7 @@ window.NoteStorage = {
     await _txDone(tx);
     _noteNamesCache = null;
     await this.removeAttachmentDir(name);
+    _notesBroadcast?.postMessage({ type: 'remove', name });
   },
 
   async getAllNoteNames() {
@@ -206,6 +217,7 @@ window.NoteStorage = {
     store.delete(oldName);
     await _txDone(tx);
     _noteNamesCache = null;
+    _notesBroadcast?.postMessage({ type: 'rename', oldName, newName, content });
   },
 
   // ── Attachment methods ────────────────────────────────────────────────

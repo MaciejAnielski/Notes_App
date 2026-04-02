@@ -1708,13 +1708,17 @@ body.panel-pinned {
   border-radius: 50%;
   margin-left: auto;
   flex-shrink: 0;
-  align-self: center;
+  /* Align with the first text line, mirroring the checkbox alignment */
+  align-self: flex-start;
+  margin-top: calc((1lh - 7px) / 2);
 }
 
 /* In markdown preview, dot sits inline at the end of the task text */
 .task-status-dot.dot-inline {
   margin-left: 5px;
   vertical-align: middle;
+  align-self: flex-start;
+  margin-top: calc((1lh - 7px) / 2);
 }
 
 .dot-unscheduled { background-color: var(--text); }
@@ -2804,5 +2808,22 @@ input[type="checkbox"] {
 .table-ghost-text {
   opacity: 0.38;
   pointer-events: none;
+}
+
+/* ── Copy glow feedback ─────────────────────────────────────────────────── */
+/* One-shot pulse applied to an element after it has been copied to the
+   clipboard. Uses the theme accent colour for coherence. */
+@keyframes copy-glow-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--accent); outline-color: transparent; }
+  30%  { box-shadow: 0 0 8px 3px color-mix(in srgb, var(--accent) 55%, transparent);
+         outline-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; outline-color: transparent; }
+}
+
+.copy-glow {
+  animation: copy-glow-pulse 0.8s ease-out forwards;
+  border-radius: 3px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 

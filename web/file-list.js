@@ -6,6 +6,17 @@
 // Matches a schedule date (and optional time/multi-day range) at end of a task line.
 const _SCHEDULE_DATE_RE = />\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/;
 
+// ── Copy glow helper ──────────────────────────────────────────────────────
+// Triggers a one-shot accent-coloured glow on `el` to confirm a copy action.
+function _triggerCopyGlow(el) {
+  if (!el) return;
+  el.classList.remove('copy-glow');
+  // Force reflow so re-adding the class restarts the animation.
+  void el.offsetWidth;
+  el.classList.add('copy-glow');
+  el.addEventListener('animationend', () => el.classList.remove('copy-glow'), { once: true });
+}
+
 // Module-level regex constants for updateWebCalendarSettings.
 // _RE_CAL_TAG and _RE_CAL_NAME/_RE_CAL_CB have the /g flag (used with exec) —
 // always reset .lastIndex = 0 before each while loop.
@@ -98,6 +109,7 @@ async function _doUpdateFileList() {
           document.execCommand('copy');
           document.body.removeChild(tmp);
         });
+        _triggerCopyGlow(span);
         updateStatus(`Copied "${fileName}".`, true);
       });
       li.appendChild(span);

@@ -407,14 +407,16 @@ function setupTableFeatures(container) {
       });
 
       const text = rows.join('\n');
+      const _glowTarget = table.closest('.table-wrapper') || table;
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(text).then(() => {
+          _tableCopyGlow(_glowTarget);
           updateStatus('Table copied to clipboard.', true);
         }).catch(() => {
-          _fallbackCopy(text);
+          _fallbackCopy(text, _glowTarget);
         });
       } else {
-        _fallbackCopy(text);
+        _fallbackCopy(text, _glowTarget);
       }
     };
 
@@ -432,14 +434,26 @@ function setupTableFeatures(container) {
   });
 }
 
-function _fallbackCopy(text) {
+function _tableCopyGlow(el) {
+  if (!el) return;
+  el.classList.remove('copy-glow');
+  void el.offsetWidth;
+  el.classList.add('copy-glow');
+  el.addEventListener('animationend', () => el.classList.remove('copy-glow'), { once: true });
+}
+
+function _fallbackCopy(text, glowTarget) {
   const ta = document.createElement('textarea');
   ta.value = text;
   ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
   document.body.appendChild(ta);
   ta.focus();
   ta.select();
-  try { document.execCommand('copy'); updateStatus('Table copied to clipboard.', true); } catch { /* ignore */ }
+  try {
+    document.execCommand('copy');
+    _tableCopyGlow(glowTarget);
+    updateStatus('Table copied to clipboard.', true);
+  } catch { /* ignore */ }
   document.body.removeChild(ta);
 }
 
