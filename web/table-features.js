@@ -608,12 +608,25 @@ function _fallbackCopy(text) {
       return mode;
     }
 
+    // Advance a Date past any Saturday/Sunday (for weekday-only sequences).
+    function _skipWeekend(d) {
+      while (d.getDay() === 0 || d.getDay() === 6) d = new Date(d.getTime() + 86400000);
+      return d;
+    }
+    function _allWeekdays(mss) {
+      return mss.every(ms => { const d = new Date(ms).getDay(); return d !== 0 && d !== 6; });
+    }
+
     // 1. ISO date YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(last)) {
       const dates = values.map(v => new Date(v).getTime());
       if (dates.every(d => !isNaN(d))) {
         const diff = _modalDiff(dates);
-        if (diff !== null) return new Date(dates[dates.length - 1] + diff).toISOString().slice(0, 10);
+        if (diff !== null) {
+          let next = new Date(dates[dates.length - 1] + diff);
+          if (_allWeekdays(dates)) next = _skipWeekend(next);
+          return next.toISOString().slice(0, 10);
+        }
       }
     }
 
@@ -632,7 +645,8 @@ function _fallbackCopy(text) {
       if (mss.every(ms => !isNaN(ms))) {
         const diff = _modalDiff(mss);
         if (diff !== null) {
-          const next = new Date(mss[mss.length - 1] + diff);
+          let next = new Date(mss[mss.length - 1] + diff);
+          if (_allWeekdays(mss)) next = _skipWeekend(next);
           const yLen = last.length === 6 ? 2 : 4;
           const yr   = yLen === 2 ? String(next.getFullYear()).slice(-2) : String(next.getFullYear());
           const mo   = String(next.getMonth() + 1).padStart(2, '0');
@@ -648,7 +662,8 @@ function _fallbackCopy(text) {
       const mss = ordParsed.map(p => p.date.getTime());
       const diff = _modalDiff(mss);
       if (diff !== null) {
-        const next = new Date(mss[mss.length - 1] + diff);
+        let next = new Date(mss[mss.length - 1] + diff);
+        if (_allWeekdays(mss)) next = _skipWeekend(next);
         return _formatOrdinalDate(next, ordParsed[ordParsed.length - 1]);
       }
     }
@@ -668,7 +683,8 @@ function _fallbackCopy(text) {
       if (mss.every(ms => !isNaN(ms))) {
         const diff = _modalDiff(mss);
         if (diff !== null) {
-          const next = new Date(mss[mss.length - 1] + diff);
+          let next = new Date(mss[mss.length - 1] + diff);
+          if (_allWeekdays(mss)) next = _skipWeekend(next);
           const dd = String(next.getDate()).padStart(2,'0');
           const mm = String(next.getMonth()+1).padStart(2,'0');
           const yy = next.getFullYear();
@@ -716,7 +732,10 @@ function _fallbackCopy(text) {
       const prefix   = lastM[1];
       const hasBrace = lastM[2] === '{';
       const suffix   = lastM[4];
-      const allMatch = values.every(v => { const m = v.match(latexSubRe); return m && m[1] === prefix && m[4] === suffix; });
+      // Only require matching prefix — suffix may contain a varying cell value
+      // (e.g. "$S_{240101} = 5$" has suffix " = 5$" which differs per row).
+      // The last row's suffix is used as the output template.
+      const allMatch = values.every(v => { const m = v.match(latexSubRe); return m && m[1] === prefix; });
       if (allMatch) {
         const subVals = values.map(v => v.match(latexSubRe)[3]);
         // Check if subscript values are compact dates (YYMMDD / YYYYMMDD)
@@ -732,7 +751,8 @@ function _fallbackCopy(text) {
           const mss = subVals.map(toMs);
           const dateDiff = _modalDiff(mss);
           if (mss.every(ms => !isNaN(ms)) && dateDiff !== null) {
-            const next = new Date(mss[mss.length - 1] + dateDiff);
+            let next = new Date(mss[mss.length - 1] + dateDiff);
+            if (_allWeekdays(mss)) next = _skipWeekend(next);
             const yLen = subVals[0].length === 6 ? 2 : 4;
             const yr   = yLen === 2 ? String(next.getFullYear()).slice(-2) : String(next.getFullYear());
             const mo   = String(next.getMonth() + 1).padStart(2, '0');
@@ -879,15 +899,13 @@ function _fallbackCopy(text) {
       const pos       = textarea.selectionStart;
       const text      = textarea.value;
       const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-      const before    = text.slice(0, lineStart);
-      const after     = text.slice(pos);
-      // Replace the lone '|' with the full suggestion then add a newline
-      textarea.value  = before + _trSuggestion + '\n' + after;
-      const newPos    = before.length + _trSuggestion.length + 1;
-      textarea.selectionStart = textarea.selectionEnd = newPos;
+      // Hide ghost first, then use execCommand so the insertion joins the undo
+      // stack as a single undoable step (Ctrl-Z reverses the whole row insert).
       _trHide();
+      // Select the lone '|' so execCommand replaces it with the full suggestion.
+      textarea.setSelectionRange(lineStart, pos);
+      document.execCommand('insertText', false, _trSuggestion + '\n');
       textarea.focus();
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } else if (e.key === 'Escape') {
       e.stopPropagation();
       _trHide();
