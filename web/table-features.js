@@ -407,7 +407,9 @@ function setupTableFeatures(container) {
       });
 
       const text = rows.join('\n');
-      const _glowTarget = table.closest('.table-wrapper') || table;
+      // Glow the table element directly so the animation follows the table
+      // border, not the wider scrollable wrapper div.
+      const _glowTarget = table;
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(text).then(() => {
           _tableCopyGlow(_glowTarget);
