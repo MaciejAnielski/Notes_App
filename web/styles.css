@@ -2811,25 +2811,30 @@ input[type="checkbox"] {
 }
 
 /* ── Copy glow feedback ─────────────────────────────────────────────────── */
-/* Block-element glow (tables) — soft box-shadow pulse around the element
-   border. Uses color-mix so the colour interpolation is consistent and
-   the fade to transparent renders correctly across browsers. */
+/* Block-element glow (tables) — two-layer box-shadow: a bright tight ring
+   plus a wide diffuse halo. color-mix keeps interpolation consistent. */
 @keyframes copy-glow-pulse {
-  0%   { box-shadow: 0 0 0   0 color-mix(in srgb, var(--accent)  0%, transparent); }
-  18%  { box-shadow: 0 0 18px 2px color-mix(in srgb, var(--accent) 25%, transparent); }
-  100% { box-shadow: 0 0 8px  0 color-mix(in srgb, var(--accent)  0%, transparent); }
+  0%   { box-shadow: 0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent),
+                     0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent); }
+  12%  { box-shadow: 0 0 6px  3px color-mix(in srgb, var(--accent) 70%, transparent),
+                     0 0 22px 5px color-mix(in srgb, var(--accent) 40%, transparent); }
+  100% { box-shadow: 0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent),
+                     0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent); }
 }
 
 .copy-glow {
   animation: copy-glow-pulse 2s ease-out forwards;
 }
 
-/* Text-element glow (note names, inline text) — text-shadow follows the
-   actual character glyphs and is not clipped by a parent overflow:hidden. */
+/* Text-element glow (note names) — two-layer text-shadow: bright core plus
+   diffuse halo. Follows character glyphs; not clipped by parent overflow. */
 @keyframes copy-glow-text-pulse {
-  0%   { text-shadow: 0 0 0   color-mix(in srgb, var(--accent)  0%, transparent); }
-  18%  { text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent); }
-  100% { text-shadow: 0 0 8px  color-mix(in srgb, var(--accent)  0%, transparent); }
+  0%   { text-shadow: 0 0 0    color-mix(in srgb, var(--accent)  0%, transparent),
+                      0 0 0    color-mix(in srgb, var(--accent)  0%, transparent); }
+  12%  { text-shadow: 0 0 6px  color-mix(in srgb, var(--accent) 95%, transparent),
+                      0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
+  100% { text-shadow: 0 0 0    color-mix(in srgb, var(--accent)  0%, transparent),
+                      0 0 0    color-mix(in srgb, var(--accent)  0%, transparent); }
 }
 
 .copy-glow-text {
