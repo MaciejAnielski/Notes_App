@@ -2811,19 +2811,28 @@ input[type="checkbox"] {
 }
 
 /* ── Copy glow feedback ─────────────────────────────────────────────────── */
-/* One-shot pulse applied to an element after it has been copied to the
-   clipboard. Uses the theme accent colour for coherence. */
+/* Block-element glow (tables) — soft box-shadow pulse around the element
+   border. Uses color-mix so the colour interpolation is consistent and
+   the fade to transparent renders correctly across browsers. */
 @keyframes copy-glow-pulse {
-  0%   { box-shadow: 0 0 0 0 var(--accent); outline-color: transparent; }
-  30%  { box-shadow: 0 0 8px 3px color-mix(in srgb, var(--accent) 55%, transparent);
-         outline-color: color-mix(in srgb, var(--accent) 70%, transparent); }
-  100% { box-shadow: 0 0 0 0 transparent; outline-color: transparent; }
+  0%   { box-shadow: 0 0 0   0 color-mix(in srgb, var(--accent)  0%, transparent); }
+  18%  { box-shadow: 0 0 18px 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  100% { box-shadow: 0 0 8px  0 color-mix(in srgb, var(--accent)  0%, transparent); }
 }
 
 .copy-glow {
-  animation: copy-glow-pulse 0.8s ease-out forwards;
-  border-radius: 3px;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
+  animation: copy-glow-pulse 2s ease-out forwards;
+}
+
+/* Text-element glow (note names, inline text) — text-shadow follows the
+   actual character glyphs and is not clipped by a parent overflow:hidden. */
+@keyframes copy-glow-text-pulse {
+  0%   { text-shadow: 0 0 0   color-mix(in srgb, var(--accent)  0%, transparent); }
+  18%  { text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent); }
+  100% { text-shadow: 0 0 8px  color-mix(in srgb, var(--accent)  0%, transparent); }
+}
+
+.copy-glow-text {
+  animation: copy-glow-text-pulse 2s ease-out forwards;
 }
 

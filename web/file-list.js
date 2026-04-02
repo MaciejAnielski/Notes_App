@@ -7,14 +7,16 @@
 const _SCHEDULE_DATE_RE = />\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/;
 
 // ── Copy glow helper ──────────────────────────────────────────────────────
-// Triggers a one-shot accent-coloured glow on `el` to confirm a copy action.
+// Triggers a one-shot text-shadow glow on a text span to confirm a copy.
+// Uses copy-glow-text (text-shadow) rather than copy-glow (box-shadow) so
+// the glow follows the actual character glyphs and is not clipped by the
+// parent li's overflow:hidden.
 function _triggerCopyGlow(el) {
   if (!el) return;
-  el.classList.remove('copy-glow');
-  // Force reflow so re-adding the class restarts the animation.
-  void el.offsetWidth;
-  el.classList.add('copy-glow');
-  el.addEventListener('animationend', () => el.classList.remove('copy-glow'), { once: true });
+  el.classList.remove('copy-glow-text');
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add('copy-glow-text');
+  el.addEventListener('animationend', () => el.classList.remove('copy-glow-text'), { once: true });
 }
 
 // Module-level regex constants for updateWebCalendarSettings.
