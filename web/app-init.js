@@ -503,13 +503,32 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     ]);
     const existingSet = new Set(allNames);
     const wikiRe = /\[\[([^\]]+)\]\]/g;
+    // Markdown link [text](target) — target is internal when it has no URL
+    // scheme, is not an attachment, is not a fragment anchor, and is not empty.
+    const mdLinkRe = /\[(?:[^\]]*)\]\(([^)]+)\)/g;
+    const _isExternalTarget = t =>
+      /^https?:\/\//i.test(t) || /^mailto:/i.test(t) || /^ftp:/i.test(t) ||
+      t.startsWith('attachment:') || t.startsWith('#') || t.startsWith('/');
     const wanted = new Set();
     for (const { content } of allNotes) {
+      if (!content) continue;
       let m;
+      // Scan [[wiki links]]
       wikiRe.lastIndex = 0;
       while ((m = wikiRe.exec(content)) !== null) {
         const name = m[1].trim();
         if (!existingSet.has(name) && !name.startsWith('.')) wanted.add(name);
+      }
+      // Scan [text](internal link) markdown links
+      mdLinkRe.lastIndex = 0;
+      while ((m = mdLinkRe.exec(content)) !== null) {
+        const raw = m[1].trim();
+        if (!raw || _isExternalTarget(raw)) continue;
+        // Decode URL encoding (e.g. underscores used in place of spaces)
+        let name;
+        try { name = decodeURIComponent(raw).replace(/_/g, ' ').trim(); }
+        catch { name = raw.replace(/_/g, ' ').trim(); }
+        if (name && !existingSet.has(name) && !name.startsWith('.')) wanted.add(name);
       }
     }
     _wantedNotesCache = [...wanted];
@@ -834,6 +853,58 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
   if (isMobileView()) {
     setupMobilePanels();
   }
+}
+
+// ── Cross-tab sync via BroadcastChannel (web / IndexedDB) ────────────────
+// Listens for note changes broadcast by storage.js so that other open tabs
+// update their editor or preview when a note is modified elsewhere.
+if (typeof BroadcastChannel !== 'undefined' && !window.electronAPI && !window.Capacitor?.isNativePlatform()) {
+  const _idbChannel = new BroadcastChannel('notes:idb:change');
+  _idbChannel.addEventListener('message', async (e) => {
+    const { type, name, content, oldName, newName } = e.data || {};
+
+    if (type === 'set' || type === 'remove') {
+      const changedNote = name;
+      if (changedNote === currentFileName) {
+        const hasUnsavedEdits = _lastSavedContent !== null && textarea.value !== _lastSavedContent;
+        if (type === 'remove') {
+          if (textarea.value.trim()) {
+            updateStatus('Note deleted in another window \u2014 keeping your content. Save to restore.', false);
+          } else {
+            textarea.value = '';
+            currentFileName = null;
+            localStorage.removeItem('current_file');
+            if (isPreview) previewDiv.innerHTML = ''; else refreshHighlight();
+            updateStatus('Note deleted in another window.', false);
+          }
+        } else if (hasUnsavedEdits) {
+          updateStatus('Note updated in another window \u2014 keeping your unsaved edits.', true);
+        } else {
+          textarea.value = content;
+          _lastSavedContent = content;
+          if (isPreview) renderPreview(); else refreshHighlight();
+          updateStatus('Note updated from another window.', true);
+        }
+      }
+      const isStructural = type === 'remove';
+      if (isStructural) {
+        await updateFileList();
+      } else {
+        invalidateScheduleCache();
+        await updateTodoList();
+      }
+    } else if (type === 'rename') {
+      if (currentFileName === oldName) {
+        currentFileName = newName;
+        localStorage.setItem('current_file', newName);
+        textarea.value = content || '';
+        _lastSavedContent = content || '';
+        if (isPreview) renderPreview(); else refreshHighlight();
+        updateStatus('Note renamed in another window.', true);
+      }
+      await updateFileList();
+    }
+  });
 }
 
 // ── Cross-window sync via storage events ──────────────────────────────────

@@ -150,10 +150,26 @@ function deriveThemeVars(bg, accent) {
   const highlightColor = _hslToHex(hlHue, 80, dark ? 70 : 40);
   const highlightBg    = _hslToHex(hlHue, 60, hlBgL);
 
-  // Links — rotated hue for semantic distinctness
-  const linkHue  = (acH + 200) % 360;
-  const linkColor = _hslToHex(linkHue, 60, dark ? 75 : 35);
-  const wikiColor = _hslToHex(linkHue, 50, dark ? 70 : 40);
+  // Links — standard web blue (~215°), rotating away only when the background
+  // is itself blue (within ±45°) or when contrast would be insufficient.
+  const LINK_BASE_HUE = 215;
+  const bgBlueProximity = Math.min(Math.abs(bgH - LINK_BASE_HUE), 360 - Math.abs(bgH - LINK_BASE_HUE));
+  let linkHue;
+  if (bgBlueProximity < 45 && bgS > 15) {
+    // Background is blue-ish — check if accent gives a better alternative
+    const acBlueProximity = Math.min(Math.abs(acH - LINK_BASE_HUE), 360 - Math.abs(acH - LINK_BASE_HUE));
+    if (acBlueProximity > 45) {
+      // Accent is distinct from blue; use an accent-adjacent hue for links
+      linkHue = (acH + 150) % 360;
+    } else {
+      // Both bg and accent are blue — fall back to a contrasting complement
+      linkHue = (LINK_BASE_HUE + 180) % 360;
+    }
+  } else {
+    linkHue = LINK_BASE_HUE;
+  }
+  const linkColor = _hslToHex(linkHue, 65, dark ? 72 : 38);
+  const wikiColor = _hslToHex(linkHue, 55, dark ? 67 : 43);
 
   // List markers
   const listMarker = accent;
@@ -303,8 +319,8 @@ function deriveThemeVars(bg, accent) {
   // Footnote marker in editor
   const footnoteMarker = footnoteColor;
 
-  // Image syntax in editor — slightly distinct from link
-  const imageColor = _hslToHex(linkHue, 45, dark ? 65 : 42);
+  // Image syntax in editor — slightly distinct from link (slightly more teal)
+  const imageColor = _hslToHex((linkHue + 20) % 360, 45, dark ? 65 : 42);
 
   return {
     '--bg': bg,
