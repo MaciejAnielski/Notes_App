@@ -513,10 +513,10 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     for (const { content } of allNotes) {
       if (!content) continue;
       let m;
-      // Scan [[wiki links]]
+      // Scan [[wiki links]] — strip ##heading fragment if present
       wikiRe.lastIndex = 0;
       while ((m = wikiRe.exec(content)) !== null) {
-        const name = m[1].trim();
+        const name = m[1].replace(/#{2,}.*$/, '').trim();
         if (!existingSet.has(name) && !name.startsWith('.')) wanted.add(name);
       }
       // Scan [text](internal link) markdown links
@@ -528,6 +528,9 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
         let name;
         try { name = decodeURIComponent(raw).replace(/_/g, ' ').trim(); }
         catch { name = raw.replace(/_/g, ' ').trim(); }
+        // Strip heading fragment: note##heading → note
+        const hhIdx = name.indexOf('##');
+        if (hhIdx !== -1) name = name.slice(0, hhIdx).trim();
         if (name && !existingSet.has(name) && !name.startsWith('.')) wanted.add(name);
       }
     }

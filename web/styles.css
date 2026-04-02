@@ -1656,10 +1656,13 @@ body.panel-pinned {
   margin-top: 0.1em;
 }
 
-/* ── Schedule all-day section (above timed grid) ── */
+/* ── Schedule all-day section (above timed grid, outside the scrollable wrapper) ── */
+/* flex-shrink:0 keeps it at its natural height; the timeline wrapper below takes the rest. */
 .schedule-allday-section {
+  flex-shrink: 0;
   padding: 4px 4px 4px 0;
-  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
 }
 
 .schedule-allday-section .schedule-item {

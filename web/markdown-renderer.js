@@ -151,10 +151,21 @@ function preprocessMarkdown(text) {
     text = out.join('\n');
   }
 
-  // ── Wiki links ──
+  // ── Wiki links (supports [[note##heading]] heading-link syntax) ──
+  // Two or more consecutive hashes separate the note name from the heading text.
+  // The heading is stripped when resolving the target note for graph/link purposes.
   text = text.replace(/\[\[([^\]]+)\]\]/g, (_, inner) => {
-    const display = inner.replace(/_/g, ' ').trim();
-    const href = encodeURIComponent(inner.trim());
+    const trimmed = inner.trim();
+    const hashMatch = trimmed.match(/^([^#]+)(#{2,})(.+)$/);
+    if (hashMatch) {
+      const notePart  = hashMatch[1].trim();
+      const headingPart = hashMatch[3].trim();
+      const display = notePart.replace(/_/g, ' ') + ' › ' + headingPart.replace(/_/g, ' ');
+      const href = encodeURIComponent(trimmed);
+      return `[${display}](${href})`;
+    }
+    const display = trimmed.replace(/_/g, ' ');
+    const href = encodeURIComponent(trimmed);
     return `[${display}](${href})`;
   });
 
@@ -424,6 +435,25 @@ function preprocessMarkdown(text) {
   return text;
 }
 
+// Scroll the preview to a heading whose text matches headingText.
+// Opens any collapsed <details> ancestors so the heading is reachable.
+function _scrollToHeading(headingText) {
+  const target = headingText.toLowerCase();
+  const headings = previewDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+  for (const h of headings) {
+    if (h.textContent.trim().toLowerCase() === target) {
+      // Open all ancestor <details> so the heading is visible
+      let el = h.parentElement;
+      while (el && el !== previewDiv) {
+        if (el.tagName === 'DETAILS') el.open = true;
+        el = el.parentElement;
+      }
+      h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+  }
+}
+
 async function setupNoteLinks(container = previewDiv) {
   const allNames = new Set(await NoteStorage.getAllNoteNames());
 
@@ -497,7 +527,16 @@ async function setupNoteLinks(container = previewDiv) {
     if (href.startsWith('#')) {
       return;
     }
-    const noteName = decodeURIComponent(href).replace(/_/g, ' ').trim();
+    // Detect [[note##heading]] links: 2+ hashes separate the note name from heading.
+    const decoded = decodeURIComponent(href);
+    const headingHashMatch = decoded.match(/^([^#]+)(#{2,})(.+)$/);
+    const noteName   = headingHashMatch
+      ? headingHashMatch[1].replace(/_/g, ' ').trim()
+      : decoded.replace(/_/g, ' ').trim();
+    const headingText = headingHashMatch
+      ? headingHashMatch[3].replace(/_/g, ' ').trim()
+      : null;
+
     const exists = allNames.has(noteName);
 
     a.href = '#';
@@ -524,6 +563,8 @@ async function setupNoteLinks(container = previewDiv) {
           }
           await loadNote(noteName, true);
         }
+        // Scroll to heading after note loads (handles both cached and fresh renders)
+        if (headingText) requestAnimationFrame(() => _scrollToHeading(headingText));
       } else {
         // Clicking a link to a non-existent note creates it and adds it to
         // the trail exactly like navigating to an existing note via a link.

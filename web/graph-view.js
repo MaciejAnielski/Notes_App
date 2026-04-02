@@ -20,22 +20,27 @@ function parseNoteLinks(allNotes) {
   for (const { name, content } of allNotes) {
     const targets = new Set();
 
-    // Extract [[Note Name]] wiki-style links
+    // Extract [[Note Name]] wiki-style links (strip ##heading if present)
     let m;
     _wikiRe.lastIndex = 0;
     while ((m = _wikiRe.exec(content)) !== null) {
-      targets.add(m[1].trim());
+      // Strip heading fragment: [[note##heading]] → note
+      const target = m[1].replace(/#{2,}.*$/, '').trim();
+      targets.add(target);
     }
 
     // Extract [text](target) markdown links — internal only
     _mdRe.lastIndex = 0;
     while ((m = _mdRe.exec(content)) !== null) {
-      const raw = decodeURIComponent(m[1]).replace(/_/g, ' ').trim();
+      let raw = decodeURIComponent(m[1]).replace(/_/g, ' ').trim();
       // Skip external URLs, anchors, and attachment refs
       if (/^[a-zA-Z]+:\/\//.test(raw)) continue;
       if (raw.startsWith('#')) continue;
       if (raw.startsWith('attachment:')) continue;
       if (raw.startsWith('ms-')) continue;
+      // Strip heading fragment: note##heading → note
+      const hhIdx = raw.indexOf('##');
+      if (hhIdx !== -1) raw = raw.slice(0, hhIdx).trim();
       targets.add(raw);
     }
 

@@ -378,11 +378,10 @@ async function _doRenderSchedule(cachedNotes) {
   scheduleGrid.innerHTML = '';
   scheduleDateLabel.textContent = formatScheduleDate(scheduleDate);
 
-  // Remove any previous all-day section
+  // Remove any previous all-day section (may be in the timeline wrapper or its parent)
   const wrapper = scheduleGrid.parentElement;
-  if (wrapper) {
-    wrapper.querySelectorAll('.schedule-allday-section').forEach(el => el.remove());
-  }
+  const scheduleOuter = wrapper?.parentElement;
+  (scheduleOuter || wrapper)?.querySelectorAll('.schedule-allday-section').forEach(el => el.remove());
 
   const dateStr = toYYMMDD(scheduleDate);
   const allItems = await getScheduleItems(dateStr);
@@ -424,8 +423,11 @@ async function _doRenderSchedule(cachedNotes) {
       section.appendChild(block);
     });
 
-    // Insert section above the grid
-    if (wrapper) {
+    // Insert all-day section outside the scrollable timeline wrapper so it
+    // remains visible at the top regardless of how far the timed grid is scrolled.
+    if (scheduleOuter) {
+      scheduleOuter.insertBefore(section, wrapper);
+    } else if (wrapper) {
       wrapper.insertBefore(section, scheduleGrid);
     }
   }
@@ -523,7 +525,7 @@ async function _doRenderSchedule(cachedNotes) {
 
   // Typeset math in schedule items. Lazy-load MathJax if needed and there is
   // math content in any of the current items.
-  const scheduleContainer = wrapper || scheduleGrid;
+  const scheduleContainer = scheduleOuter || wrapper || scheduleGrid;
   if (scheduleContainer) {
     const hasMath = allItems.some(it => _RE_MATH_CONTENT.test(it.text || ''));
     if (hasMath && window.MathJax?.typesetPromise) {
