@@ -447,84 +447,71 @@ function _fallbackCopy(text) {
 // Shows a faded ghost-text suggestion for the predicted next table row when
 // the user types "|" as the first character of a new line immediately below
 // a markdown table with ≥ 2 body rows.  Enter accepts; any other key dismisses.
+// Ghost text is injected directly into #editor-highlight (the syntax-highlight
+// pre) so it appears inline at the exact cursor position with no floating div.
 {
-  const _trDiv = document.createElement('div');
-  _trDiv.id = 'table-row-suggestion';
-  _trDiv.style.display = 'none';
-  document.body.appendChild(_trDiv);
+  let _trSuggestion  = null; // full predicted row string, e.g. "| 3 | 2024-01-03 |"
+  let _ghostInsertPos = null; // char offset in textarea where ghost text starts
+  let _ghostText     = '';   // the ghost string currently shown in the pre
 
-  let _trSuggestion = null; // full predicted row string, e.g. "| 3 | 2024-01-03 |"
-
+  // Remove the ghost span from the pre.  Synchronous — safe to call in input handler.
   function _trHide() {
-    _trDiv.style.display = 'none';
-    _trSuggestion = null;
-  }
-
-  // Position the ghost div at the cursor using the same mirror technique as the
-  // wiki-link dropdown so metrics match the textarea font exactly.
-  function _trPosition(cursorOffset) {
-    const cs = window.getComputedStyle(textarea);
-    const mirror = document.createElement('div');
-    mirror.style.cssText =
-      'position:absolute;top:-9999px;left:-9999px;visibility:hidden;' +
-      'white-space:pre-wrap;word-wrap:break-word;box-sizing:border-box;pointer-events:none;' +
-      'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
-      'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
-    mirror.appendChild(document.createTextNode(textarea.value.slice(0, cursorOffset)));
-    const anchor = document.createElement('span');
-    anchor.textContent = '\u200b';
-    mirror.appendChild(anchor);
-    document.body.appendChild(mirror);
-    const anchorTop  = anchor.offsetTop;
-    const anchorLeft = anchor.offsetLeft;
-    document.body.removeChild(mirror);
-
-    const taRect = textarea.getBoundingClientRect();
-    _trDiv.style.font       = cs.font;
-    _trDiv.style.lineHeight = cs.lineHeight;
-    _trDiv.style.top        = (taRect.top  + anchorTop  - textarea.scrollTop)  + 'px';
-    _trDiv.style.left       = (taRect.left + anchorLeft - textarea.scrollLeft) + 'px';
-    _trDiv.style.maxWidth   = (taRect.right - taRect.left - anchorLeft - 4) + 'px';
-  }
-
-  // Position the ghost div using the Range API on the syntax-highlight <pre>.
-  // The pre uses CSS transform for scrolling so getBoundingClientRect() on Range
-  // objects already returns scroll-adjusted viewport coordinates — no manual
-  // scroll offset needed.  Falls back to _trPosition() if the pre isn't ready.
-  function _trPositionFromPre(cursorOffset) {
-    if (typeof _highlightPre === 'undefined' || !_highlightPre) return false;
-    try {
-      let remaining = cursorOffset;
-      let node = null;
-      let nodeOffset = 0;
-      const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
-      let textNode;
-      while ((textNode = walker.nextNode())) {
-        if (remaining <= textNode.length) {
-          node = textNode;
-          nodeOffset = remaining;
-          break;
-        }
-        remaining -= textNode.length;
-      }
-      if (!node) return false;
-      const range = document.createRange();
-      range.setStart(node, nodeOffset);
-      range.setEnd(node, nodeOffset);
-      const rects = range.getClientRects();
-      if (!rects || rects.length === 0) return false;
-      const rect = rects[0];
-      const cs = window.getComputedStyle(textarea);
-      _trDiv.style.font       = cs.font;
-      _trDiv.style.lineHeight = cs.lineHeight;
-      _trDiv.style.top        = rect.top + 'px';
-      _trDiv.style.left       = rect.left + 'px';
-      const taRect = textarea.getBoundingClientRect();
-      _trDiv.style.maxWidth   = (taRect.right - rect.left - 4) + 'px';
-      return true;
-    } catch (e) {
-      return false;
+    if (typeof _highlightPre !== 'undefined' && _highlightPre) {
+      _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => {
+        while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
+        s.parentNode.removeChild(s);
+      });
     }
+    _ghostInsertPos = null;
+    _ghostText      = '';
+    _trSuggestion   = null;
+  }
+
+  // Inject a .table-ghost-text span into the pre at _ghostInsertPos.
+  // Called ~15 ms after the input event so the 10 ms syntax-highlight debounce
+  // has already updated the pre with the current textarea content.
+  function _applyGhostToPre() {
+    if (_ghostInsertPos === null || typeof _highlightPre === 'undefined' || !_highlightPre) return;
+    // Remove any stale ghost span.
+    _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => {
+      while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
+      s.parentNode.removeChild(s);
+    });
+    // Walk text nodes to find the character offset.
+    const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
+    let remaining = _ghostInsertPos;
+    let textNode;
+    while ((textNode = walker.nextNode())) {
+      if (remaining <= textNode.length) {
+        const span = document.createElement('span');
+        span.className = 'table-ghost-text';
+        span.textContent = _ghostText;
+        if (remaining === 0) {
+          textNode.parentNode.insertBefore(span, textNode);
+        } else if (remaining === textNode.length) {
+          textNode.parentNode.insertBefore(span, textNode.nextSibling);
+        } else {
+          const after = textNode.splitText(remaining);
+          textNode.parentNode.insertBefore(span, after);
+        }
+        return;
+      }
+      remaining -= textNode.length;
+    }
+    // Cursor is past all text nodes (end of document) — append.
+    const span = document.createElement('span');
+    span.className = 'table-ghost-text';
+    span.textContent = _ghostText;
+    _highlightPre.appendChild(span);
+  }
+
+  // Show a suggestion: schedule injection after 15 ms.
+  function _trShow(pos, suggestion) {
+    _trHide();
+    _trSuggestion   = suggestion;
+    _ghostInsertPos = pos;
+    _ghostText      = suggestion.slice(1); // everything after the '|' already typed
+    setTimeout(_applyGhostToPre, 15);
   }
 
   // ── Date / number helpers ────────────────────────────────────────────────
@@ -602,20 +589,31 @@ function _fallbackCopy(text) {
     if (values.length < 2) return values[values.length - 1] || '';
     const last = values[values.length - 1];
 
-    // Helper: check all consecutive differences in an array of numbers are equal
-    function _allDiffsEqual(nums) {
-      if (nums.length < 2) return false;
-      const d = nums[1] - nums[0];
-      for (let i = 2; i < nums.length; i++) if (nums[i] - nums[i-1] !== d) return false;
-      return d !== 0;
+    // Returns the modal (most common) consecutive difference, or null if no clear trend.
+    // With only 1 diff (2 values) always returns that diff.
+    // With multiple diffs requires ≥ 2 occurrences to avoid arbitrary guesses.
+    function _modalDiff(nums) {
+      if (nums.length < 2) return null;
+      const diffs = [];
+      for (let i = 1; i < nums.length; i++) diffs.push(nums[i] - nums[i - 1]);
+      if (diffs.every(d => d === 0)) return null;
+      const freq = {};
+      let maxFreq = 0, mode = null;
+      for (const d of diffs) {
+        freq[d] = (freq[d] || 0) + 1;
+        if (freq[d] > maxFreq) { maxFreq = freq[d]; mode = d; }
+      }
+      // Single diff: no ambiguity.  Multiple diffs: require ≥ 2 occurrences of mode.
+      if (diffs.length > 1 && maxFreq < 2) return null;
+      return mode;
     }
 
     // 1. ISO date YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(last)) {
       const dates = values.map(v => new Date(v).getTime());
-      if (dates.every(d => !isNaN(d)) && _allDiffsEqual(dates)) {
-        const next = new Date(dates[dates.length - 1] + (dates[1] - dates[0]));
-        return next.toISOString().slice(0, 10);
+      if (dates.every(d => !isNaN(d))) {
+        const diff = _modalDiff(dates);
+        if (diff !== null) return new Date(dates[dates.length - 1] + diff).toISOString().slice(0, 10);
       }
     }
 
@@ -626,31 +624,31 @@ function _fallbackCopy(text) {
         const [, yr, mo, dy] = v.match(compactRe);
         const moNum = parseInt(mo, 10);
         const dyNum = parseInt(dy, 10);
-        // Reject values that aren't valid calendar month/day to avoid
-        // false-positives on plain 6-digit integers.
         if (moNum < 1 || moNum > 12 || dyNum < 1 || dyNum > 31) return NaN;
         const fullYear = yr.length === 2 ? 2000 + parseInt(yr, 10) : parseInt(yr, 10);
         return new Date(fullYear, moNum - 1, dyNum).getTime();
       };
       const mss = values.map(toMs);
-      if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
-        const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
-        const yLen = last.length === 6 ? 2 : 4;
-        const yr   = yLen === 2
-          ? String(next.getFullYear()).slice(-2)
-          : String(next.getFullYear());
-        const mo   = String(next.getMonth() + 1).padStart(2, '0');
-        const dy   = String(next.getDate()).padStart(2, '0');
-        return yr + mo + dy;
+      if (mss.every(ms => !isNaN(ms))) {
+        const diff = _modalDiff(mss);
+        if (diff !== null) {
+          const next = new Date(mss[mss.length - 1] + diff);
+          const yLen = last.length === 6 ? 2 : 4;
+          const yr   = yLen === 2 ? String(next.getFullYear()).slice(-2) : String(next.getFullYear());
+          const mo   = String(next.getMonth() + 1).padStart(2, '0');
+          const dy   = String(next.getDate()).padStart(2, '0');
+          return yr + mo + dy;
+        }
       }
     }
 
-    // 3. Ordinal day-month: "Mon 1st April", "1st Apr", "2nd January 2024" etc.
+    // 3. Ordinal day-month: "Mon 1st April", "1st Apr", "Wednesday 2nd March 2025" etc.
     const ordParsed = values.map(_parseOrdinalDate);
     if (ordParsed.every(p => p !== null)) {
       const mss = ordParsed.map(p => p.date.getTime());
-      if (_allDiffsEqual(mss)) {
-        const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
+      const diff = _modalDiff(mss);
+      if (diff !== null) {
+        const next = new Date(mss[mss.length - 1] + diff);
         return _formatOrdinalDate(next, ordParsed[ordParsed.length - 1]);
       }
     }
@@ -658,7 +656,7 @@ function _fallbackCopy(text) {
     // 4. Slash date DD/MM/YYYY or MM/DD/YYYY
     const slashRe = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
     if (slashRe.test(last) && values.every(v => slashRe.test(v))) {
-      const [, a0, b0] = values[0].match(slashRe);
+      const [, a0] = values[0].match(slashRe);
       const isDMY = parseInt(a0, 10) > 12;
       const toMs = v => {
         const [, a, b, y] = v.match(slashRe);
@@ -667,28 +665,33 @@ function _fallbackCopy(text) {
           : new Date(`${y}-${a.padStart(2,'0')}-${b.padStart(2,'0')}`).getTime();
       };
       const mss = values.map(toMs);
-      if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
-        const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
-        const dd = String(next.getDate()).padStart(2,'0');
-        const mm = String(next.getMonth()+1).padStart(2,'0');
-        const yy = next.getFullYear();
-        return isDMY ? `${dd}/${mm}/${yy}` : `${mm}/${dd}/${yy}`;
+      if (mss.every(ms => !isNaN(ms))) {
+        const diff = _modalDiff(mss);
+        if (diff !== null) {
+          const next = new Date(mss[mss.length - 1] + diff);
+          const dd = String(next.getDate()).padStart(2,'0');
+          const mm = String(next.getMonth()+1).padStart(2,'0');
+          const yy = next.getFullYear();
+          return isDMY ? `${dd}/${mm}/${yy}` : `${mm}/${dd}/${yy}`;
+        }
       }
     }
 
     // 5. Pure integer (no leading zeros, no extra characters)
     if (/^-?\d+$/.test(last) && values.every(v => /^-?\d+$/.test(v))) {
       const nums = values.map(Number);
-      if (_allDiffsEqual(nums)) return String(nums[nums.length - 1] + (nums[1] - nums[0]));
+      const diff = _modalDiff(nums);
+      if (diff !== null) return String(nums[nums.length - 1] + diff);
     }
 
     // 6. Float with consistent decimal places
     const floatRe = /^-?\d+\.\d+$/;
     if (floatRe.test(last) && values.every(v => floatRe.test(v))) {
       const nums = values.map(Number);
-      if (_allDiffsEqual(nums)) {
+      const diff = _modalDiff(nums);
+      if (diff !== null) {
         const decimals = last.split('.')[1].length;
-        return (nums[nums.length - 1] + (nums[1] - nums[0])).toFixed(decimals);
+        return (nums[nums.length - 1] + diff).toFixed(decimals);
       }
     }
 
@@ -697,15 +700,11 @@ function _fallbackCopy(text) {
     if (subRe.test(last)) {
       const lastM = last.match(subRe);
       const prefix = lastM[1];
-      const allMatch = values.every(v => {
-        const m = v.match(subRe);
-        return m && m[1] === prefix;
-      });
+      const allMatch = values.every(v => { const m = v.match(subRe); return m && m[1] === prefix; });
       if (allMatch) {
         const nums = values.map(v => _subToNum(v.match(subRe)[2]));
-        if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
-          return prefix + _numToSub(nums[nums.length - 1] + (nums[1] - nums[0]));
-        }
+        const diff = _modalDiff(nums);
+        if (!nums.some(isNaN) && diff !== null) return prefix + _numToSub(nums[nums.length - 1] + diff);
       }
     }
 
@@ -717,10 +716,7 @@ function _fallbackCopy(text) {
       const prefix   = lastM[1];
       const hasBrace = lastM[2] === '{';
       const suffix   = lastM[4];
-      const allMatch = values.every(v => {
-        const m = v.match(latexSubRe);
-        return m && m[1] === prefix && m[4] === suffix;
-      });
+      const allMatch = values.every(v => { const m = v.match(latexSubRe); return m && m[1] === prefix && m[4] === suffix; });
       if (allMatch) {
         const subVals = values.map(v => v.match(latexSubRe)[3]);
         // Check if subscript values are compact dates (YYMMDD / YYYYMMDD)
@@ -728,15 +724,15 @@ function _fallbackCopy(text) {
         if (subVals.every(s => compactSubRe.test(s))) {
           const toMs = s => {
             const [, yr, mo, dy] = s.match(compactSubRe);
-            const moNum = parseInt(mo, 10);
-            const dyNum = parseInt(dy, 10);
+            const moNum = parseInt(mo, 10); const dyNum = parseInt(dy, 10);
             if (moNum < 1 || moNum > 12 || dyNum < 1 || dyNum > 31) return NaN;
             const fullYear = yr.length === 2 ? 2000 + parseInt(yr, 10) : parseInt(yr, 10);
             return new Date(fullYear, moNum - 1, dyNum).getTime();
           };
           const mss = subVals.map(toMs);
-          if (mss.every(ms => !isNaN(ms)) && _allDiffsEqual(mss)) {
-            const next = new Date(mss[mss.length - 1] + (mss[1] - mss[0]));
+          const dateDiff = _modalDiff(mss);
+          if (mss.every(ms => !isNaN(ms)) && dateDiff !== null) {
+            const next = new Date(mss[mss.length - 1] + dateDiff);
             const yLen = subVals[0].length === 6 ? 2 : 4;
             const yr   = yLen === 2 ? String(next.getFullYear()).slice(-2) : String(next.getFullYear());
             const mo   = String(next.getMonth() + 1).padStart(2, '0');
@@ -746,8 +742,9 @@ function _fallbackCopy(text) {
           }
         }
         const nums = subVals.map(s => parseInt(s, 10));
-        if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
-          const next = nums[nums.length - 1] + (nums[1] - nums[0]);
+        const diff = _modalDiff(nums);
+        if (!nums.some(isNaN) && diff !== null) {
+          const next = nums[nums.length - 1] + diff;
           return hasBrace ? `${prefix}_{${next}}${suffix}` : `${prefix}_${next}${suffix}`;
         }
       }
@@ -756,21 +753,55 @@ function _fallbackCopy(text) {
     // 9. Text + number suffix ("Item 1", "Row 3") with consistent prefix
     const tnRe = /^(.*?)(\d+)$/;
     if (tnRe.test(last)) {
-      const lastM = last.match(tnRe);
-      const prefix = lastM[1];
-      const allMatch = values.every(v => {
-        const m = v.match(tnRe);
-        return m && m[1] === prefix;
-      });
+      const prefix = last.match(tnRe)[1];
+      const allMatch = values.every(v => { const m = v.match(tnRe); return m && m[1] === prefix; });
       if (allMatch) {
         const nums = values.map(v => parseInt(v.match(tnRe)[2], 10));
-        if (!nums.some(isNaN) && _allDiffsEqual(nums)) {
-          return prefix + (nums[nums.length - 1] + (nums[1] - nums[0]));
+        const diff = _modalDiff(nums);
+        if (!nums.some(isNaN) && diff !== null) return prefix + (nums[nums.length - 1] + diff);
+      }
+    }
+
+    // 10. Template: longest-common-prefix + longest-common-suffix, sequential middle.
+    // Handles "Q1 2024"→"Q4 2024", "Phase A"→"Phase D", "v2.1.3"→"v2.1.4", etc.
+    // Uses the last cell as the baseline and only varies the middle part when it
+    // shows a clear sequence, leaving unstable surrounding text unchanged.
+    {
+      // Longest common prefix length
+      let lcpLen = 0;
+      while (lcpLen < values[0].length &&
+             values.every(v => v[lcpLen] === values[0][lcpLen])) lcpLen++;
+      // Longest common suffix length (must not overlap prefix)
+      const tails = values.map(v => v.slice(lcpLen));
+      let lcsLen = 0;
+      if (tails.every(t => t.length > 0)) {
+        const revs = tails.map(t => [...t].reverse().join(''));
+        while (lcsLen < tails[0].length &&
+               revs.every(r => r[lcsLen] === revs[0][lcsLen])) lcsLen++;
+        if (lcsLen === tails[0].length) lcsLen = tails[0].length - 1; // keep ≥1 middle char
+      }
+      const pre  = values[0].slice(0, lcpLen);
+      const suf  = lcsLen > 0 ? tails[0].slice(-lcsLen) : '';
+      const mids = tails.map(t => lcsLen > 0 ? t.slice(0, -lcsLen) : t);
+
+      // Only proceed if there is a stable wrapper (prefix or suffix) and all middles are non-empty
+      if ((pre || suf) && mids.every(m => m.length > 0)) {
+        // a. Integer middle
+        if (mids.every(m => /^-?\d+$/.test(m))) {
+          const nums = mids.map(Number);
+          const diff = _modalDiff(nums);
+          if (diff !== null) return pre + (nums[nums.length - 1] + diff) + suf;
+        }
+        // b. Single letter (A→B, a→b, etc.)
+        if (mids.every(m => /^[A-Za-z]$/.test(m))) {
+          const codes = mids.map(m => m.charCodeAt(0));
+          const diff = _modalDiff(codes);
+          if (diff !== null) return pre + String.fromCharCode(codes[codes.length - 1] + diff) + suf;
         }
       }
     }
 
-    // 10. Fallback: repeat last value
+    // Fallback: repeat last value
     return last;
   }
 
@@ -831,23 +862,13 @@ function _fallbackCopy(text) {
     // text.slice(0, lineStart) always ends with \n so split always has a trailing
     // empty string — pass length-1 so _getTableBodyRowsAbove starts at the actual
     // last table row, not the empty sentinel.
-    const bodyRows   = _getTableBodyRowsAbove(linesAbove, linesAbove.length - 1);
+    const bodyRows = _getTableBodyRowsAbove(linesAbove, linesAbove.length - 1);
     if (!bodyRows) { _trHide(); return; }
 
     const suggestion = _buildSuggestion(bodyRows);
     if (!suggestion) { _trHide(); return; }
 
-    _trSuggestion = suggestion;
-    // Ghost shows everything after the '|' the user already typed
-    _trDiv.textContent = suggestion.slice(1);
-    // Defer display by one animation frame so the 10ms syntax-highlight debounce
-    // has fired and the <pre> reflects the current text.  The Range API then gives
-    // pixel-perfect viewport coordinates without needing a mirror div.
-    requestAnimationFrame(() => {
-      if (_trSuggestion === null) return; // dismissed during the rAF delay
-      if (!_trPositionFromPre(pos)) _trPosition(pos);
-      _trDiv.style.display = 'block';
-    });
+    _trShow(pos, suggestion);
   });
 
   textarea.addEventListener('keydown', e => {
@@ -873,12 +894,5 @@ function _fallbackCopy(text) {
     }
   }, true); // capture phase — same priority as wiki dropdown
 
-  textarea.addEventListener('blur',   () => setTimeout(_trHide, 150));
-  textarea.addEventListener('scroll', () => {
-    if (_trSuggestion !== null) {
-      const pos = textarea.selectionStart;
-      if (!_trPositionFromPre(pos)) _trPosition(pos);
-    }
-  });
+  textarea.addEventListener('blur', () => setTimeout(_trHide, 150));
 }
-

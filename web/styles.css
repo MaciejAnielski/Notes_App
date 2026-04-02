@@ -2800,13 +2800,9 @@ input[type="checkbox"] {
 }
 
 /* ── Table row autofill ghost text ──────────────────────────────────────── */
-#table-row-suggestion {
-  position: fixed;
-  pointer-events: none;
-  z-index: 2;           /* above textarea (z-index:1) and highlight (z-index:0) */
-  white-space: pre;
-  color: var(--text);   /* must not inherit from textarea which uses color:transparent */
+/* Injected inline into #editor-highlight; no positioning needed. */
+.table-ghost-text {
   opacity: 0.38;
-  overflow: hidden;
+  pointer-events: none;
 }
 
