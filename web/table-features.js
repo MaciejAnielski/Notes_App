@@ -896,15 +896,13 @@ function _fallbackCopy(text) {
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      const pos       = textarea.selectionStart;
-      const text      = textarea.value;
-      const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-      // Hide ghost first, then use execCommand so the insertion joins the undo
-      // stack as a single undoable step (Ctrl-Z reverses the whole row insert).
+      const pos        = textarea.selectionStart;
+      const text       = textarea.value;
+      const lineStart  = text.lastIndexOf('\n', pos - 1) + 1;
+      const suggestion = _trSuggestion; // capture before _trHide() nulls it
       _trHide();
-      // Select the lone '|' so execCommand replaces it with the full suggestion.
       textarea.setSelectionRange(lineStart, pos);
-      document.execCommand('insertText', false, _trSuggestion + '\n');
+      document.execCommand('insertText', false, suggestion + '\n');
       textarea.focus();
     } else if (e.key === 'Escape') {
       e.stopPropagation();
