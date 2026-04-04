@@ -1463,9 +1463,13 @@ body.panel-pinned {
 
 /* Prevent button container from overlapping the floating side panel.
    Only applies on desktop (>650px) — on mobile the panel is a full-screen
-   overlay and the toolbar should never be constrained by it. */
+   overlay and the toolbar should never be constrained by it.
+   Also shift the centering point so the pill centres within the editor area
+   rather than the full viewport (panel is 300px wide on the right). */
 @media (min-width: 651px) {
-  body.panel-visible:not(.panel-pinned) #button-container {
+  body.panel-visible:not(.panel-pinned) #button-container,
+  body.panel-pinned #button-container {
+    left: calc(50% - 150px);
     max-width: calc(100% - 306px);
   }
 }
@@ -2523,8 +2527,10 @@ body.panel-pinned {
     padding-right: 0;
   }
 
-  /* Toolbar max-width constraint no longer needed when the panel is hidden. */
-  body.panel-visible #button-container {
+  /* Toolbar max-width/centering constraints no longer needed when the panel is hidden. */
+  body.panel-visible #button-container,
+  body.panel-pinned #button-container {
+    left: 50%;
     max-width: 100%;
   }
 
