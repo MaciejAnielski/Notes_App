@@ -423,19 +423,19 @@ body.platform-darwin #panel-arrow {
   app-region: no-drag;
 }
 
-/* ── Bottom status area — pill-shaped, self-sizes to content ── */
+/* ── Bottom status area — pill floats over the editor, no layout space taken ── */
 #bottom-status-area {
-  position: relative;
-  margin-top: auto;
-  flex-shrink: 0;
-  align-self: center;
+  position: absolute;
+  bottom: calc(var(--gap) + 4px);
+  left: 50%;
+  transform: translateX(-50%);
   padding: 3px 14px;
-  margin-bottom: 4px;
   border-radius: 999px;
-  background-color: var(--surface);
+  background-color: var(--bg);
   overflow: hidden;
   transition: background-color 0.2s ease;
   white-space: nowrap;
+  z-index: 5;
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -1330,6 +1330,7 @@ body.panel-pinned #panel-open-btn {
   flex-direction: column;
   padding: 0 var(--gap) var(--gap) var(--gap);
   box-sizing: border-box;
+  position: relative;
 }
 
 /* ════════════════════════════════════════════
