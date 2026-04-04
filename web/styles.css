@@ -2068,6 +2068,7 @@ body.panel-pinned {
 
 /* ── Mermaid diagrams ── */
 .mermaid-diagram {
+  position: relative;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin: 0.75em 0;
@@ -2077,6 +2078,62 @@ body.panel-pinned {
 .mermaid-diagram svg {
   max-width: 100%;
   height: auto;
+}
+
+/* Pan/zoom toggle button — top-left corner, always visible */
+.mermaid-panzoom-btn {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0.45;
+  color: var(--text);
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.mermaid-panzoom-btn:hover,
+.mermaid-panzoom-btn.active {
+  opacity: 1;
+}
+
+/* Pan/zoom active state — constrain height and hide overflow */
+.mermaid-diagram.mermaid-panzoom-active {
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  min-height: 120px;
+  cursor: grab;
+}
+
+.mermaid-diagram.mermaid-panzoom-active svg {
+  max-width: none;
+  display: block;
+}
+
+/* ── Projects note — clickable emoji headings ── */
+.project-emoji-btn {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background 0.12s;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+.project-emoji-btn:hover {
+  background: var(--surface);
+  outline: 1px solid var(--border);
 }
 
 /* Ensure all Mermaid text inherits legible colour from theme */

@@ -775,6 +775,168 @@ function setupPlainCheckboxes(container) {
   });
 }
 
+// ── Mermaid pan/zoom ──────────────────────────────────────────────────────
+// Adds a small toggle button to each mermaid diagram wrapper. Clicking it
+// enters pan/zoom mode where the user can drag to pan and scroll/pinch to zoom.
+// Clicking again exits and resets the transform.
+
+function setupMermaidPanZoom(wrapper) {
+  const svg = wrapper.querySelector('svg');
+  if (!svg) return;
+
+  // Toggle button — top-left corner, always visible
+  const btn = document.createElement('button');
+  btn.className = 'mermaid-panzoom-btn';
+  btn.title = 'Pan & zoom';
+  // Simple expand/arrows icon
+  btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+  wrapper.appendChild(btn);
+
+  let active = false;
+  let scale = 1, panX = 0, panY = 0;
+  let dragging = false, lastX = 0, lastY = 0;
+  let lastPinchDist = null;
+
+  function applyTransform() {
+    svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
+
+  // ── Mouse handlers ──────────────────────────────────────────────────────
+
+  function onMouseDown(e) {
+    if (e.target === btn) return; // let button clicks through
+    dragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    wrapper.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+
+  function onMouseMove(e) {
+    if (!dragging) return;
+    panX += e.clientX - lastX;
+    panY += e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    applyTransform();
+  }
+
+  function onMouseUp() {
+    if (!dragging) return;
+    dragging = false;
+    wrapper.style.cursor = 'grab';
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    const rect = wrapper.getBoundingClientRect();
+    // Zoom toward the cursor position
+    const cx = e.clientX - rect.left - panX;
+    const cy = e.clientY - rect.top  - panY;
+    scale = Math.max(0.1, Math.min(10, scale * factor));
+    panX -= cx * (factor - 1);
+    panY -= cy * (factor - 1);
+    applyTransform();
+  }
+
+  // ── Touch handlers ──────────────────────────────────────────────────────
+
+  function touchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function onTouchStart(e) {
+    if (e.target === btn) return;
+    if (e.touches.length === 1) {
+      dragging = true;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+      lastPinchDist = null;
+    } else if (e.touches.length === 2) {
+      dragging = false;
+      lastPinchDist = touchDist(e.touches);
+    }
+    e.preventDefault();
+  }
+
+  function onTouchMove(e) {
+    if (e.touches.length === 1 && dragging) {
+      panX += e.touches[0].clientX - lastX;
+      panY += e.touches[0].clientY - lastY;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+      applyTransform();
+    } else if (e.touches.length === 2 && lastPinchDist !== null) {
+      const dist  = touchDist(e.touches);
+      const factor = dist / lastPinchDist;
+      // Zoom toward the midpoint of the two fingers
+      const rect = wrapper.getBoundingClientRect();
+      const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left - panX;
+      const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top  - panY;
+      scale = Math.max(0.1, Math.min(10, scale * factor));
+      panX -= mx * (factor - 1);
+      panY -= my * (factor - 1);
+      lastPinchDist = dist;
+      applyTransform();
+    }
+    e.preventDefault();
+  }
+
+  function onTouchEnd(e) {
+    if (e.touches.length < 2) lastPinchDist = null;
+    if (e.touches.length === 0) dragging = false;
+  }
+
+  // ── Enter / exit ────────────────────────────────────────────────────────
+
+  function enter() {
+    active = true;
+    btn.classList.add('active');
+    btn.title = 'Exit pan & zoom';
+    wrapper.classList.add('mermaid-panzoom-active');
+    wrapper.style.cursor = 'grab';
+    svg.style.transformOrigin = '0 0';
+    // Snapshot the natural dimensions once so the container keeps its size
+    if (!wrapper.dataset.naturalHeight) {
+      const h = svg.getBoundingClientRect().height;
+      if (h > 0) wrapper.dataset.naturalHeight = h;
+    }
+    wrapper.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    wrapper.addEventListener('wheel', onWheel, { passive: false });
+    wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
+    wrapper.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    wrapper.addEventListener('touchend',   onTouchEnd,   { passive: true });
+  }
+
+  function exit() {
+    active = false;
+    btn.classList.remove('active');
+    btn.title = 'Pan & zoom';
+    wrapper.classList.remove('mermaid-panzoom-active');
+    wrapper.style.cursor = '';
+    scale = 1; panX = 0; panY = 0;
+    svg.style.transform = '';
+    svg.style.transformOrigin = '';
+    wrapper.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    wrapper.removeEventListener('wheel', onWheel);
+    wrapper.removeEventListener('touchstart', onTouchStart);
+    wrapper.removeEventListener('touchmove',  onTouchMove);
+    wrapper.removeEventListener('touchend',   onTouchEnd);
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    active ? exit() : enter();
+  });
+}
+
 async function renderMermaidDiagrams(container, varMap) {
   const codeBlocks = container.querySelectorAll('pre code.language-mermaid');
   if (codeBlocks.length === 0) return;
@@ -794,11 +956,124 @@ async function renderMermaidDiagrams(container, varMap) {
       wrapper.className = 'mermaid-diagram';
       wrapper.innerHTML = cleanSvg;
       pre.replaceWith(wrapper);
+      setupMermaidPanZoom(wrapper);
     } catch {
       // Silently fail - don't replace the code block or show error messages
     }
   });
   await Promise.all(renderJobs);
+}
+
+// ── Clickable emoji pickers in Projects note preview ──────────────────────────
+// Wraps the leading emoji in each Projects-note heading with a clickable span.
+// Clicking shows a floating picker; choosing a new emoji updates all headings
+// of that type across the note (via setProjectEmoji → refreshProjectsNote).
+
+function injectProjectNoteEmojiPickers(container) {
+  // Determine emoji type from heading text content
+  const TYPE_MAP = [
+    { pattern: 'Ongoing',   type: 'active' },
+    { pattern: 'Completed', type: 'completed' },
+    { pattern: 'Winter',    type: 'Winter' },
+    { pattern: 'Spring',    type: 'Spring' },
+    { pattern: 'Summer',    type: 'Summer' },
+    { pattern: 'Autumn',    type: 'Autumn' },
+  ];
+
+  let openPicker = null;
+
+  // Close the open picker when clicking anywhere else
+  function closeOpenPicker(e) {
+    if (!openPicker) return;
+    if (!e.target.closest('.project-emoji-btn') && !e.target.closest('.project-emoji-picker')) {
+      openPicker.style.display = 'none';
+      openPicker = null;
+    }
+  }
+  document.addEventListener('click', closeOpenPicker);
+
+  // Clean up listener when the previewDiv is next replaced
+  const origInnerHTMLDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  // Simpler: store cleanup on the container so renderPreview can call it
+  container._emojiPickerCleanup = () => document.removeEventListener('click', closeOpenPicker);
+
+  const headings = container.querySelectorAll('h2, h3, h4, h5, h6');
+
+  headings.forEach(heading => {
+    const text = heading.textContent;
+
+    let emojiType = null;
+    for (const { pattern, type } of TYPE_MAP) {
+      if (text.includes(pattern)) { emojiType = type; break; }
+    }
+    if (!emojiType) return;
+
+    // Find the first text node containing content (the leading emoji + label)
+    const textNode = Array.from(heading.childNodes).find(
+      n => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
+    );
+    if (!textNode) return;
+
+    const nodeText = textNode.textContent;
+    const spaceIdx = nodeText.indexOf(' ');
+    if (spaceIdx < 1) return;
+
+    const emojiPart = nodeText.slice(0, spaceIdx);
+    const restPart  = nodeText.slice(spaceIdx);
+
+    // Replace text node with clickable emoji span + remaining text
+    const emojiSpan = document.createElement('span');
+    emojiSpan.className = 'project-emoji-btn';
+    emojiSpan.dataset.emojiType = emojiType;
+    emojiSpan.textContent = emojiPart;
+    emojiSpan.title = 'Click to change emoji';
+
+    const restNode = document.createTextNode(restPart);
+    heading.replaceChild(restNode, textNode);
+    heading.insertBefore(emojiSpan, restNode);
+
+    // Build the picker grid (appended to previewDiv so it's cleared on re-render)
+    const pickerGrid = document.createElement('div');
+    pickerGrid.className = 'project-emoji-picker';
+    pickerGrid.style.cssText = 'display:none;position:fixed;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:8px;background:var(--bg);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.25);z-index:9999;width:240px;';
+    container.appendChild(pickerGrid);
+
+    const options = EMOJI_OPTIONS[emojiType] || [];
+    for (const emoji of options) {
+      const btn = document.createElement('button');
+      btn.textContent = emoji;
+      btn.style.cssText = 'font-size:22px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:transform 0.1s;padding:0;line-height:1;border-radius:4px;';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setProjectEmoji(emojiType, emoji);
+        if (openPicker) { openPicker.style.display = 'none'; openPicker = null; }
+        // setProjectEmoji triggers refreshProjectsNote which re-renders; DOM is replaced
+      });
+      btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.2)'; btn.style.background = 'var(--surface)'; });
+      btn.addEventListener('mouseleave', () => { btn.style.transform = ''; btn.style.background = 'none'; });
+      pickerGrid.appendChild(btn);
+    }
+
+    emojiSpan.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (openPicker && openPicker !== pickerGrid) {
+        openPicker.style.display = 'none';
+      }
+      if (pickerGrid.style.display === 'none') {
+        const rect = emojiSpan.getBoundingClientRect();
+        const w = 240;
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
+        const top  = rect.bottom + 4;
+        pickerGrid.style.left = left + 'px';
+        pickerGrid.style.top  = top  + 'px';
+        pickerGrid.style.display = 'grid';
+        openPicker = pickerGrid;
+      } else {
+        pickerGrid.style.display = 'none';
+        openPicker = null;
+      }
+    });
+  });
 }
 
 // Cache: skip re-parsing when content hasn't changed since last render.
@@ -897,7 +1172,16 @@ async function renderPreview() {
     injectEncryptionSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
-    injectProjectEmojiPickers(previewDiv);
+  }
+
+  // Projects note: make emojis clickable to change them
+  if (currentFileName === PROJECTS_NOTE) {
+    // Clean up any previous click-outside listener before injecting new ones
+    if (previewDiv._emojiPickerCleanup) {
+      previewDiv._emojiPickerCleanup();
+      previewDiv._emojiPickerCleanup = null;
+    }
+    injectProjectNoteEmojiPickers(previewDiv);
   }
 }
 
@@ -1801,175 +2085,9 @@ function injectThemeColorPickers(container) {
   });
 }
 
-// ── Project emoji pickers in Settings note preview ──────────────────────────
-
-function injectProjectEmojiPickers(container) {
-  // Find the <details> containing the "Projects Note Emojis" heading (h2 or h3).
-  // The section is a top-level ## (h2) alongside Sync and Theme; h3 is also
-  // accepted for backwards compatibility with older Settings note content.
-  let emojiSection = null;
-  for (const details of container.querySelectorAll('details')) {
-    const h = details.querySelector('summary h2, summary h3');
-    if (h && h.textContent.includes('Projects Note Emojis')) { emojiSection = details; break; }
-  }
-  // Fall back to plain h2/h3 if not collapsible
-  if (!emojiSection) {
-    for (const h of container.querySelectorAll('h2, h3')) {
-      if (h.textContent.includes('Projects Note Emojis')) { emojiSection = h.parentElement; break; }
-    }
-  }
-  if (!emojiSection) return;
-
-  // Don't inject twice
-  if (emojiSection.querySelector('.emoji-controls')) return;
-
-  const emojis = getProjectEmojis();
-  const defaults = DEFAULT_PROJECT_EMOJIS;
-
-  const controls = document.createElement('div');
-  controls.className = 'emoji-controls';
-  controls.style.cssText = 'padding: 8px 0;';
-
-  // Active emoji picker
-  const activeRow = document.createElement('div');
-  activeRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;';
-  const activeLabel = document.createElement('span');
-  activeLabel.className = 'theme-label';
-  activeLabel.textContent = 'Ongoing Projects';
-  activeRow.appendChild(activeLabel);
-
-  const activeWrapper = document.createElement('div');
-  activeWrapper.style.cssText = 'display:inline-block;';
-
-  const activeEmojiBtn = document.createElement('button');
-  activeEmojiBtn.className = 'emoji-display';
-  activeEmojiBtn.textContent = emojis.active;
-  activeEmojiBtn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;';
-
-  let activePickerOpen = false;
-  const activePickerGrid = document.createElement('div');
-  activePickerGrid.className = 'emoji-picker-grid';
-  activePickerGrid.style.cssText = 'display:none;position:fixed;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:9999;';
-
-  for (const emoji of EMOJI_OPTIONS.active) {
-    const btn = document.createElement('button');
-    btn.textContent = emoji;
-    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:transform 0.15s;padding:0;line-height:1;';
-    btn.addEventListener('click', () => {
-      setProjectEmoji('active', emoji);
-      activeEmojiBtn.textContent = emoji;
-      activePickerOpen = false;
-      activePickerGrid.style.display = 'none';
-    });
-    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.2)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
-    activePickerGrid.appendChild(btn);
-  }
-
-  activeEmojiBtn.addEventListener('click', () => {
-    activePickerOpen = !activePickerOpen;
-    completedPickerGrid.style.display = 'none';
-    completedPickerOpen = false;
-    if (activePickerOpen) {
-      const rect = activeEmojiBtn.getBoundingClientRect();
-      const w = Math.min(240, window.innerWidth - 16);
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
-      activePickerGrid.style.width = w + 'px';
-      activePickerGrid.style.left = left + 'px';
-      activePickerGrid.style.top = rect.top + 'px';
-      activePickerGrid.style.display = 'grid';
-    } else {
-      activePickerGrid.style.display = 'none';
-    }
-  });
-
-  activeWrapper.appendChild(activeEmojiBtn);
-  activeWrapper.appendChild(activePickerGrid);
-  activeRow.appendChild(activeWrapper);
-  controls.appendChild(activeRow);
-
-  // Completed emoji picker
-  const completedRow = document.createElement('div');
-  completedRow.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:12px;';
-  const completedLabel = document.createElement('span');
-  completedLabel.className = 'theme-label';
-  completedLabel.textContent = 'Completed Projects';
-  completedRow.appendChild(completedLabel);
-
-  const completedWrapper = document.createElement('div');
-  completedWrapper.style.cssText = 'display:inline-block;';
-
-  const completedEmojiBtn = document.createElement('button');
-  completedEmojiBtn.className = 'emoji-display';
-  completedEmojiBtn.textContent = emojis.completed;
-  completedEmojiBtn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;';
-
-  let completedPickerOpen = false;
-  const completedPickerGrid = document.createElement('div');
-  completedPickerGrid.className = 'emoji-picker-grid';
-  completedPickerGrid.style.cssText = 'display:none;position:fixed;grid-template-columns:repeat(auto-fill,32px);gap:6px;padding:6px;background:var(--bg);border:none;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:9999;';
-
-  for (const emoji of EMOJI_OPTIONS.completed) {
-    const btn = document.createElement('button');
-    btn.textContent = emoji;
-    btn.style.cssText = 'font-size:24px;width:32px;height:32px;border:none;background:none;cursor:pointer;transition:transform 0.15s;padding:0;line-height:1;';
-    btn.addEventListener('click', () => {
-      setProjectEmoji('completed', emoji);
-      completedEmojiBtn.textContent = emoji;
-      completedPickerOpen = false;
-      completedPickerGrid.style.display = 'none';
-    });
-    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.2)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; });
-    completedPickerGrid.appendChild(btn);
-  }
-
-  completedEmojiBtn.addEventListener('click', () => {
-    completedPickerOpen = !completedPickerOpen;
-    activePickerGrid.style.display = 'none';
-    activePickerOpen = false;
-    if (completedPickerOpen) {
-      const rect = completedEmojiBtn.getBoundingClientRect();
-      const w = Math.min(240, window.innerWidth - 16);
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
-      completedPickerGrid.style.width = w + 'px';
-      completedPickerGrid.style.left = left + 'px';
-      completedPickerGrid.style.top = rect.top + 'px';
-      completedPickerGrid.style.display = 'grid';
-    } else {
-      completedPickerGrid.style.display = 'none';
-    }
-  });
-
-  completedWrapper.appendChild(completedEmojiBtn);
-  completedWrapper.appendChild(completedPickerGrid);
-  completedRow.appendChild(completedWrapper);
-  controls.appendChild(completedRow);
-
-  // Reset button
-  const resetBtn = document.createElement('button');
-  resetBtn.className = 'theme-reset-btn';
-  resetBtn.textContent = 'Reset to Defaults';
-  resetBtn.addEventListener('click', () => {
-    resetProjectEmojis();
-    activeEmojiBtn.textContent = DEFAULT_PROJECT_EMOJIS.active;
-    completedEmojiBtn.textContent = DEFAULT_PROJECT_EMOJIS.completed;
-  });
-  controls.appendChild(resetBtn);
-
-  // Insert after the last direct-child block element (same :scope > fix as theme pickers).
-  const lists = emojiSection.querySelectorAll(':scope > ul, :scope > ol, :scope > p');
-  const lastList = lists.length > 0 ? lists[lists.length - 1] : null;
-  if (lastList && lastList.nextSibling) {
-    emojiSection.insertBefore(controls, lastList.nextSibling);
-  } else {
-    emojiSection.appendChild(controls);
-  }
-}
-
 // ── Refresh Settings note UI after sync ───────────────────────────────────
 // Called after applySyncedPreferences() to ensure the colour picker circles
-// and emoji buttons in the Settings note preview reflect the latest values.
+// in the Settings note preview reflect the latest values.
 
 function refreshSettingsPickerUI() {
   if (currentFileName !== CALENDARS_NOTE) return;
@@ -1991,14 +2109,6 @@ function refreshSettingsPickerUI() {
       const nameSpan = picker.closest('li')?.querySelector('.calendar-name-label');
       if (nameSpan) nameSpan.style.color = calColors[calName];
     }
-  }
-
-  // Emoji display buttons (order: active first, completed second)
-  const emojis = getProjectEmojis();
-  const emojiDisplays = previewDiv.querySelectorAll('.emoji-display');
-  if (emojiDisplays.length >= 2) {
-    emojiDisplays[0].textContent = emojis.active;
-    emojiDisplays[1].textContent = emojis.completed;
   }
 }
 

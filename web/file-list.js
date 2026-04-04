@@ -301,20 +301,20 @@ async function updateWebCalendarSettings(allNotes) {
     content = _insertSection(content, '## 🎨 Theme', "Customise the app's background and accent colours.");
   }
 
-  // Remove any old ### Projects Note Emojis section (was nested under Theme in older versions).
-  // Emoji preferences live in localStorage/.app_preferences, not in this body text.
+  // Remove any old Projects Note Emojis section (was a standalone ## section; emojis
+  // are now set by clicking them directly in the Projects note).
   if (content.includes('\n### Projects Note Emojis')) {
     content = content.replace(/\n### Projects Note Emojis[\s\S]*?(?=\n## |$)/, '');
   }
-
-  // Ensure top-level ## Projects Note Emojis section (not nested under Theme)
-  if (!content.includes('## Projects Note Emojis')) {
-    content = _insertSection(content, '## Projects Note Emojis', 'Customise the emojis used in the Projects note.', '\n## 🎨 Theme', '\n\n');
+  if (content.includes('\n## Projects Note Emojis')) {
+    content = content.replace(/\n## Projects Note Emojis[\s\S]*?(?=\n## |$)/, '');
   }
 
-  // Ensure Syntax & Shortcuts reference section
+  // Ensure Syntax & Shortcuts reference section (autocollapsed)
   if (!content.includes('## 🧶 Syntax & Shortcuts')) {
-    content += '\n\n## 🧶 Syntax & Shortcuts\n\n' + SYNTAX_REFERENCE_TABLE + '\n';
+    content += '\n\n## 🧶 Syntax & Shortcuts >\n\n' + SYNTAX_REFERENCE_TABLE + '\n';
+  } else if (!content.includes('## 🧶 Syntax & Shortcuts >')) {
+    content = content.replace('## 🧶 Syntax & Shortcuts\n', '## 🧶 Syntax & Shortcuts >\n');
   }
 
   // Clean up any corrupted lines in the Calendars section (e.g. JSON fragments
@@ -359,9 +359,11 @@ async function updateWebCalendarSettings(allNotes) {
     n => !existingNamesNorm.has(n.toLowerCase().replace(/\s+/g, ''))
   );
 
-  // Ensure Calendars section exists
+  // Ensure Calendars section exists (autocollapsed)
   if (!content.includes('## 📅 Calendars')) {
-    content += '\n\n\n## 📅 Calendars\n';
+    content += '\n\n\n## 📅 Calendars >\n';
+  } else if (!content.includes('## 📅 Calendars >')) {
+    content = content.replace(/## 📅 Calendars\n/, '## 📅 Calendars >\n');
   }
 
   // Append new calendar names

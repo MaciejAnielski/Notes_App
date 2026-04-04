@@ -603,7 +603,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   }
   // Settings note: create it if it doesn't exist yet (e.g. first run on desktop/web)
   if (content === null && name === CALENDARS_NOTE) {
-    content = '# Settings\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n\n## Projects Note Emojis\n\nCustomise the emojis used in the Projects note.\n\n\n## 🧶 Syntax & Shortcuts\n\n' + SYNTAX_REFERENCE_TABLE + '\n';
+    content = '# Settings\n\n\n## ☁️ Sync\n\nSync notes across devices using your email address.\n\n\n## 🎨 Theme\n\nCustomise the app\'s background and accent colours.\n\n\n## 🧶 Syntax & Shortcuts >\n\n' + SYNTAX_REFERENCE_TABLE + '\n';
     await NoteStorage.setNote(name, content);
   } else if (content === null) {
     alert('File not found.');
