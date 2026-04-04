@@ -342,20 +342,20 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* ── Button container — Word-style menu bar ── */
+/* ── Button container — floating pill ── */
 #button-container {
   position: fixed;
   top: env(safe-area-inset-top, 0px);
-  left: 0;
-  right: 0;
+  left: 8px;
   margin: 0;
-  padding: 8px 0 0 8px;
+  padding: 3px 4px;
   display: flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: transparent;
+  background-color: var(--bg);
+  border-radius: 999px;
   transition: opacity 0.5s ease;
 }
 
@@ -397,7 +397,8 @@ body.platform-darwin #window-drag-region {
 }
 
 body.platform-darwin #button-container {
-  padding-left: 80px;
+  left: 80px;
+  padding-left: 4px;
   padding-top: 3px;
   -webkit-app-region: drag;
   app-region: drag;
@@ -484,7 +485,7 @@ button {
 /* ── Toolbar buttons: minimalist, borderless, Word-style ── */
 #button-container .button-group > button:not(.sub-button),
 #tools-overflow-row .button-group > button:not(.sub-button) {
-  background-color: var(--bg);
+  background: none;
   border: none;
   color: var(--muted);
   padding: 3px 10px;
