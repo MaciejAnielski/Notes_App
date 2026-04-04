@@ -351,7 +351,10 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--bg);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px var(--shadow-light);
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -433,6 +436,9 @@ body.platform-darwin #panel-arrow {
   margin-bottom: 0px;
   border-radius: 4px;
   transition: background-color 0.2s ease;
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -593,12 +599,8 @@ button.btn-busy {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex-shrink: 0;
   padding-top: var(--gap);
-  mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
 }
 
 #fileList li {
@@ -763,8 +765,6 @@ textarea {
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
 }
 
 /* ── Editor wrapper — contains highlight pre + transparent textarea ── */
@@ -927,8 +927,6 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
 }
 
 /* ── Preview heading colours — descending shades ── */
@@ -1201,11 +1199,7 @@ textarea:focus {
 }
 
 #todoList {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
+  flex-shrink: 0;
 }
 
 #todo-container li {
@@ -1327,6 +1321,22 @@ body.panel-pinned #panel-open-btn {
   flex-direction: column;
   padding: 0 var(--gap) var(--gap) var(--gap);
   box-sizing: border-box;
+  position: relative;
+}
+
+/* Frosted glass edge at the top of the scroll area where it meets the toolbar */
+#editor-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10;
+  pointer-events: none;
 }
 
 /* ════════════════════════════════════════════
@@ -1459,20 +1469,26 @@ body.panel-pinned {
 }
 
 #files-container.active,
-#todo-container.active {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
+#todo-container.active,
 #schedule-container.active {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+/* ── Sticky frosted-glass panel headers ── */
+.panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-bottom: 4px;
 }
 
 /* ── Schedule ── */
@@ -1576,16 +1592,13 @@ body.panel-pinned {
 
 
 #schedule-timeline-wrapper {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-  scrollbar-width: none;
+  flex-shrink: 0;
   padding-top: 20px;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 5px, black calc(100% - 5px), transparent 100%);
 }
 
-#schedule-timeline-wrapper::-webkit-scrollbar {
+#schedule-container.active::-webkit-scrollbar,
+#files-container.active::-webkit-scrollbar,
+#todo-container.active::-webkit-scrollbar {
   display: none;
 }
 
