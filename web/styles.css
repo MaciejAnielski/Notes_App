@@ -835,7 +835,7 @@ input::placeholder {
   font-weight: normal;
   font-style: normal;
   line-height: 1.5;
-  padding: var(--gap);
+  padding: 38px var(--gap) var(--gap);
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -1846,7 +1846,7 @@ body.panel-pinned {
 /* ── Global Search & Replace Panel ── */
 #global-search-panel {
   position: fixed;
-  top: 0;
+  top: 38px;
   right: 0;
   width: 400px;
   max-height: 50vh;
