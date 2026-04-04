@@ -356,7 +356,7 @@ body {
   flex-shrink: 0;
   z-index: 100;
   background-color: transparent;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.08s ease;
 }
 
 #button-container.scroll-faded,
@@ -444,7 +444,7 @@ body.platform-darwin #panel-arrow {
   border-radius: 999px;
   background-color: var(--bg);
   overflow: hidden;
-  transition: background-color 0.2s ease, opacity 0.3s ease;
+  transition: background-color 0.2s ease, opacity 0.08s ease;
   white-space: nowrap;
   z-index: 5;
 }
@@ -1341,9 +1341,23 @@ body.panel-pinned #panel-open-btn {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 var(--gap) var(--gap) var(--gap);
+  padding: 0 var(--gap) 0;
   box-sizing: border-box;
   position: relative;
+}
+
+/* Blur text that scrolls into the toolbar zone */
+#editor-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 4;
 }
 
 /* ════════════════════════════════════════════
@@ -1361,7 +1375,7 @@ body.panel-pinned #panel-open-btn {
   z-index: 50;
   background-color: var(--bg);
   overflow: hidden;
-  padding: var(--gap) calc(var(--gap) * 2);
+  padding: var(--gap) calc(var(--gap) * 2) 0;
   box-sizing: border-box;
   flex-direction: column;
 }
