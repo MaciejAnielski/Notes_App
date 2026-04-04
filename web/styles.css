@@ -1328,12 +1328,6 @@ body.panel-pinned #panel-open-btn {
   display: flex;
   flex-direction: row;
   overflow: hidden;
-  padding-top: 32px;
-  transition: padding-top 0.5s ease;
-}
-
-#content-area.scroll-active {
-  padding-top: 0;
 }
 
 /* ════════════════════════════════════════════
@@ -1852,7 +1846,7 @@ body.panel-pinned {
 /* ── Global Search & Replace Panel ── */
 #global-search-panel {
   position: fixed;
-  top: 32px;
+  top: 0;
   right: 0;
   width: 400px;
   max-height: 50vh;
