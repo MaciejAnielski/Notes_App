@@ -226,6 +226,27 @@ const toolbarResizeObserver = new ResizeObserver(checkToolbarOverflow);
 toolbarResizeObserver.observe(buttonContainer);
 checkToolbarOverflow();
 
+// ── Scroll fade — toolbar and status pill fade out while scrolling ─────────
+
+(function () {
+  const bottomStatusArea = document.getElementById('bottom-status-area');
+  const scheduleTimeline = document.getElementById('schedule-timeline-wrapper');
+  const scrollTargets = [textarea, previewDiv, fileList, todoList, scheduleTimeline];
+  let _scrollFadeTimer = null;
+
+  function onScroll() {
+    buttonContainer.classList.add('scroll-faded');
+    bottomStatusArea.classList.add('scroll-faded');
+    clearTimeout(_scrollFadeTimer);
+    _scrollFadeTimer = setTimeout(() => {
+      buttonContainer.classList.remove('scroll-faded');
+      bottomStatusArea.classList.remove('scroll-faded');
+    }, 1000);
+  }
+
+  scrollTargets.forEach(el => el && el.addEventListener('scroll', onScroll, { passive: true }));
+})();
+
 // ── Search and textarea listeners ─────────────────────────────────────────
 
 let _searchDebounce = null;

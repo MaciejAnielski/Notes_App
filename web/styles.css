@@ -356,6 +356,13 @@ body {
   flex-shrink: 0;
   z-index: 100;
   background-color: transparent;
+  transition: opacity 0.3s ease;
+}
+
+#button-container.scroll-faded,
+#bottom-status-area.scroll-faded {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -437,7 +444,7 @@ body.platform-darwin #panel-arrow {
   border-radius: 999px;
   background-color: var(--bg);
   overflow: hidden;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, opacity 0.3s ease;
   white-space: nowrap;
   z-index: 5;
 }
