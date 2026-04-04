@@ -356,6 +356,13 @@ body {
   flex-shrink: 0;
   z-index: 100;
   background-color: transparent;
+  transition: opacity 0.3s ease;
+}
+
+#button-container.scroll-faded,
+#bottom-status-area.scroll-faded {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -437,7 +444,7 @@ body.platform-darwin #panel-arrow {
   border-radius: 999px;
   background-color: var(--bg);
   overflow: hidden;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, opacity 0.3s ease;
   white-space: nowrap;
   z-index: 5;
 }
@@ -762,6 +769,7 @@ textarea {
   resize: none;
   overflow-y: auto;
   padding: var(--gap);
+  padding-top: 38px;
   margin: 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
@@ -934,6 +942,7 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  padding-top: 38px;
   mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
