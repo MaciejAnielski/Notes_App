@@ -599,7 +599,9 @@ button.btn-busy {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding-top: var(--gap);
 }
 
@@ -1199,7 +1201,9 @@ textarea:focus {
 }
 
 #todoList {
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #todo-container li {
@@ -1321,22 +1325,6 @@ body.panel-pinned #panel-open-btn {
   flex-direction: column;
   padding: 0 var(--gap) var(--gap) var(--gap);
   box-sizing: border-box;
-  position: relative;
-}
-
-/* Frosted glass edge at the top of the scroll area where it meets the toolbar */
-#editor-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 16px;
-  background: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 10;
-  pointer-events: none;
 }
 
 /* ════════════════════════════════════════════
@@ -1469,26 +1457,20 @@ body.panel-pinned {
 }
 
 #files-container.active,
-#todo-container.active,
+#todo-container.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 #schedule-container.active {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-/* ── Sticky frosted-glass panel headers ── */
-.panel-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding-bottom: 4px;
+  overflow: hidden;
 }
 
 /* ── Schedule ── */
@@ -1592,13 +1574,14 @@ body.panel-pinned {
 
 
 #schedule-timeline-wrapper {
-  flex-shrink: 0;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: none;
   padding-top: 20px;
 }
 
-#schedule-container.active::-webkit-scrollbar,
-#files-container.active::-webkit-scrollbar,
-#todo-container.active::-webkit-scrollbar {
+#schedule-timeline-wrapper::-webkit-scrollbar {
   display: none;
 }
 
