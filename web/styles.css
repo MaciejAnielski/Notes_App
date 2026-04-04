@@ -597,6 +597,8 @@ button.btn-busy {
   min-height: 0;
   overflow-y: auto;
   padding-top: var(--gap);
+  mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
 }
 
 #fileList li {
@@ -761,6 +763,8 @@ textarea {
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
 }
 
 /* ── Editor wrapper — contains highlight pre + transparent textarea ── */
@@ -923,6 +927,8 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
 }
 
 /* ── Preview heading colours — descending shades ── */
@@ -1198,6 +1204,8 @@ textarea:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
 }
 
 #todo-container li {
@@ -1573,6 +1581,8 @@ body.panel-pinned {
   min-height: 0;
   scrollbar-width: none;
   padding-top: 20px;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
 }
 
 #schedule-timeline-wrapper::-webkit-scrollbar {
