@@ -150,14 +150,6 @@ async function updateCalendarsNote() {
     if (themeMatch) themeBody = themeMatch[1];
   }
 
-  // Extract existing Projects Note Emojis section to preserve it across rebuilds.
-  let emojiBody = '\nCustomise the emojis used in the Projects note.\n';
-  if (existing) {
-    // Match either ## or ### to handle notes written by older app versions.
-    const emojiMatch = existing.match(/###? Projects Note Emojis([\s\S]*?)(?=\n##|$)/);
-    if (emojiMatch) emojiBody = emojiMatch[1];
-  }
-
   // Extract existing Encryption section to preserve it across rebuilds.
   // If it doesn't exist yet but sync is available, create the default section.
   // This section is managed by the encryption UI in markdown-renderer.js.
@@ -170,11 +162,9 @@ async function updateCalendarsNote() {
     encryptionBody = '\nEnd-to-end encryption protects your notes so only your devices can read them.\n';
   }
 
-  // Build new note content — Sync, Theme, and Projects Note Emojis sections always present;
+  // Build new note content — Sync and Theme sections always present;
   // Encryption section preserved if it existed; Calendars section only when the iOS calendar
-  // plugin returned at least one calendar. Projects Note Emojis is a top-level ## section
-  // (not nested under Theme) so it is always rendered as an independent <details> and is
-  // never hidden inside a closed parent.
+  // plugin returned at least one calendar.
   const lines = [
     '# Settings', '',
     '## ☁️ Sync' + syncBody.trimEnd(), '',
@@ -184,11 +174,10 @@ async function updateCalendarsNote() {
     lines.push('## 🔒 Encryption' + encryptionBody.trimEnd(), '');
   }
   lines.push(
-    '## 🎨 Theme' + themeBody.trimEnd(), '',
-    '## Projects Note Emojis' + emojiBody.trimEnd(), ''
+    '## 🎨 Theme' + themeBody.trimEnd(), ''
   );
   if (calendars.length > 0) {
-    lines.push('## 📅 Calendars', '', 'Select calendars to sync with your daily notes:', '');
+    lines.push('## 📅 Calendars >', '', 'Select calendars to sync with your daily notes:', '');
     calendars
       .sort((a, b) => a.title.localeCompare(b.title))
       .forEach(cal => {
