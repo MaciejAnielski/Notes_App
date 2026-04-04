@@ -788,7 +788,6 @@ function setupMermaidPanZoom(wrapper) {
   const btn = document.createElement('button');
   btn.className = 'mermaid-panzoom-btn';
   btn.title = 'Pan & zoom';
-  // Simple expand/arrows icon
   btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
   wrapper.appendChild(btn);
 
@@ -796,15 +795,37 @@ function setupMermaidPanZoom(wrapper) {
   let scale = 1, panX = 0, panY = 0;
   let dragging = false, lastX = 0, lastY = 0;
   let lastPinchDist = null;
+  // Inline styles saved before expanding, restored on exit
+  let savedStyles = {};
 
   function applyTransform() {
     svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
   }
 
+  // ── Expand wrapper to fill the visible edit/view area ───────────────────
+  // Uses position:fixed anchored to #editor-section so it works regardless
+  // of how far the preview has been scrolled.
+
+  function applyFullAreaLayout() {
+    const anchor = document.getElementById('editor-section') || document.getElementById('preview');
+    if (!anchor) return;
+    const r = anchor.getBoundingClientRect();
+    wrapper.style.position = 'fixed';
+    wrapper.style.top      = r.top    + 'px';
+    wrapper.style.left     = r.left   + 'px';
+    wrapper.style.width    = r.width  + 'px';
+    wrapper.style.height   = r.height + 'px';
+    wrapper.style.margin   = '0';
+  }
+
+  function onResize() {
+    if (active) applyFullAreaLayout();
+  }
+
   // ── Mouse handlers ──────────────────────────────────────────────────────
 
   function onMouseDown(e) {
-    if (e.target === btn) return; // let button clicks through
+    if (e.target === btn || e.target.closest('.mermaid-panzoom-btn')) return;
     dragging = true;
     lastX = e.clientX;
     lastY = e.clientY;
@@ -827,17 +848,38 @@ function setupMermaidPanZoom(wrapper) {
     wrapper.style.cursor = 'grab';
   }
 
-  function onWheel(e) {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+  // ── Wheel / trackpad pinch handler ──────────────────────────────────────
+  // Uses a continuous exponential factor so trackpad pinch is smooth.
+  // deltaMode 1 (LINE) deltas are normalised to pixel equivalents first.
+
+  function doZoom(e) {
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) dy *= 20; // line → pixels
+    dy = Math.max(-80, Math.min(80, dy)); // clamp large single steps
+    const factor = Math.exp(-dy * 0.008);
     const rect = wrapper.getBoundingClientRect();
-    // Zoom toward the cursor position
     const cx = e.clientX - rect.left - panX;
     const cy = e.clientY - rect.top  - panY;
     scale = Math.max(0.1, Math.min(10, scale * factor));
     panX -= cx * (factor - 1);
     panY -= cy * (factor - 1);
     applyTransform();
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    doZoom(e);
+  }
+
+  // Global interceptor: catches trackpad pinch (wheel + ctrlKey) anywhere on
+  // the page while pan/zoom is active and prevents the browser from zooming.
+  // Must be registered with passive:false on window to be able to preventDefault.
+  function globalPinchInterceptor(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    doZoom(e);
   }
 
   // ── Touch handlers ──────────────────────────────────────────────────────
@@ -849,7 +891,7 @@ function setupMermaidPanZoom(wrapper) {
   }
 
   function onTouchStart(e) {
-    if (e.target === btn) return;
+    if (e.target === btn || e.target.closest('.mermaid-panzoom-btn')) return;
     if (e.touches.length === 1) {
       dragging = true;
       lastX = e.touches[0].clientX;
@@ -870,10 +912,9 @@ function setupMermaidPanZoom(wrapper) {
       lastY = e.touches[0].clientY;
       applyTransform();
     } else if (e.touches.length === 2 && lastPinchDist !== null) {
-      const dist  = touchDist(e.touches);
+      const dist   = touchDist(e.touches);
       const factor = dist / lastPinchDist;
-      // Zoom toward the midpoint of the two fingers
-      const rect = wrapper.getBoundingClientRect();
+      const rect   = wrapper.getBoundingClientRect();
       const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left - panX;
       const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top  - panY;
       scale = Math.max(0.1, Math.min(10, scale * factor));
@@ -896,18 +937,39 @@ function setupMermaidPanZoom(wrapper) {
     active = true;
     btn.classList.add('active');
     btn.title = 'Exit pan & zoom';
-    wrapper.classList.add('mermaid-panzoom-active');
-    wrapper.style.cursor = 'grab';
     svg.style.transformOrigin = '0 0';
-    // Snapshot the natural dimensions once so the container keeps its size
-    if (!wrapper.dataset.naturalHeight) {
-      const h = svg.getBoundingClientRect().height;
-      if (h > 0) wrapper.dataset.naturalHeight = h;
-    }
-    wrapper.addEventListener('mousedown', onMouseDown);
+
+    // Save current inline styles so we can restore them exactly on exit
+    savedStyles = {
+      position: wrapper.style.position,
+      top:      wrapper.style.top,
+      left:     wrapper.style.left,
+      width:    wrapper.style.width,
+      height:   wrapper.style.height,
+      margin:   wrapper.style.margin,
+      zIndex:   wrapper.style.zIndex,
+      overflow: wrapper.style.overflow,
+      cursor:   wrapper.style.cursor,
+    };
+
+    wrapper.classList.add('mermaid-panzoom-active');
+    applyFullAreaLayout();
+    wrapper.style.zIndex   = '200';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.cursor   = 'grab';
+
+    // Prevent scroll behind the overlay
+    const previewEl = document.getElementById('preview');
+    if (previewEl) previewEl.dataset.pzSavedOverflow = previewEl.style.overflow || '';
+
+    window.addEventListener('resize', onResize);
+    // Intercept trackpad pinch (ctrlKey+wheel) at the window level so the
+    // browser cannot use it to zoom the page while pan/zoom mode is active.
+    window.addEventListener('wheel', globalPinchInterceptor, { passive: false });
+    wrapper.addEventListener('mousedown',  onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    wrapper.addEventListener('wheel', onWheel, { passive: false });
+    document.addEventListener('mouseup',   onMouseUp);
+    wrapper.addEventListener('wheel',      onWheel,      { passive: false });
     wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
     wrapper.addEventListener('touchmove',  onTouchMove,  { passive: false });
     wrapper.addEventListener('touchend',   onTouchEnd,   { passive: true });
@@ -918,14 +980,27 @@ function setupMermaidPanZoom(wrapper) {
     btn.classList.remove('active');
     btn.title = 'Pan & zoom';
     wrapper.classList.remove('mermaid-panzoom-active');
-    wrapper.style.cursor = '';
+
+    // Restore wrapper to its original inline styles
+    Object.assign(wrapper.style, savedStyles);
+    savedStyles = {};
+
     scale = 1; panX = 0; panY = 0;
     svg.style.transform = '';
     svg.style.transformOrigin = '';
-    wrapper.removeEventListener('mousedown', onMouseDown);
+
+    const previewEl = document.getElementById('preview');
+    if (previewEl && previewEl.dataset.pzSavedOverflow !== undefined) {
+      previewEl.style.overflow = previewEl.dataset.pzSavedOverflow;
+      delete previewEl.dataset.pzSavedOverflow;
+    }
+
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('wheel',  globalPinchInterceptor);
+    wrapper.removeEventListener('mousedown',  onMouseDown);
     document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    wrapper.removeEventListener('wheel', onWheel);
+    document.removeEventListener('mouseup',   onMouseUp);
+    wrapper.removeEventListener('wheel',      onWheel);
     wrapper.removeEventListener('touchstart', onTouchStart);
     wrapper.removeEventListener('touchmove',  onTouchMove);
     wrapper.removeEventListener('touchend',   onTouchEnd);

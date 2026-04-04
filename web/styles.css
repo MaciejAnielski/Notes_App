@@ -2108,13 +2108,14 @@ body.panel-pinned {
   opacity: 1;
 }
 
-/* Pan/zoom active state — constrain height and hide overflow */
+/* Pan/zoom active state — sizing/position applied via JS; just set visual properties */
 .mermaid-diagram.mermaid-panzoom-active {
-  overflow: hidden;
+  background: var(--bg);
   user-select: none;
   touch-action: none;
-  min-height: 120px;
-  cursor: grab;
+  /* Small inner padding so the SVG doesn't sit flush against the edge */
+  padding: 36px var(--gap, 10px) var(--gap, 10px);
+  box-sizing: border-box;
 }
 
 .mermaid-diagram.mermaid-panzoom-active svg {
