@@ -1661,7 +1661,6 @@ body.panel-pinned {
 .schedule-allday-section {
   flex-shrink: 0;
   padding: 4px 4px 4px 0;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 0;
 }
 
