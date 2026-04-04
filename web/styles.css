@@ -344,6 +344,10 @@ body {
 
 /* ── Button container — Word-style menu bar ── */
 #button-container {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
   margin: 0;
   padding: 8px 0 0 8px;
   display: flex;
@@ -351,7 +355,7 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--bg);
+  background-color: transparent;
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -473,19 +477,19 @@ button {
 /* ── Toolbar buttons: minimalist, borderless, Word-style ── */
 #button-container .button-group > button:not(.sub-button),
 #tools-overflow-row .button-group > button:not(.sub-button) {
-  background: none;
+  background-color: var(--bg);
   border: none;
   color: var(--muted);
   padding: 3px 10px;
   margin: 0;
   font-size: 13px;
-  border-radius: 3px;
+  border-radius: 999px;
 }
 
 @media (hover: hover) {
   #button-container .button-group > button:not(.sub-button):hover,
   #tools-overflow-row .button-group > button:not(.sub-button):hover {
-    background-color: var(--hover-overlay);
+    background-color: var(--surface);
     color: var(--text);
   }
 }
