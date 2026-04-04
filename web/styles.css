@@ -351,10 +351,7 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px var(--shadow-light);
+  background-color: var(--bg);
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -390,7 +387,7 @@ body.platform-darwin #window-drag-region {
 
 body.platform-darwin #button-container {
   padding-left: 80px;
-  padding-top: 8px;
+  padding-top: 3px;
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -426,19 +423,19 @@ body.platform-darwin #panel-arrow {
   app-region: no-drag;
 }
 
-/* ── Bottom status area — wraps status message and backup label ── */
+/* ── Bottom status area — pill-shaped, self-sizes to content ── */
 #bottom-status-area {
   position: relative;
   margin-top: auto;
   flex-shrink: 0;
-  text-align: center;
-  padding: 1px 0;
-  margin-bottom: 0px;
-  border-radius: 4px;
+  align-self: center;
+  padding: 3px 14px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background-color: var(--surface);
+  overflow: hidden;
   transition: background-color 0.2s ease;
-  background-color: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  white-space: nowrap;
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -603,6 +600,8 @@ button.btn-busy {
   min-height: 0;
   overflow-y: auto;
   padding-top: var(--gap);
+  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
 
 #fileList li {
@@ -767,6 +766,8 @@ textarea {
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
 
 /* ── Editor wrapper — contains highlight pre + transparent textarea ── */
@@ -929,6 +930,8 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
 
 /* ── Preview heading colours — descending shades ── */
@@ -1204,6 +1207,8 @@ textarea:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
 
 #todo-container li {
@@ -1579,6 +1584,8 @@ body.panel-pinned {
   min-height: 0;
   scrollbar-width: none;
   padding-top: 20px;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
 
 #schedule-timeline-wrapper::-webkit-scrollbar {
