@@ -281,6 +281,12 @@ function deriveThemeVars(bg, accent) {
   // Hover overlay
   const hoverOverlay = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
 
+  // Frosted glass background — semi-transparent version of bg for backdrop-filter elements
+  const bgR = parseInt(bg.slice(1, 3), 16);
+  const bgG = parseInt(bg.slice(3, 5), 16);
+  const bgB = parseInt(bg.slice(5, 7), 16);
+  const bgGlass = `rgba(${bgR}, ${bgG}, ${bgB}, 0.82)`;
+
   // Math result
   const mathResultColor = accent;
   const mathUnderline = accent;
@@ -330,6 +336,7 @@ function deriveThemeVars(bg, accent) {
     '--border': border,
     '--accent': accent,
     '--hover-overlay': hoverOverlay,
+    '--bg-glass': bgGlass,
     '--caret': caretColor,
     '--placeholder': placeholderColor,
 
