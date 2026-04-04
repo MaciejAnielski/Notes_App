@@ -356,7 +356,7 @@ body {
   flex-shrink: 0;
   z-index: 100;
   background-color: transparent;
-  transition: opacity 0.08s ease;
+  transition: opacity 0.5s ease;
 }
 
 #button-container.scroll-faded,
@@ -444,7 +444,7 @@ body.platform-darwin #panel-arrow {
   border-radius: 999px;
   background-color: var(--bg);
   overflow: hidden;
-  transition: background-color 0.2s ease, opacity 0.08s ease;
+  transition: background-color 0.2s ease, opacity 0.5s ease;
   white-space: nowrap;
   z-index: 5;
 }
@@ -769,7 +769,6 @@ textarea {
   resize: none;
   overflow-y: auto;
   padding: var(--gap);
-  padding-top: 38px;
   margin: 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
@@ -835,7 +834,7 @@ input::placeholder {
   font-weight: normal;
   font-style: normal;
   line-height: 1.5;
-  padding: 38px var(--gap) var(--gap);
+  padding: var(--gap);
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -942,7 +941,6 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-top: 38px;
   mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
 }
@@ -1329,6 +1327,7 @@ body.panel-pinned #panel-open-btn {
   display: flex;
   flex-direction: row;
   overflow: hidden;
+  padding-top: 32px;
 }
 
 /* ════════════════════════════════════════════
@@ -1346,19 +1345,6 @@ body.panel-pinned #panel-open-btn {
   position: relative;
 }
 
-/* Blur text that scrolls into the toolbar zone */
-#editor-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 38px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  pointer-events: none;
-  z-index: 4;
-}
 
 /* ════════════════════════════════════════════
    Lists overlay — hidden by default,
@@ -1860,7 +1846,7 @@ body.panel-pinned {
 /* ── Global Search & Replace Panel ── */
 #global-search-panel {
   position: fixed;
-  top: 38px;
+  top: 32px;
   right: 0;
   width: 400px;
   max-height: 50vh;
