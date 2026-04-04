@@ -230,6 +230,7 @@ checkToolbarOverflow();
 
 (function () {
   const bottomStatusArea = document.getElementById('bottom-status-area');
+  const contentArea      = document.getElementById('content-area');
   const scheduleTimeline = document.getElementById('schedule-timeline-wrapper');
   const scrollTargets = [textarea, previewDiv, fileList, todoList, scheduleTimeline];
   let _scrollFadeTimer = null;
@@ -237,10 +238,12 @@ checkToolbarOverflow();
   function onScroll() {
     buttonContainer.classList.add('scroll-faded');
     bottomStatusArea.classList.add('scroll-faded');
+    contentArea.classList.add('scroll-active');
     clearTimeout(_scrollFadeTimer);
     _scrollFadeTimer = setTimeout(() => {
       buttonContainer.classList.remove('scroll-faded');
       bottomStatusArea.classList.remove('scroll-faded');
+      contentArea.classList.remove('scroll-active');
     }, 200);
   }
 

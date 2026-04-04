@@ -1328,6 +1328,11 @@ body.panel-pinned #panel-open-btn {
   flex-direction: row;
   overflow: hidden;
   padding-top: 32px;
+  transition: padding-top 0.5s ease;
+}
+
+#content-area.scroll-active {
+  padding-top: 0;
 }
 
 /* ════════════════════════════════════════════
