@@ -1,5 +1,6 @@
 :root {
   --gap: 10px;
+  --toolbar-h: 36px;
 }
 
 /* Hide mermaid error messages and related error UI */
@@ -346,7 +347,8 @@ body {
 #button-container {
   position: fixed;
   top: env(safe-area-inset-top, 0px);
-  left: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   margin: 0;
   padding: 3px 4px;
   display: flex;
@@ -397,9 +399,6 @@ body.platform-darwin #window-drag-region {
 }
 
 body.platform-darwin #button-container {
-  left: 80px;
-  padding-left: 4px;
-  padding-top: 3px;
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -611,9 +610,9 @@ button.btn-busy {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-top: var(--gap);
-  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  padding-top: var(--toolbar-h);
+  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 #fileList li {
@@ -770,6 +769,7 @@ textarea {
   resize: none;
   overflow-y: auto;
   padding: var(--gap);
+  padding-top: var(--toolbar-h);
   margin: 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
@@ -778,8 +778,8 @@ textarea {
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 /* ── Editor wrapper — contains highlight pre + transparent textarea ── */
@@ -836,6 +836,7 @@ input::placeholder {
   font-style: normal;
   line-height: 1.5;
   padding: var(--gap);
+  padding-top: var(--toolbar-h); /* CRITICAL: must match textarea padding exactly */
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -927,6 +928,7 @@ textarea:focus {
   position: relative;
   width: 100%;
   padding: var(--gap);
+  padding-top: var(--toolbar-h);
   margin: 0;
   font-size: 16px;
   line-height: 1.5;
@@ -942,8 +944,8 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 /* ── Preview heading colours — descending shades ── */
@@ -1219,8 +1221,9 @@ textarea:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  padding-top: var(--toolbar-h);
+  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 #todo-container li {
@@ -1597,9 +1600,9 @@ body.panel-pinned {
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: none;
-  padding-top: 20px;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 10px, black calc(100% - 10px), transparent 100%);
+  padding-top: var(--toolbar-h);
+  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 #schedule-timeline-wrapper::-webkit-scrollbar {
