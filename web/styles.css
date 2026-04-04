@@ -949,6 +949,10 @@ textarea:focus {
 }
 
 /* ── Preview heading colours — descending shades ── */
+#preview > *:first-child {
+  margin-top: 0;
+}
+
 #preview h1 {
   color: var(--h1);
   border-bottom: 1px solid var(--accent);
