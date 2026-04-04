@@ -241,7 +241,7 @@ checkToolbarOverflow();
     _scrollFadeTimer = setTimeout(() => {
       buttonContainer.classList.remove('scroll-faded');
       bottomStatusArea.classList.remove('scroll-faded');
-    }, 1000);
+    }, 200);
   }
 
   scrollTargets.forEach(el => el && el.addEventListener('scroll', onScroll, { passive: true }));
