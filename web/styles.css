@@ -2093,7 +2093,6 @@ body.panel-pinned {
   height: 24px;
   padding: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 5px;
   cursor: pointer;
   opacity: 0.45;
