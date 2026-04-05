@@ -1,6 +1,6 @@
 :root {
   --gap: 10px;
-  --toolbar-h: 44px;
+  --toolbar-h: 36px;
 }
 
 /* Hide mermaid error messages and related error UI */
@@ -358,7 +358,7 @@ body {
   z-index: 100;
   background-color: var(--bg);
   border-radius: 999px;
-  transition: opacity 0.5s ease;
+  transition: opacity 1s ease;
 }
 
 #button-container.scroll-faded,
@@ -586,7 +586,7 @@ button.btn-busy {
   background: none;
   color: var(--text);
   border: none;
-  border-radius: 0;
+  border-radius: 5px;
   width: 100%;
   box-sizing: border-box;
   padding: 5px;
@@ -606,17 +606,18 @@ button.btn-busy {
 #fileList {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 8px 0px 0px 0px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-top: var(--toolbar-h);
-  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%);
 }
 
 #fileList li {
-  margin-bottom: 5px;
+  margin: 0.15em 0em;
+  border-radius: 5px;
+  padding: 2px 0px 2px 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -630,7 +631,7 @@ button.btn-busy {
 }
 
 #fileList li:hover {
-  text-decoration: underline;
+  background-color: var(--today-bg);
 }
 
 /* ── Active note: bright, solid left border ── */
@@ -665,13 +666,15 @@ button.btn-busy {
 /* ── Nav section: Projects / Note Graph / Settings ── */
 #nav-list {
   list-style: none;
-  margin: 0;
-  padding: var(--gap) 0 0;
+  margin: 0px;
+  padding: 8px 0px 0px 0px;
   flex-shrink: 0;
 }
 
 #nav-list li {
-  margin-bottom: 5px;
+  margin: 0.15em 0em;
+  border-radius: 5px;
+  padding: 2px 0px 2px 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -685,13 +688,12 @@ button.btn-busy {
 }
 
 #nav-list li:hover {
-  text-decoration: underline;
+  background-color: var(--today-bg);
 }
 
 /* ── Today's Daily Note highlight ── */
 #fileList li.today-note {
-  background: var(--today-bg);
-  border-radius: 4px;
+  background-color: var(--today-bg);
 }
 
 #fileList li.today-note > span {
@@ -708,8 +710,7 @@ button.btn-busy {
 /* ── Second note: currently open note shown just below today's note ── */
 /* Same highlight treatment as today's note so the active note stands out. */
 #fileList li.second-note {
-  background: var(--today-bg);
-  border-radius: 4px;
+  background-color: var(--today-bg);
 }
 
 #fileList li.second-note > span {
@@ -949,16 +950,13 @@ textarea:focus {
 }
 
 /* ── Preview heading colours — descending shades ── */
-#preview > *:first-child {
-  margin-top: 0;
-}
 
 #preview h1 {
   color: var(--h1);
   border-bottom: 1px solid var(--accent);
-  padding-bottom: 8px;
+  padding-bottom: 5px;
   margin-bottom: 16px;
-  margin-top: 8px;
+  margin-top: 0px;
 }
 
 #preview h2 { color: var(--h2); }
@@ -1004,7 +1002,6 @@ textarea:focus {
 /* Fenced code block container */
 #preview pre {
   background-color: var(--code-block-bg);
-  border: 1px solid var(--code-block-border);
   border-radius: 4px;
   padding: 10px;
   overflow-x: auto;
@@ -1047,7 +1044,7 @@ textarea:focus {
 #preview ul,
 #preview ol {
   padding-left: 1.5em;
-  margin: 0.5em 0;
+  margin: 0.5em 0em;
 }
 
 /* Nested lists: no extra vertical margin */
@@ -1231,14 +1228,21 @@ textarea:focus {
 }
 
 #todo-container li {
-  margin: 0.15em 0;
+  margin: 0.15em 0em;
 }
+
+#todo-container li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 
 #todo-container .todo-note-title {
   display: block;
   margin-bottom: var(--gap);
-  margin-top: var(--gap);
-  text-decoration: underline;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--accent);
 }
 
 #todoList > li {
@@ -1368,7 +1372,7 @@ body.panel-pinned #panel-open-btn {
   z-index: 50;
   background-color: var(--bg);
   overflow: hidden;
-  padding: var(--gap) calc(var(--gap) * 2) 0;
+  padding: 10px 10px 0px 10px;
   box-sizing: border-box;
   flex-direction: column;
 }
@@ -1394,7 +1398,7 @@ body.panel-pinned #panel-open-btn {
   color: var(--hr);
   text-align: center;
   padding: 1px 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 1s ease;
 }
 
 /* ── Images inside preview — constrain size to avoid overflow ── */
@@ -1421,7 +1425,7 @@ body.panel-pinned #panel-open-btn {
   text-align: center;
   cursor: pointer;
   user-select: none;
-  margin-top: 10px;
+  margin: 15px 10px;
 }
 
 #files-container h2:hover,
@@ -1508,11 +1512,11 @@ body.panel-pinned {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: var(--gap);
+  margin-bottom: 5px;
 }
 
 .schedule-date-row button {
-  padding: 2px 8px;
+  padding: 2.5px 10px;
   font-size: 16px;
   line-height: 1;
   background: none;
@@ -1533,8 +1537,7 @@ body.panel-pinned {
 #schedule-week-row {
   display: flex;
   justify-content: space-around;
-  padding: 4px 2px 8px;
-  margin-bottom: 6px;
+  padding: 5px 0px;
 }
 
 .schedule-week-cell {
@@ -1606,11 +1609,9 @@ body.panel-pinned {
 #schedule-timeline-wrapper {
   flex: 1;
   overflow-y: auto;
-  min-height: 0;
+  min-height: 0px;
   scrollbar-width: none;
-  padding-top: var(--toolbar-h);
-  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  padding-top: 10px 10px 0px 5px;
 }
 
 #schedule-timeline-wrapper::-webkit-scrollbar {
@@ -1627,8 +1628,8 @@ body.panel-pinned {
   width: 50px;
   font-size: 10px;
   color: var(--time-label);
-  text-align: right;
-  padding-right: 6px;
+  text-align: left;
+  padding-left: 5px;
   transform: translateY(-50%);
   box-sizing: border-box;
   pointer-events: none;
@@ -1636,9 +1637,9 @@ body.panel-pinned {
 
 .schedule-gridline {
   position: absolute;
-  left: 54px;
+  left: 40px;
   right: 0;
-  border-top: 1px solid var(--gridline);
+  border-top: 0.5px solid var(--gridline);
 }
 
 .schedule-gridline-hour {
@@ -1647,11 +1648,11 @@ body.panel-pinned {
 
 .schedule-item {
   position: absolute;
-  left: 54px;
-  right: 4px;
+  left: 40px;
+  right: 0px;
   background-color: var(--sched-item-bg);
   border-left: 3px solid var(--sched-item-border);
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 5px 5px 0;
   padding: 2px 6px;
   font-size: 12px;
   overflow: hidden;
@@ -1698,8 +1699,8 @@ body.panel-pinned {
 /* flex-shrink:0 keeps it at its natural height; the timeline wrapper below takes the rest. */
 .schedule-allday-section {
   flex-shrink: 0;
-  padding: 4px 4px 4px 0;
-  margin-bottom: 0;
+  padding: 0px;
+  margin-bottom: 0px;
 }
 
 .schedule-allday-section .schedule-item {
@@ -1707,8 +1708,9 @@ body.panel-pinned {
   top: auto;
   left: auto;
   right: auto;
-  margin-left: 54px;
-  margin-bottom: 2px;
+  margin: 5px 10px 5px 45px;
+  padding: 0px 6px;
+  align-items: center;
   box-sizing: border-box;
 }
 
@@ -2586,7 +2588,6 @@ input[type="checkbox"] {
   flex-shrink: 0;
   vertical-align: middle;
   align-self: flex-start;
-  margin-top: calc((1lh - 1em) / 2);
   transition: background-color 0.1s ease, border-color 0.1s ease;
 }
 
