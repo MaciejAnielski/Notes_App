@@ -2468,31 +2468,15 @@ async function toggleView() {
     // Flush any active table sort to markdown before switching to edit mode.
     _saveAllTableSorts(previewDiv);
 
-    // Capture a text anchor from the top of the visible preview.
-    const previewAnchor = _getPreviewTopAnchorText();
-    const scrollRatio = (previewDiv.scrollHeight - previewDiv.clientHeight) > 0
-      ? previewDiv.scrollTop / (previewDiv.scrollHeight - previewDiv.clientHeight)
-      : 0;
-
     previewDiv.style.display = 'none';
     textarea.style.display = 'block';
     toggleViewBtn.textContent = 'View';
     isPreview = false;
     localStorage.setItem('is_preview', 'false');
-
-    // Scroll editor to the same visible text; fall back to proportional ratio.
-    if (!_scrollEditorToText(textarea, previewAnchor)) {
-      const maxScroll = textarea.scrollHeight - textarea.clientHeight;
-      textarea.scrollTop = maxScroll > 0 ? scrollRatio * maxScroll : 0;
-    }
   } else {
-    // Capture cursor position and scroll anchor before any async work.
+    // Capture cursor position before any async work.
     const cursorOffset = textarea.selectionStart;
     const sourceSnapshot = textarea.value;
-    const editorAnchor = _getEditorScrollAnchor(textarea);
-    const scrollRatio = (textarea.scrollHeight - textarea.clientHeight) > 0
-      ? textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight)
-      : 0;
 
     // Flush any pending auto-save and apply a pending title rename so the
     // preview and file list immediately reflect the committed note name.
@@ -2516,13 +2500,6 @@ async function toggleView() {
     toggleViewBtn.textContent = 'Edit';
     isPreview = true;
     localStorage.setItem('is_preview', 'true');
-
-    // Heading collapse state is always driven purely by the ">" syntax —
-    // toggle never forces any section open. Scroll to the matching text.
-    if (!_scrollPreviewToText(editorAnchor)) {
-      const maxScroll = previewDiv.scrollHeight - previewDiv.clientHeight;
-      if (maxScroll > 0) previewDiv.scrollTop = scrollRatio * maxScroll;
-    }
 
     // Set up breadcrumb trail: if the cursor was inside collapsed heading(s),
     // highlight them so the user can follow the trail to their position.
