@@ -1214,17 +1214,15 @@ textarea:focus {
 
 #todo-container ul {
   list-style: none;
-  padding-left: 0;
-  margin: 0;
+  padding: 0px 2.5px 0px 2.5px;
+  margin: 0px;
 }
 
 #todoList {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-top: var(--toolbar-h);
-  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
+  padding-top: 0px;
 }
 
 #todo-container li {
@@ -1240,8 +1238,8 @@ textarea:focus {
 
 #todo-container .todo-note-title {
   display: block;
-  margin-bottom: var(--gap);
-  padding-bottom: 5px;
+  margin: 0px 2.5px 0px 2.5px;
+  padding: 0px 0px 5px 0px;
   border-bottom: 1px solid var(--accent);
 }
 
@@ -1640,6 +1638,7 @@ body.panel-pinned {
   left: 40px;
   right: 0;
   border-top: 0.5px solid var(--gridline);
+  margin: 0px 10px 0px 5px;
 }
 
 .schedule-gridline-hour {
@@ -1654,6 +1653,7 @@ body.panel-pinned {
   border-left: 3px solid var(--sched-item-border);
   border-radius: 0 5px 5px 0;
   padding: 2px 6px;
+  margin: 0px 10px 0px 5px;
   font-size: 12px;
   overflow: hidden;
   box-sizing: border-box;
