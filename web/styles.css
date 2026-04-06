@@ -371,11 +371,10 @@ body {
   }
 }
 
-#button-container.scroll-faded {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-50%) translateY(-10px);
-  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+/* Floating pill when note is scrolled below the top */
+#button-container.scrolled-down {
+  background-color: var(--bg);
+  box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
 }
 
 #bottom-status-area.scroll-faded {
@@ -1551,12 +1550,6 @@ body.panel-pinned {
   body.panel-pinned #button-container {
     left: var(--gap);
     max-width: calc(100% - 300px - var(--gap) - 6px);
-  }
-
-  /* On desktop the toolbar is left-anchored (transform:none), so the
-     scroll-fade slide must not include a translateX component. */
-  #button-container.scroll-faded {
-    transform: translateY(-10px);
   }
 
   /* Shift the status pill left by half the panel width so it stays centred
