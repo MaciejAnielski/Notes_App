@@ -969,8 +969,9 @@ textarea:focus {
 #preview {
   position: relative;
   width: 100%;
-  padding: var(--gap);
+  padding: 0;
   padding-top: var(--toolbar-h);
+  padding-bottom: var(--gap);
   margin: 0;
   font-size: 16px;
   line-height: 1.5;
@@ -986,6 +987,15 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Indent all direct children with margin so they sit at the same visual
+   position as before. Scrollable blocks (.table-wrapper, pre, .mermaid-diagram)
+   are excluded — they expand edge-to-edge within #preview and use their own
+   internal padding/scroll-indent for the at-rest indentation. */
+#preview > *:not(.table-wrapper):not(pre):not(.mermaid-diagram) {
+  margin-left: var(--gap);
+  margin-right: var(--gap);
 }
 
 /* ── Preview heading colours — descending shades ── */
@@ -1173,7 +1183,10 @@ textarea:focus {
 #preview .table-wrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  max-width: 100%;
+  /* padding-left creates a scrollable indent: the table starts 10 px from the
+     left at rest (matching body text), but that gap scrolls away when the
+     table is wider than the viewport, giving the table the full column width. */
+  padding-left: var(--gap);
   margin: 0.75em 0;
 }
 
@@ -2942,6 +2955,8 @@ input[type="checkbox"] {
 #preview th.sortable-header {
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #preview th.sortable-header:hover {
@@ -3017,34 +3032,19 @@ input[type="checkbox"] {
   pointer-events: none;
 }
 
-/* ── Copy glow feedback ─────────────────────────────────────────────────── */
-/* Block-element glow (tables) — two-layer box-shadow: a bright tight ring
-   plus a wide diffuse halo. color-mix keeps interpolation consistent. */
-@keyframes copy-glow-pulse {
-  0%   { box-shadow: 0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent),
-                     0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent); }
-  12%  { box-shadow: 0 0 6px  3px color-mix(in srgb, var(--accent) 70%, transparent),
-                     0 0 22px 5px color-mix(in srgb, var(--accent) 40%, transparent); }
-  100% { box-shadow: 0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent),
-                     0 0 0    0  color-mix(in srgb, var(--accent)  0%, transparent); }
+/* ── Copy float feedback ────────────────────────────────────────────────── */
+/* Briefly surfaces the copied element with the same floating box-shadow as
+   the toolbar pill — a tight shadow plus a wide diffuse halo. */
+@keyframes copy-float-pulse {
+  0%   { box-shadow: none; }
+  15%  { box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light); }
+  72%  { box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light); }
+  100% { box-shadow: none; }
 }
 
-.copy-glow {
-  animation: copy-glow-pulse 2s ease-out forwards;
-}
-
-/* Text-element glow (note names) — two-layer text-shadow: bright core plus
-   diffuse halo. Follows character glyphs; not clipped by parent overflow. */
-@keyframes copy-glow-text-pulse {
-  0%   { text-shadow: 0 0 0    color-mix(in srgb, var(--accent)  0%, transparent),
-                      0 0 0    color-mix(in srgb, var(--accent)  0%, transparent); }
-  12%  { text-shadow: 0 0 6px  color-mix(in srgb, var(--accent) 95%, transparent),
-                      0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
-  100% { text-shadow: 0 0 0    color-mix(in srgb, var(--accent)  0%, transparent),
-                      0 0 0    color-mix(in srgb, var(--accent)  0%, transparent); }
-}
-
-.copy-glow-text {
-  animation: copy-glow-text-pulse 2s ease-out forwards;
+.copy-float {
+  animation: copy-float-pulse 1.4s ease-out forwards;
+  position: relative;
+  z-index: 1;
 }
 

@@ -363,6 +363,9 @@ function setupTableFeatures(container) {
         _showFilterPopup(th, colIndex, e.clientX, e.clientY, e);
       });
 
+      // Prevent text-selection UI on long-press (mobile)
+      th.addEventListener('selectstart', e => e.preventDefault());
+
       // Mobile: long-press (~500 ms)
       let _lpTimer = null;
       th.addEventListener('touchstart', e => {
@@ -436,12 +439,13 @@ function setupTableFeatures(container) {
   });
 }
 
-function _tableCopyGlow(el) {
+function _tableCopyGlow(table) {
+  const el = (table && table.closest('.table-wrapper')) || table;
   if (!el) return;
-  el.classList.remove('copy-glow');
+  el.classList.remove('copy-float');
   void el.offsetWidth;
-  el.classList.add('copy-glow');
-  el.addEventListener('animationend', () => el.classList.remove('copy-glow'), { once: true });
+  el.classList.add('copy-float');
+  el.addEventListener('animationend', () => el.classList.remove('copy-float'), { once: true });
 }
 
 function _fallbackCopy(text, glowTarget) {

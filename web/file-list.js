@@ -6,17 +6,16 @@
 // Matches a schedule date (and optional time/multi-day range) at end of a task line.
 const _SCHEDULE_DATE_RE = />\s*(\d{6})(?:\s+\d{4}\s+\d{4}|\s+\d{6})?\s*$/;
 
-// ── Copy glow helper ──────────────────────────────────────────────────────
-// Triggers a one-shot text-shadow glow on a text span to confirm a copy.
-// Uses copy-glow-text (text-shadow) rather than copy-glow (box-shadow) so
-// the glow follows the actual character glyphs and is not clipped by the
-// parent li's overflow:hidden.
-function _triggerCopyGlow(el) {
+// ── Copy float helper ─────────────────────────────────────────────────────
+// Briefly surfaces the element with the toolbar-style floating box-shadow.
+// Applied to the <li> so the shadow renders outside the element box;
+// box-shadow is not clipped by the li's own overflow:hidden.
+function _triggerCopyFloat(el) {
   if (!el) return;
-  el.classList.remove('copy-glow-text');
+  el.classList.remove('copy-float');
   void el.offsetWidth; // force reflow to restart animation
-  el.classList.add('copy-glow-text');
-  el.addEventListener('animationend', () => el.classList.remove('copy-glow-text'), { once: true });
+  el.classList.add('copy-float');
+  el.addEventListener('animationend', () => el.classList.remove('copy-float'), { once: true });
 }
 
 // Module-level regex constants for updateWebCalendarSettings.
@@ -111,7 +110,7 @@ async function _doUpdateFileList() {
           document.execCommand('copy');
           document.body.removeChild(tmp);
         });
-        _triggerCopyGlow(span);
+        _triggerCopyFloat(li);
         updateStatus(`Copied "${fileName}".`, true);
       });
       li.appendChild(span);
