@@ -356,18 +356,26 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--pill-bg, var(--bg-glass));
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  background-color: var(--bg);
   border-radius: 999px;
-  transition: background-color 0.3s ease, opacity 1s ease;
+  transform: translateY(0);
+  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
   box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
 }
 
-#button-container.scroll-faded,
+#button-container.scroll-faded {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+
 #bottom-status-area.scroll-faded {
   opacity: 0;
   pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
 }
 
 /* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
@@ -448,11 +456,11 @@ body.platform-darwin #panel-arrow {
   transform: translateX(-50%);
   padding: 3px 14px;
   border-radius: 999px;
-  background-color: var(--pill-bg, var(--bg-glass));
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  background-color: var(--bg);
   overflow: hidden;
-  transition: background-color 0.3s ease, opacity 0.5s ease;
+  transform: translateY(0);
+  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
   white-space: nowrap;
   z-index: 5;
   box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
@@ -787,8 +795,6 @@ textarea {
   min-height: 0;
   touch-action: pan-y;
   overscroll-behavior: contain;
-  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 /* ── Editor wrapper — contains highlight pre + transparent textarea ── */
@@ -953,8 +959,6 @@ textarea:focus {
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black var(--toolbar-h), black calc(100% - 10px), transparent 100%);
 }
 
 /* ── Preview heading colours — descending shades ── */

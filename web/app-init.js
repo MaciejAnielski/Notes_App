@@ -69,9 +69,6 @@ importZipInput.addEventListener('change', withBusyGuard(async (e) => {
 }));
 
 toggleViewBtn.addEventListener('click', withBusyGuard(toggleView));
-// Re-sample pill backgrounds after view switch (editor ↔ preview) since the
-// rendered content behind the pills changes when the view mode changes.
-toggleViewBtn.addEventListener('click', () => requestAnimationFrame(syncPillBackgrounds));
 
 // ── macOS: drag the window by pressing on a toolbar button and moving > 5 px ──
 // Empty toolbar space is handled natively via -webkit-app-region:drag on
@@ -231,46 +228,9 @@ toolbarResizeObserver.observe(buttonContainer);
 // width (all collapsibles in the overflow popup), the ResizeObserver never
 // fires as the window grows, so buttons would stay collapsed indefinitely.
 window.addEventListener('resize', checkToolbarOverflow);
-window.addEventListener('resize', () => requestAnimationFrame(syncPillBackgrounds));
 checkToolbarOverflow();
 
-// ── Pill background sync — dynamically tints each pill to match the rendered
-//    content directly beneath it.  Uses elementsFromPoint to find the first
-//    opaque element under the pill's centre, extracts its background colour,
-//    and writes a semi-transparent version back as --pill-bg on the element.
-//    Falls back to var(--bg-glass) via CSS when no colour is found.
-(function () {
-  const _bottomStatusArea = document.getElementById('bottom-status-area');
-
-  function _pillBg(pill) {
-    const rect = pill.getBoundingClientRect();
-    const cx = (rect.left + rect.right) / 2;
-    const cy = (rect.top + rect.bottom) / 2;
-    const els = document.elementsFromPoint(cx, cy);
-    for (const el of els) {
-      if (el === pill || pill.contains(el)) continue;
-      const bg = getComputedStyle(el).backgroundColor;
-      if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') continue;
-      const m = bg.match(/[\d.]+/g);
-      if (m && m.length >= 3) return `rgba(${m[0]}, ${m[1]}, ${m[2]}, 0.82)`;
-    }
-    return null;
-  }
-
-  window.syncPillBackgrounds = function () {
-    const bg1 = _pillBg(buttonContainer);
-    if (bg1) buttonContainer.style.setProperty('--pill-bg', bg1);
-    if (_bottomStatusArea) {
-      const bg2 = _pillBg(_bottomStatusArea);
-      if (bg2) _bottomStatusArea.style.setProperty('--pill-bg', bg2);
-    }
-  };
-
-  // Sync once on first paint (layout is settled after one animation frame).
-  requestAnimationFrame(window.syncPillBackgrounds);
-})();
-
-// ── Scroll fade — toolbar and status pill fade out while scrolling ─────────
+// ── Scroll fade — toolbar and status pill animate out while scrolling ───────
 
 (function () {
   const bottomStatusArea = document.getElementById('bottom-status-area');
@@ -284,9 +244,6 @@ checkToolbarOverflow();
     bottomStatusArea.classList.add('scroll-faded');
     clearTimeout(_scrollFadeTimer);
     _scrollFadeTimer = setTimeout(() => {
-      // Re-sample the colour beneath each pill while they are still invisible
-      // (opacity 0), then fade them back in with the correct background.
-      syncPillBackgrounds();
       buttonContainer.classList.remove('scroll-faded');
       bottomStatusArea.classList.remove('scroll-faded');
     }, 200);
@@ -328,7 +285,6 @@ function applyPinState() {
     panelPin.classList.remove('active');
     document.body.classList.remove('panel-pinned');
   }
-  requestAnimationFrame(syncPillBackgrounds);
 }
 
 panelPin.addEventListener('click', () => {
@@ -417,7 +373,6 @@ function showPanel() {
   document.body.classList.add('panel-visible');
   checkToolbarOverflow();
   updateBackupStatus();
-  requestAnimationFrame(syncPillBackgrounds);
 }
 
 function scheduleHidePanel() {
@@ -427,7 +382,6 @@ function scheduleHidePanel() {
     panelLists.classList.remove('visible');
     document.body.classList.remove('panel-visible');
     checkToolbarOverflow();
-    requestAnimationFrame(syncPillBackgrounds);
   }, 100);
 }
 
