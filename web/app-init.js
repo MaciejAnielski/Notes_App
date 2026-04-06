@@ -230,21 +230,24 @@ toolbarResizeObserver.observe(buttonContainer);
 window.addEventListener('resize', checkToolbarOverflow);
 checkToolbarOverflow();
 
-// ── Scroll fade — toolbar and status pill animate out while scrolling ───────
+// ── Scroll behaviour — toolbar floats when not at top; status pill fades ─────
 
 (function () {
   const bottomStatusArea = document.getElementById('bottom-status-area');
-  // Only fade on main content area scrolls — side-panel scrolls (fileList,
-  // todoList, scheduleTimeline) should not hide the toolbar or backup status.
+  // Only react to main content area scrolls — side-panel scrolls (fileList,
+  // todoList, scheduleTimeline) should not affect the toolbar or status pill.
   const scrollTargets = [textarea, previewDiv];
-  let _scrollFadeTimer = null;
+  let _statusFadeTimer = null;
 
-  function onScroll() {
-    buttonContainer.classList.add('scroll-faded');
+  function onScroll(e) {
+    // Toolbar pops out when the note is scrolled below the top, and merges
+    // back when the user returns to the very top.
+    buttonContainer.classList.toggle('scrolled-down', e.target.scrollTop > 0);
+
+    // Status pill briefly fades while the user is actively scrolling.
     bottomStatusArea.classList.add('scroll-faded');
-    clearTimeout(_scrollFadeTimer);
-    _scrollFadeTimer = setTimeout(() => {
-      buttonContainer.classList.remove('scroll-faded');
+    clearTimeout(_statusFadeTimer);
+    _statusFadeTimer = setTimeout(() => {
       bottomStatusArea.classList.remove('scroll-faded');
     }, 200);
   }
