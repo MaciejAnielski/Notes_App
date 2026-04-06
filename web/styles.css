@@ -346,7 +346,7 @@ body {
 /* ── Button container — floating pill ── */
 #button-container {
   position: fixed;
-  top: env(safe-area-inset-top, 0px);
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
@@ -359,6 +359,7 @@ body {
   background-color: var(--bg);
   border-radius: 999px;
   transition: opacity 1s ease;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 }
 
 #button-container.scroll-faded,
@@ -447,6 +448,7 @@ body.platform-darwin #panel-arrow {
   transition: background-color 0.2s ease, opacity 0.5s ease;
   white-space: nowrap;
   z-index: 5;
+  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -466,6 +468,7 @@ body.platform-darwin #panel-arrow {
   color: var(--muted);
   opacity: 0;
   transition: opacity 0.4s ease;
+  padding: 1.5px 0;
 }
 
 /* ── Buttons (global baseline) ── */
@@ -1395,7 +1398,7 @@ body.panel-pinned #panel-open-btn {
   font-size: 11px;
   color: var(--hr);
   text-align: center;
-  padding: 1px 0;
+  padding: 1.5px 0;
   transition: opacity 1s ease;
 }
 
