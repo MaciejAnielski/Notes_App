@@ -343,7 +343,7 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
-/* ── Button container — floating pill ── */
+/* ── Button container — flat by default, floating pill on hover ── */
 #button-container {
   position: fixed;
   top: 10px;
@@ -356,25 +356,32 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--bg);
+  background-color: transparent;
   border-radius: 999px;
-  transform: translateY(0);
   transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
-              transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
-  box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+              transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              background-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+@media (hover: hover) {
+  #button-container:hover {
+    background-color: var(--bg);
+    box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+  }
 }
 
 #button-container.scroll-faded {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-10px);
+  transform: translateX(-50%) translateY(-10px);
   transition: opacity 0.12s ease-out, transform 0.12s ease-out;
 }
 
 #bottom-status-area.scroll-faded {
-  opacity: 0;
+  opacity: 0 !important;
   pointer-events: none;
-  transform: translateY(8px);
+  transform: translateX(-50%) translateY(8px);
   transition: opacity 0.12s ease-out, transform 0.12s ease-out;
 }
 
@@ -458,7 +465,10 @@ body.platform-darwin #panel-arrow {
   border-radius: 999px;
   background-color: var(--bg);
   overflow: hidden;
-  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              left 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
   white-space: nowrap;
   z-index: 5;
   box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
@@ -1541,6 +1551,20 @@ body.panel-pinned {
   body.panel-pinned #button-container {
     left: var(--gap);
     max-width: calc(100% - 300px - var(--gap) - 6px);
+  }
+
+  /* On desktop the toolbar is left-anchored (transform:none), so the
+     scroll-fade slide must not include a translateX component. */
+  #button-container.scroll-faded {
+    transform: translateY(-10px);
+  }
+
+  /* Shift the status pill left by half the panel width so it stays centred
+     in the visible content area when the panel is revealed (floating). When
+     pinned, body.panel-pinned adds padding-right:300px so #editor-section
+     already shrinks — no extra offset is needed for that case. */
+  body.panel-visible:not(.panel-pinned) #bottom-status-area {
+    left: calc(50% - 150px);
   }
 }
 
