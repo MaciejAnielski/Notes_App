@@ -1,6 +1,6 @@
 :root {
   --gap: 10px;
-  --toolbar-h: 36px;
+  --toolbar-h: 45px;
 }
 
 /* Hide mermaid error messages and related error UI */
@@ -361,7 +361,7 @@ body {
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   border-radius: 999px;
   transition: background-color 0.3s ease, opacity 1s ease;
-  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
 }
 
 #button-container.scroll-faded,
@@ -397,7 +397,7 @@ body.platform-darwin #window-drag-region {
   top: 0;
   left: 0;
   right: 0;
-  height: 28px;
+  height: var(--toolbar-h);
   -webkit-app-region: drag;
   app-region: drag;
   z-index: 98;
@@ -455,7 +455,7 @@ body.platform-darwin #panel-arrow {
   transition: background-color 0.3s ease, opacity 0.5s ease;
   white-space: nowrap;
   z-index: 5;
-  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+  box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -1478,20 +1478,22 @@ body.panel-pinned {
 
 /* Desktop layout: left-anchor the pill and prevent it overlapping the panel.
    Only applies at >650px — on mobile the pill stays centred and the panel
-   is a full-screen overlay so no constraint is needed. */
+   is a full-screen overlay so no constraint is needed.
+   left:var(--gap) aligns the pill's left edge with the note content left edge
+   (content also has padding-left:var(--gap)). */
 @media (min-width: 651px) {
   /* Left-align for all desktop platforms (macOS padding-left already in the
      platform-darwin rule above; traffic lights appear inside the pill there). */
   #button-container {
-    left: 8px;
+    left: var(--gap);
     transform: none;
   }
 
   /* Cap max-width so the pill doesn't run under the 300px side panel. */
   body.panel-visible:not(.panel-pinned) #button-container,
   body.panel-pinned #button-container {
-    left: 8px;
-    max-width: calc(100% - 314px); /* viewport − 300px panel − 8px left − 6px gap */
+    left: var(--gap);
+    max-width: calc(100% - 300px - var(--gap) - 6px);
   }
 }
 
