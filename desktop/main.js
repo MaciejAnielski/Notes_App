@@ -286,7 +286,7 @@ function createWindow(secondary = false) {
     // Tune x/y here if the toolbar height changes.
     ...(isMac ? {
       titleBarStyle: 'hiddenInset',
-      trafficLightPosition: { x: 10, y: 8 },
+      trafficLightPosition: { x: 10, y: 10 },
     } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

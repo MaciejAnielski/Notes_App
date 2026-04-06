@@ -356,7 +356,9 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--bg);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
   border-radius: 999px;
   transition: opacity 1s ease;
   box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
@@ -380,13 +382,15 @@ body {
                           z-index 98, behind the toolbar (100). Handles empty
                           space on the right side of the toolbar not covered by
                           #button-container content.
-   #button-container    — also marked draggable so empty gaps BETWEEN buttons
-                          (where the container background shows through) also
-                          initiate a native drag.  Interactive children below
-                          override with no-drag so clicks still work normally.
+   #button-container    — anchored to the left edge so the native traffic-light
+                          buttons (rendered by Electron at x=10) visually sit
+                          inside the pill.  padding-left reserves space for the
+                          three 12 px circles + gaps (~68 px from x=10) plus a
+                          small margin.  Also marked draggable so empty gaps
+                          between buttons initiate a native drag; interactive
+                          children opt-out below.
 
-   Tune trafficLightPosition.y in main.js and padding-left here together:
-   padding-left ≈ traffic-light x + 3 button widths + gaps + margin (~80 px).
+   Tune trafficLightPosition in main.js and padding-left here together.
 */
 body.platform-darwin #window-drag-region {
   position: fixed;
@@ -400,6 +404,9 @@ body.platform-darwin #window-drag-region {
 }
 
 body.platform-darwin #button-container {
+  left: 8px;
+  transform: none;
+  padding-left: 78px;
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -443,7 +450,9 @@ body.platform-darwin #panel-arrow {
   transform: translateX(-50%);
   padding: 3px 14px;
   border-radius: 999px;
-  background-color: var(--bg);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
   overflow: hidden;
   transition: background-color 0.2s ease, opacity 0.5s ease;
   white-space: nowrap;
@@ -613,8 +622,6 @@ button.btn-busy {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 8px, black calc(100% - 8px), transparent 100%);
 }
 
 #fileList li {
@@ -1426,7 +1433,8 @@ body.panel-pinned #panel-open-btn {
   text-align: center;
   cursor: pointer;
   user-select: none;
-  margin: 15px 10px;
+  margin: 0;
+  padding: 15px 10px;
 }
 
 #files-container h2:hover,
@@ -1474,12 +1482,21 @@ body.panel-pinned {
    Only applies on desktop (>650px) — on mobile the panel is a full-screen
    overlay and the toolbar should never be constrained by it.
    Also shift the centering point so the pill centres within the editor area
-   rather than the full viewport (panel is 300px wide on the right). */
+   rather than the full viewport (panel is 300px wide on the right).
+   macOS gets its own rule below since the pill is left-anchored there. */
 @media (min-width: 651px) {
-  body.panel-visible:not(.panel-pinned) #button-container,
-  body.panel-pinned #button-container {
+  body:not(.platform-darwin).panel-visible:not(.panel-pinned) #button-container,
+  body:not(.platform-darwin).panel-pinned #button-container {
     left: calc(50% - 150px);
     max-width: calc(100% - 306px);
+  }
+
+  /* macOS: keep the left-anchored position but cap width so the pill
+     doesn't run under the panel (300px) with a small right margin. */
+  body.platform-darwin.panel-visible:not(.panel-pinned) #button-container,
+  body.platform-darwin.panel-pinned #button-container {
+    left: 8px;
+    max-width: calc(100% - 314px);
   }
 }
 
@@ -1513,7 +1530,8 @@ body.panel-pinned {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 5px;
+  margin-bottom: 0;
+  padding-bottom: 5px;
 }
 
 .schedule-date-row button {

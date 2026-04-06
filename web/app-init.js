@@ -224,14 +224,19 @@ toolsOverflowRow.addEventListener('mouseleave', _hideOverflow);
 
 const toolbarResizeObserver = new ResizeObserver(checkToolbarOverflow);
 toolbarResizeObserver.observe(buttonContainer);
+// Also recalculate on window resize: when the container is at its minimum
+// width (all collapsibles in the overflow popup), the ResizeObserver never
+// fires as the window grows, so buttons would stay collapsed indefinitely.
+window.addEventListener('resize', checkToolbarOverflow);
 checkToolbarOverflow();
 
 // ── Scroll fade — toolbar and status pill fade out while scrolling ─────────
 
 (function () {
   const bottomStatusArea = document.getElementById('bottom-status-area');
-  const scheduleTimeline = document.getElementById('schedule-timeline-wrapper');
-  const scrollTargets = [textarea, previewDiv, fileList, todoList, scheduleTimeline];
+  // Only fade on main content area scrolls — side-panel scrolls (fileList,
+  // todoList, scheduleTimeline) should not hide the toolbar or backup status.
+  const scrollTargets = [textarea, previewDiv];
   let _scrollFadeTimer = null;
 
   function onScroll() {
