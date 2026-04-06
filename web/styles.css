@@ -356,11 +356,11 @@ body {
   gap: 2px;
   flex-shrink: 0;
   z-index: 100;
-  background-color: var(--bg-glass);
+  background-color: var(--pill-bg, var(--bg-glass));
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   border-radius: 999px;
-  transition: opacity 1s ease;
+  transition: background-color 0.3s ease, opacity 1s ease;
   box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
 }
 
@@ -404,8 +404,6 @@ body.platform-darwin #window-drag-region {
 }
 
 body.platform-darwin #button-container {
-  left: 8px;
-  transform: none;
   padding-left: 78px;
   -webkit-app-region: drag;
   app-region: drag;
@@ -450,11 +448,11 @@ body.platform-darwin #panel-arrow {
   transform: translateX(-50%);
   padding: 3px 14px;
   border-radius: 999px;
-  background-color: var(--bg-glass);
+  background-color: var(--pill-bg, var(--bg-glass));
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   overflow: hidden;
-  transition: background-color 0.2s ease, opacity 0.5s ease;
+  transition: background-color 0.3s ease, opacity 0.5s ease;
   white-space: nowrap;
   z-index: 5;
   box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
@@ -1478,25 +1476,22 @@ body.panel-pinned {
   box-sizing: border-box;
 }
 
-/* Prevent button container from overlapping the floating side panel.
-   Only applies on desktop (>650px) — on mobile the panel is a full-screen
-   overlay and the toolbar should never be constrained by it.
-   Also shift the centering point so the pill centres within the editor area
-   rather than the full viewport (panel is 300px wide on the right).
-   macOS gets its own rule below since the pill is left-anchored there. */
+/* Desktop layout: left-anchor the pill and prevent it overlapping the panel.
+   Only applies at >650px — on mobile the pill stays centred and the panel
+   is a full-screen overlay so no constraint is needed. */
 @media (min-width: 651px) {
-  body:not(.platform-darwin).panel-visible:not(.panel-pinned) #button-container,
-  body:not(.platform-darwin).panel-pinned #button-container {
-    left: calc(50% - 150px);
-    max-width: calc(100% - 306px);
+  /* Left-align for all desktop platforms (macOS padding-left already in the
+     platform-darwin rule above; traffic lights appear inside the pill there). */
+  #button-container {
+    left: 8px;
+    transform: none;
   }
 
-  /* macOS: keep the left-anchored position but cap width so the pill
-     doesn't run under the panel (300px) with a small right margin. */
-  body.platform-darwin.panel-visible:not(.panel-pinned) #button-container,
-  body.platform-darwin.panel-pinned #button-container {
+  /* Cap max-width so the pill doesn't run under the 300px side panel. */
+  body.panel-visible:not(.panel-pinned) #button-container,
+  body.panel-pinned #button-container {
     left: 8px;
-    max-width: calc(100% - 314px);
+    max-width: calc(100% - 314px); /* viewport − 300px panel − 8px left − 6px gap */
   }
 }
 
