@@ -301,23 +301,32 @@ function saveChain() {
 
 // persistent=true: message stays visible until next updateStatus call
 function updateStatus(message, success, persistent = false) {
+  const pillEl = document.getElementById('bottom-status-area');
   statusDiv.textContent = toTitleCase(message);
   statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
   statusDiv.style.opacity = '1';
   backupStatusEl.style.opacity = '0';
+  // Show pill for the status message
+  if (pillEl) { pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
   if (statusTimeout) clearTimeout(statusTimeout);
   if (persistent) {
     statusTimeout = null;
   } else {
     statusTimeout = setTimeout(() => {
       statusDiv.style.opacity = '0';
-      backupStatusEl.style.opacity = '1';
+      if (backupStatusEl.textContent) {
+        backupStatusEl.style.opacity = '1';
+      } else {
+        // No backup status to fall back to — hide the pill
+        if (pillEl) { pillEl.style.opacity = '0'; pillEl.style.pointerEvents = 'none'; }
+      }
     }, 3000);
   }
 }
 
 function updateBackupStatus() {
   const el = document.getElementById('last-backup-status');
+  const pillEl = document.getElementById('bottom-status-area');
   if (!el) return;
   const isSynced = !!window.PowerSyncNoteStorage;
   const isIOS = !!window.Capacitor?.isNativePlatform();
@@ -325,7 +334,15 @@ function updateBackupStatus() {
   // On iOS, sync is manual — append a tap hint since title tooltips don't show.
   const suffix = (isSynced && isIOS) ? ' · Tap to Sync' : '';
   const prefix = isSynced ? 'Synced · ' : '';
-  if (!t) { el.textContent = (isSynced ? 'Synced · Never Backed Up' : 'Never Backed Up') + suffix; return; }
+  if (!t) {
+    el.textContent = '';
+    // Hide pill only when no status message is currently showing
+    if (pillEl && statusDiv.style.opacity !== '1') {
+      pillEl.style.opacity = '0';
+      pillEl.style.pointerEvents = 'none';
+    }
+    return;
+  }
   const diff = Date.now() - parseInt(t, 10);
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -336,6 +353,11 @@ function updateBackupStatus() {
   else if (hours < 24) ago = `${hours}h Ago`;
   else                 ago = `${days}d Ago`;
   el.textContent = `${prefix}Last Backup ${ago}${suffix}`;
+  // Show pill when there is real backup status to display
+  if (pillEl && statusDiv.style.opacity !== '1') {
+    pillEl.style.opacity = '1';
+    pillEl.style.pointerEvents = '';
+  }
 }
 
 // ── Attachment helpers ────────────────────────────────────────────────────

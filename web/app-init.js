@@ -287,6 +287,10 @@ function applyPinState() {
   }
 }
 
+// Suppresses hover-triggered panel open after unpinning until the cursor
+// leaves the button area, but never blocks click-triggered opens.
+let suppressHoverOpen = false;
+
 panelPin.addEventListener('click', () => {
   const wasUnpinning = isPanelPinned;
   isPanelPinned = !isPanelPinned;
@@ -294,12 +298,12 @@ panelPin.addEventListener('click', () => {
   applyPinState();
   if (wasUnpinning) {
     // Suppress hover re-open until the mouse leaves the button area.
-    panelOpenBtn.style.pointerEvents = 'none';
+    suppressHoverOpen = true;
     const onMouseMove = (e) => {
       const rect = panelOpenBtn.getBoundingClientRect();
       if (e.clientX < rect.left || e.clientX > rect.right ||
           e.clientY < rect.top  || e.clientY > rect.bottom) {
-        panelOpenBtn.style.pointerEvents = '';
+        suppressHoverOpen = false;
         document.removeEventListener('mousemove', onMouseMove);
       }
     };
@@ -366,8 +370,10 @@ scheduleDateLabel.addEventListener('click', () => {
   renderSchedule();
 });
 
-function showPanel() {
+// force=true bypasses the hover-suppression flag (used for click opens)
+function showPanel(force = false) {
   if (isPanelPinned) return;
+  if (suppressHoverOpen && !force) return;
   clearTimeout(peekHideTimer);
   panelLists.classList.add('visible');
   document.body.classList.add('panel-visible');
@@ -387,6 +393,7 @@ function scheduleHidePanel() {
 
 panelOpenBtn.addEventListener('mouseenter', showPanel);
 panelOpenBtn.addEventListener('mouseleave', scheduleHidePanel);
+panelOpenBtn.addEventListener('click', () => showPanel(true));
 panelLists.addEventListener('mouseenter', showPanel);
 panelLists.addEventListener('mouseleave', scheduleHidePanel);
 
