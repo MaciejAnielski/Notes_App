@@ -1421,7 +1421,7 @@ body.panel-visible #panel-arrow {
   color: var(--pin-color);
   cursor: pointer;
   padding: 4px;
-  margin: 0;
+  margin: 10px;
   border-radius: 4px;
   line-height: 0;
   z-index: 100;
@@ -1476,15 +1476,16 @@ body.panel-pinned #panel-open-btn {
   top: 0;
   right: 0;
   width: 300px;
-  height: 100%;
+  height: calc(100% - 20px);
   z-index: 50;
   background-color: var(--bg);
   overflow: hidden;
   padding: 10px 10px 0px 10px;
+  margin: 10px;
   box-sizing: border-box;
   flex-direction: column;
   /* ── Floating card treatment ── */
-  border-radius: 20px 0 0 20px;
+  border-radius: 20px 20px 20px 20px;
   box-shadow: -4px 0 20px var(--shadow-light);
   /* ── Animated slide ── */
   transform: translateX(100%);
@@ -1521,7 +1522,7 @@ body.panel-pinned #panel-open-btn {
 
 /* Restore floating visuals when hovering over the pinned panel */
 #panel-lists.pinned:hover {
-  border-radius: 20px 0 0 20px;
+  border-radius: 20px 20px 20px 20px;
   box-shadow: -4px 0 20px var(--shadow-light);
 }
 
@@ -2531,6 +2532,7 @@ body.panel-pinned {
     text-align: center;
     /* Small vertical padding; extra bottom clearance for home indicator */
     padding: 0.15em 1em max(env(safe-area-inset-bottom), 0.15em);
+    margin: 10px;
   }
 
   /* Push editor/preview content above the fixed status bar only */
