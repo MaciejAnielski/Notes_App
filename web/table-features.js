@@ -440,7 +440,7 @@ function setupTableFeatures(container) {
 }
 
 function _tableCopyGlow(table) {
-  const el = (table && table.closest('.table-wrapper')) || table;
+  const el = table;
   if (!el) return;
   el.classList.remove('copy-float');
   void el.offsetWidth;

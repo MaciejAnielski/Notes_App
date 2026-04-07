@@ -282,11 +282,13 @@ function createWindow(secondary = false) {
     backgroundColor: '#1e1e1e',
     show: false,
     // macOS: hide the native title bar while keeping traffic lights.
-    // trafficLightPosition centres the 12 px buttons in the 28 px toolbar.
-    // Tune x/y here if the toolbar height changes.
+    // The pill is left-anchored at x=8 (styles.css), so x=14 puts the lights
+    // inside the pill with a small inset margin.  y centres the 12 px circles
+    // vertically in the ~28 px pill (top:10px + 14px centre - 6px radius = 18).
+    // Tune x/y here together with padding-left in styles.css if toolbar changes.
     ...(isMac ? {
       titleBarStyle: 'hiddenInset',
-      trafficLightPosition: { x: 10, y: 10 },
+      trafficLightPosition: { x: 14, y: 9 },
     } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
