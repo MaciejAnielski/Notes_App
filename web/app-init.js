@@ -78,12 +78,23 @@ toggleViewBtn.addEventListener('click', withBusyGuard(toggleView));
 // A single shared mousemove listener on document avoids per-button listeners
 // and correctly handles the pointer leaving the button mid-drag.
 if (window.electronAPI?.platform === 'darwin') {
+  // ── Custom traffic-light buttons ──────────────────────────────────────────
+  document.getElementById('btn-close')   ?.addEventListener('click', () => window.electronAPI.windowClose());
+  document.getElementById('btn-minimize')?.addEventListener('click', () => window.electronAPI.windowMinimize());
+  document.getElementById('btn-maximize')?.addEventListener('click', () => window.electronAPI.windowMaximize());
+
+  // Dim traffic lights when the window loses focus (matches native macOS behaviour).
+  window.addEventListener('blur',  () => document.body.classList.add('window-inactive'));
+  window.addEventListener('focus', () => document.body.classList.remove('window-inactive'));
+
+  // ── Drag via toolbar button press + mouse move > 5 px ────────────────────
   const DRAG_THRESHOLD = 5;
   let _dragAnchorX = 0, _dragAnchorY = 0;
   let _watchingDrag = false; // true while mousedown is held on a toolbar button
   let _btnDragging  = false; // true after threshold exceeded
 
-  document.querySelectorAll('#button-container button').forEach(btn => {
+  // Exclude traffic-light buttons — they handle click actions, not dragging.
+  document.querySelectorAll('#button-container button:not(.traffic-btn)').forEach(btn => {
     btn.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
       _dragAnchorX  = e.clientX;

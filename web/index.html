@@ -332,6 +332,15 @@
 
     <div id="button-container" class="storage-controls">
 
+        <!-- macOS traffic lights — custom HTML inside the pill so they float
+             with it.  Hidden by default; body.platform-darwin shows them.
+             Closed/minimized/zoomed via Electron IPC (see app-init.js). -->
+        <div id="traffic-lights">
+            <button id="btn-close"    class="traffic-btn" title="Close"></button>
+            <button id="btn-minimize" class="traffic-btn" title="Minimize"></button>
+            <button id="btn-maximize" class="traffic-btn" title="Zoom"></button>
+        </div>
+
         <div class="button-group">
             <button id="new-note">New</button>
         </div>

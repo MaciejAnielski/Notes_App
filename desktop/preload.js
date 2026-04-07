@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowDragStart: () => ipcRenderer.send('window-drag-start'),
   windowDragStop:  () => ipcRenderer.send('window-drag-stop'),
 
+  // macOS custom traffic-light actions
+  windowClose:    () => ipcRenderer.send('window-close'),
+  windowMinimize: () => ipcRenderer.send('window-minimize'),
+  windowMaximize: () => ipcRenderer.send('window-maximize'),
+
   // E2E Encryption: safeStorage-backed key persistence (OS keychain).
   saveEncryptedKey: (id, base64Key) => ipcRenderer.invoke('notes:saveEncryptedKey', id, base64Key),
   loadEncryptedKey: (id) => ipcRenderer.invoke('notes:loadEncryptedKey', id),

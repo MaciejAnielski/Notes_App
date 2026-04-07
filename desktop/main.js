@@ -239,6 +239,15 @@ function registerHandlers() {
   ipcMain.on('window-drag-stop', (event) => {
     _clearDragState(event.sender.id);
   });
+
+  // macOS custom traffic-light buttons
+  ipcMain.on('window-close',    (event) => { BrowserWindow.fromWebContents(event.sender)?.close(); });
+  ipcMain.on('window-minimize', (event) => { BrowserWindow.fromWebContents(event.sender)?.minimize(); });
+  ipcMain.on('window-maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    win.isMaximized() ? win.unmaximize() : win.maximize();
+  });
 }
 
 // ── Forward a deep-link URL to the renderer (protocol handler fallback) ──────
@@ -281,15 +290,11 @@ function createWindow(secondary = false) {
     title: 'Notes App',
     backgroundColor: '#1e1e1e',
     show: false,
-    // macOS: hide the native title bar while keeping traffic lights.
-    // The pill is left-anchored at x=8 (styles.css), so x=14 puts the lights
-    // inside the pill with a small inset margin.  y centres the 12 px circles
-    // vertically in the ~28 px pill (top:10px + 14px centre - 6px radius = 18).
-    // Tune x/y here together with padding-left in styles.css if toolbar changes.
-    ...(isMac ? {
-      titleBarStyle: 'hiddenInset',
-      trafficLightPosition: { x: 14, y: 9 },
-    } : {}),
+    // macOS: hide the entire native title bar (including traffic lights).
+    // Custom HTML traffic-light buttons are rendered inside #button-container
+    // so they float inside the toolbar pill.  IPC handlers below handle the
+    // close / minimise / maximise actions from those buttons.
+    ...(isMac ? { titleBarStyle: 'hidden' } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
