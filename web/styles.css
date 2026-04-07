@@ -350,7 +350,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
-  padding: 3px 4px;
+  padding: 0.25em 0.35em;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -420,10 +420,68 @@ body.platform-darwin #window-drag-region {
 body.platform-darwin #button-container {
   left: 8px;
   transform: none;
-  padding-left: 78px;
   -webkit-app-region: drag;
   app-region: drag;
 }
+
+/* ── macOS custom traffic lights — HTML circles inside the toolbar pill ── */
+#traffic-lights {
+  display: none; /* hidden on all platforms except darwin */
+}
+
+body.platform-darwin #traffic-lights {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px 0 4px;
+  flex-shrink: 0;
+}
+
+.traffic-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  flex-shrink: 0;
+  background: none;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  position: relative;
+  transition: filter 0.12s ease;
+}
+
+#btn-close    { background: #ff5f56; }
+#btn-minimize { background: #ffbd2e; }
+#btn-maximize { background: #27c93f; }
+
+/* Dim all three when the window is inactive */
+body.window-inactive .traffic-btn {
+  background: var(--muted) !important;
+  opacity: 0.5;
+}
+
+/* Show symbols on group hover */
+#traffic-lights:hover .traffic-btn::after {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.traffic-btn::after {
+  content: '';
+  display: none;
+  position: absolute;
+  inset: 0;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.55);
+}
+#traffic-lights:hover #btn-close::after    { content: '✕'; }
+#traffic-lights:hover #btn-minimize::after { content: '–'; }
+#traffic-lights:hover #btn-maximize::after { content: '+'; }
 
 /* Every interactive descendant must opt out so native clicks are not swallowed. */
 body.platform-darwin #button-container button,
@@ -462,7 +520,7 @@ body.platform-darwin #panel-arrow {
   bottom: calc(var(--gap) + 4px);
   left: 50%;
   transform: translateX(-50%);
-  padding: 3px 14px;
+  padding: 0.25em 1.2em;
   border-radius: 999px;
   background-color: var(--bg);
   display: grid;
@@ -2440,10 +2498,10 @@ body.panel-pinned {
 /* ── Mobile: centre toolbar and show status message above it ── */
 @media (max-width: 650px) and (any-pointer: coarse) {
   body:not(.electron) #button-container {
-    top: calc(10px + env(safe-area-inset-top));
+    top: calc(5px + env(safe-area-inset-top));
     justify-content: center;
     margin-left: 0;
-    padding: 4px 0 0 0;
+    padding: 0.25em 0.35em;
   }
 
   body:not(.electron) #tools-overflow-row {
@@ -2471,12 +2529,13 @@ body.panel-pinned {
     z-index: 10;
     background-color: var(--bg);
     text-align: center;
-    padding: 4px;
+    /* Small vertical padding; extra bottom clearance for home indicator */
+    padding: 0.15em 1em max(env(safe-area-inset-bottom), 0.15em);
   }
 
-  /* Push editor/preview content above the fixed status bar */
+  /* Push editor/preview content above the fixed status bar only */
   body:not(.electron) #editor-section {
-    padding-bottom: calc(50px + env(safe-area-inset-bottom));
+    padding-bottom: 32px;
   }
 
   body:not(.electron) #status-message {
@@ -2485,14 +2544,17 @@ body.panel-pinned {
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
+  /* Gap is anchored to the physical screen edge (ignores safe areas) so the
+     panel floats with an even margin.  Internal padding-top compensates for
+     the notch so content inside the panel is not obscured. */
   body:not(.electron) #panel-lists {
     position: fixed;
-    top: calc(env(safe-area-inset-top) + var(--gap));
+    top: var(--gap);
     left: var(--gap);
     right: auto;
     width: calc(80vw - var(--gap) * 2);
     max-width: 300px;
-    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--gap) * 2);
+    height: calc(100% - var(--gap) * 2);
     transform: translateX(calc(-100% - var(--gap) * 3));
     transition: transform 0.25s ease, box-shadow 0.25s ease;
     display: flex !important;
@@ -2500,13 +2562,13 @@ body.panel-pinned {
     pointer-events: auto;
     flex-direction: column;
     border: none;
-    border-radius: 12px;
+    border-radius: 20px;
     z-index: 150;
     will-change: transform;
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     box-shadow: none;
-    padding-top: var(--gap);
+    padding-top: calc(env(safe-area-inset-top) + var(--gap));
     padding-left: calc(var(--gap) * 2);
   }
 
@@ -2525,20 +2587,20 @@ body.panel-pinned {
   /* ── Right panel (tasks/schedule) slides from right ── */
   #mobile-right-panel {
     position: fixed;
-    top: calc(env(safe-area-inset-top) + var(--gap));
+    top: var(--gap);
     right: var(--gap);
     width: calc(80vw - var(--gap) * 2);
     max-width: 300px;
-    height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--gap) * 2);
+    height: calc(100% - var(--gap) * 2);
     transform: translateX(calc(100% + var(--gap) * 3));
     transition: transform 0.25s ease, box-shadow 0.25s ease;
     display: flex;
     flex-direction: column;
     background-color: var(--bg);
     border: none;
-    border-radius: 12px;
+    border-radius: 20px;
     z-index: 150;
-    padding: var(--gap) calc(var(--gap) * 2);
+    padding: calc(env(safe-area-inset-top) + var(--gap)) calc(var(--gap) * 2) var(--gap);
     box-sizing: border-box;
     overflow: hidden;
     will-change: transform;
@@ -2571,6 +2633,26 @@ body.panel-pinned {
   /* Remove body padding-right override on mobile */
   body:not(.electron).panel-pinned {
     padding-right: 0;
+  }
+
+  /* ── Edge-to-edge content scrolling ───────────────────────────────────────
+     Remove safe-area padding from the body so the scrollable content area
+     can reach the physical screen edges.  The toolbar and status bar already
+     account for safe areas via their own top/bottom offsets.  The content
+     padding-top is extended here to clear the notch + toolbar together. */
+  body:not(.electron) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  /* Content top-padding must clear the notch AND the toolbar pill */
+  body:not(.electron) textarea,
+  body:not(.electron) #editor-highlight {
+    padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
+  }
+
+  body:not(.electron) #preview {
+    padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
   }
 
   /* ── Find/Replace: bottom sheet on mobile ── */
