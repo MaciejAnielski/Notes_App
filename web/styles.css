@@ -752,25 +752,16 @@ button.btn-busy {
 }
 
 /* ── Active note: straight accent border on the left, background on hover only ── */
+/* Uses border-left with zero left-side border-radius so the border is perfectly
+   straight — the ::before approach was rounded by overflow:hidden + border-radius. */
 #fileList li.active-file,
 #nav-list li.active-file {
   font-weight: bold;
   color: var(--active-color);
-  /* No background — only applied on hover via the :hover rule below */
-}
-
-/* Straight left border drawn via ::before so it is not rounded by border-radius */
-#fileList li.active-file::before,
-#nav-list li.active-file::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background-color: var(--accent);
-  border-radius: 0;
-  pointer-events: none;
+  border-left: 3px solid var(--accent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-left: 2px; /* 5px normal - 3px border = same text position */
 }
 
 /* ── Link chain: connected thread with fading trail ── */
@@ -838,9 +829,14 @@ button.btn-busy {
 }
 
 /* ── Second note: currently open note shown just below today's note ── */
-/* Same highlight treatment as today's note so the active note stands out. */
+/* Indicated only by the straight accent border — no persistent background so
+   the background stays consistent with the note's non-active appearance and
+   only changes on hover (via the shared :hover rule). */
 #fileList li.second-note {
-  background-color: var(--today-bg);
+  border-left: 3px solid var(--accent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-left: 2px; /* keep text at same indent as normal items */
 }
 
 #fileList li.second-note > span {
@@ -1374,9 +1370,12 @@ textarea:focus {
 
 #todo-container .todo-note-title {
   display: block;
-  margin: 0px 2.5px 0px 2.5px;
+  margin: 0px 2.5px 5px 2.5px;
   padding: 0px 0px 5px 0px;
   border-bottom: 1px solid var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #todoList > li {
