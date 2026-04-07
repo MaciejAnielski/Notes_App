@@ -525,13 +525,15 @@ function _fallbackCopy(text, glowTarget) {
     _highlightPre.appendChild(span);
   }
 
-  // Show a suggestion: schedule injection after 15 ms.
+  // Show a suggestion: schedule injection after 50 ms so the syntax-highlight
+  // debounce (10 ms) reliably completes first, avoiding a race where the pre
+  // innerHTML is rewritten after the ghost span is already injected.
   function _trShow(pos, suggestion) {
     _trHide();
     _trSuggestion   = suggestion;
     _ghostInsertPos = pos;
     _ghostText      = suggestion.slice(1); // everything after the '|' already typed
-    setTimeout(_applyGhostToPre, 15);
+    setTimeout(_applyGhostToPre, 50);
   }
 
   // ── Date / number helpers ────────────────────────────────────────────────

@@ -527,10 +527,17 @@ body.platform-darwin #panel-arrow {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
-              left 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+              left 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
+              width 0.25s ease;
   white-space: nowrap;
   z-index: 5;
   box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+}
+
+/* Suppress position (left/width) transitions when pin state changes while
+   the panel is already visible — pill repositions instantly. */
+#bottom-status-area.no-position-transition {
+  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -692,7 +699,7 @@ button.btn-busy {
   border-radius: 5px;
   width: 100%;
   box-sizing: border-box;
-  padding: 5px 5px 5px 15px;
+  padding: 5px 5px 5px 5px;
   margin: var(--gap) 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
@@ -703,6 +710,14 @@ button.btn-busy {
 #searchTasksBox:focus {
   outline: none;
   box-shadow: none;
+  background-color: var(--today-bg);
+}
+
+@media (hover: hover) {
+  #searchBox:hover,
+  #searchTasksBox:hover {
+    background-color: var(--today-bg);
+  }
 }
 
 /* ── File list ── */
@@ -723,6 +738,7 @@ button.btn-busy {
   display: flex;
   align-items: center;
   overflow: hidden;
+  position: relative;
 }
 
 #fileList li span {
@@ -735,14 +751,26 @@ button.btn-busy {
   background-color: var(--today-bg);
 }
 
-/* ── Active note: bright, solid left border ── */
+/* ── Active note: straight accent border on the left, background on hover only ── */
 #fileList li.active-file,
 #nav-list li.active-file {
   font-weight: bold;
   color: var(--active-color);
-  border-left: 3px solid var(--active-border);
-  padding-left: 3px;
-  margin-left: -3px;
+  /* No background — only applied on hover via the :hover rule below */
+}
+
+/* Straight left border drawn via ::before so it is not rounded by border-radius */
+#fileList li.active-file::before,
+#nav-list li.active-file::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: var(--accent);
+  border-radius: 0;
+  pointer-events: none;
 }
 
 /* ── Link chain: connected thread with fading trail ── */
@@ -768,7 +796,7 @@ button.btn-busy {
 #nav-list {
   list-style: none;
   margin: 0px;
-  padding: 10px 0px 10px 10px;
+  padding: 10px 0px 10px 0px;
   flex-shrink: 0;
 }
 
@@ -780,6 +808,7 @@ button.btn-busy {
   display: flex;
   align-items: center;
   overflow: hidden;
+  position: relative;
 }
 
 #nav-list li span {
@@ -1113,7 +1142,7 @@ textarea:focus {
   padding: 10px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin: 0.75em 0;
+  margin: 0.75em var(--gap);
   /* Override UA stylesheet which sets font-size:smaller on <pre> */
   font-size: 0.9em;
   line-height: 1.5;
@@ -1236,16 +1265,13 @@ textarea:focus {
 /* ── Tables ── */
 
 /* Scrollable wrapper: allows wide tables to scroll horizontally rather than
-   overflow the page. max-width:100% automatically accounts for the pinned
-   sidebar because the wrapper is a child of the content area. */
+   overflow the page. margin: 0.75em var(--gap) aligns the table visually with
+   the rest of note content (same left/right indent as body text). */
 #preview .table-wrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  /* padding-left creates a scrollable indent: the table starts 10 px from the
-     left at rest (matching body text), but that gap scrolls away when the
-     table is wider than the viewport, giving the table the full column width. */
-  padding-left: var(--gap);
-  margin: 0.75em 0;
+  margin: 0.75em var(--gap);
+  padding-left: 0;
 }
 
 #preview table {

@@ -299,13 +299,37 @@ function saveChain() {
 
 // ── Status display ────────────────────────────────────────────────────────
 
+// Smoothly animate the pill to its new natural width after a content change.
+// Captures the current rendered width, runs the change function, then
+// transitions from the old width to the new one via CSS (transition: width).
+// Only animates when the pill is visible (opacity > 0).
+function _animatePillResize(pillEl, changeFn) {
+  if (!pillEl || pillEl.style.opacity === '0') { changeFn(); return; }
+  const oldW = pillEl.getBoundingClientRect().width;
+  // Lock at current width so the content change doesn't cause an instant jump.
+  pillEl.style.width = oldW + 'px';
+  changeFn();
+  // Measure the natural width after content has changed.
+  pillEl.style.width = 'auto';
+  const newW = pillEl.getBoundingClientRect().width;
+  if (Math.abs(newW - oldW) < 1) { pillEl.style.width = ''; return; }
+  // Snap back to old width, force reflow, then let CSS transition animate to new.
+  pillEl.style.width = oldW + 'px';
+  void pillEl.offsetWidth; // force reflow
+  pillEl.style.width = newW + 'px';
+  // Clear the explicit width once the transition completes so it stays flexible.
+  setTimeout(() => { pillEl.style.width = ''; }, 400);
+}
+
 // persistent=true: message stays visible until next updateStatus call
 function updateStatus(message, success, persistent = false) {
   const pillEl = document.getElementById('bottom-status-area');
-  statusDiv.textContent = toTitleCase(message);
-  statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
-  statusDiv.style.opacity = '1';
-  backupStatusEl.style.opacity = '0';
+  _animatePillResize(pillEl, () => {
+    statusDiv.textContent = toTitleCase(message);
+    statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
+    statusDiv.style.opacity = '1';
+    backupStatusEl.style.opacity = '0';
+  });
   // Show pill for the status message
   if (pillEl) { pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
   if (statusTimeout) clearTimeout(statusTimeout);
@@ -335,7 +359,7 @@ function updateBackupStatus() {
   const suffix = (isSynced && isIOS) ? ' · Tap to Sync' : '';
   const prefix = isSynced ? 'Synced · ' : '';
   if (!t) {
-    el.textContent = '';
+    _animatePillResize(pillEl, () => { el.textContent = ''; });
     // Hide pill only when no status message is currently showing
     if (pillEl && statusDiv.style.opacity !== '1') {
       pillEl.style.opacity = '0';
@@ -352,7 +376,9 @@ function updateBackupStatus() {
   else if (mins < 60) ago = `${mins}m Ago`;
   else if (hours < 24) ago = `${hours}h Ago`;
   else                 ago = `${days}d Ago`;
-  el.textContent = `${prefix}Last Backup ${ago}${suffix}`;
+  _animatePillResize(pillEl, () => {
+    el.textContent = `${prefix}Last Backup ${ago}${suffix}`;
+  });
   // Show pill when there is real backup status to display
   if (pillEl && statusDiv.style.opacity !== '1') {
     pillEl.style.opacity = '1';

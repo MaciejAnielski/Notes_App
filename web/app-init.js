@@ -309,6 +309,16 @@ panelPin.addEventListener('click', () => {
   const wasUnpinning = isPanelPinned;
   isPanelPinned = !isPanelPinned;
   localStorage.setItem('panel_pinned', isPanelPinned);
+  // When the panel stays visible while toggling pin state, suppress the
+  // status pill's left-position transition so it snaps instantly rather than
+  // sliding across to its new centred position.
+  if (document.body.classList.contains('panel-visible')) {
+    const pill = document.getElementById('bottom-status-area');
+    if (pill) {
+      pill.classList.add('no-position-transition');
+      setTimeout(() => pill.classList.remove('no-position-transition'), 50);
+    }
+  }
   applyPinState();
   if (wasUnpinning) {
     // Suppress hover re-open until the mouse leaves the button area.
