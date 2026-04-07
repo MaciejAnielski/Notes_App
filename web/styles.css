@@ -692,7 +692,7 @@ button.btn-busy {
   border-radius: 5px;
   width: 100%;
   box-sizing: border-box;
-  padding: 5px;
+  padding: 5px 5px 5px 15px;
   margin: var(--gap) 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
@@ -709,7 +709,7 @@ button.btn-busy {
 #fileList {
   list-style: none;
   margin: 0;
-  padding: 0px;
+  padding: 0px 0px 0px 0px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -741,8 +741,8 @@ button.btn-busy {
   font-weight: bold;
   color: var(--active-color);
   border-left: 3px solid var(--active-border);
-  padding-left: 6px;
-  margin-left: -9px;
+  padding-left: 3px;
+  margin-left: -3px;
 }
 
 /* ── Link chain: connected thread with fading trail ── */
@@ -751,7 +751,7 @@ button.btn-busy {
   color: var(--linked-color);
   border-left: 2px dashed var(--linked-border);
   padding-left: 6px;
-  margin-left: -8px;
+  margin-left: 0px;
 }
 
 /* Step number badge on each linked note */
@@ -768,7 +768,7 @@ button.btn-busy {
 #nav-list {
   list-style: none;
   margin: 0px;
-  padding: 8px 0px 10px 0px;
+  padding: 10px 0px 10px 10px;
   flex-shrink: 0;
 }
 
@@ -1332,7 +1332,7 @@ textarea:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-top: 0px;
+  padding: 0px 0px 0px 0px;
 }
 
 #todo-container li {
@@ -1641,6 +1641,7 @@ body.panel-pinned {
 #schedule-container {
   display: none;
   box-sizing: border-box;
+  padding-left: 10px;
 }
 
 #files-container.active,
