@@ -239,6 +239,12 @@ toolbarResizeObserver.observe(buttonContainer);
 // width (all collapsibles in the overflow popup), the ResizeObserver never
 // fires as the window grows, so buttons would stay collapsed indefinitely.
 window.addEventListener('resize', checkToolbarOverflow);
+// Clear any explicit pixel width on the status pill when the window resizes so
+// it cannot remain wider than its text content after a layout change.
+window.addEventListener('resize', () => {
+  const pill = document.getElementById('bottom-status-area');
+  if (pill) pill.style.width = '';
+});
 checkToolbarOverflow();
 
 // ── Scroll behaviour — toolbar floats when not at top; status pill fades ─────

@@ -125,6 +125,8 @@ async function _doUpdateFileList() {
   // created yet.  A placeholder is shown that creates the note on click.
   if (noteMap[todayNote]) {
     // Today's note matches the search — use the already-built element.
+    // Mark it active (border indicator) when it is the currently open note.
+    if (currentFileName === todayNote) noteMap[todayNote].classList.add('active-file');
     items.push(noteMap[todayNote]);
     delete noteMap[todayNote];
   } else if (todayNoteExists) {

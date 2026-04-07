@@ -300,25 +300,36 @@ function saveChain() {
 // ── Status display ────────────────────────────────────────────────────────
 
 // Smoothly animate the pill to its new natural width after a content change.
-// Captures the current rendered width, runs the change function, then
-// transitions from the old width to the new one via CSS (transition: width).
-// Only animates when the pill is visible (opacity > 0).
+// Only animates when the pill is explicitly visible (style.opacity === '1').
+let _pillResizeTimer = null;
 function _animatePillResize(pillEl, changeFn) {
-  if (!pillEl || pillEl.style.opacity === '0') { changeFn(); return; }
+  if (!pillEl || pillEl.style.opacity !== '1') { changeFn(); return; }
+
+  // Cancel any in-flight width cleanup and reset to natural width before
+  // measuring — this prevents stale explicit px values from inflating oldW.
+  if (_pillResizeTimer) { clearTimeout(_pillResizeTimer); _pillResizeTimer = null; }
+  pillEl.style.width = '';
+  void pillEl.offsetWidth; // flush layout so measurement is accurate
+
   const oldW = pillEl.getBoundingClientRect().width;
-  // Lock at current width so the content change doesn't cause an instant jump.
+
+  // Lock pill at old width, run the text change, then measure the new natural width.
   pillEl.style.width = oldW + 'px';
   changeFn();
-  // Measure the natural width after content has changed.
-  pillEl.style.width = 'auto';
+  pillEl.style.width = '';                        // release lock to measure new size
   const newW = pillEl.getBoundingClientRect().width;
-  if (Math.abs(newW - oldW) < 1) { pillEl.style.width = ''; return; }
-  // Snap back to old width, force reflow, then let CSS transition animate to new.
+
+  if (Math.abs(newW - oldW) < 1) return;         // no meaningful change, leave width as auto
+
+  // Snap back to old width (already measured), then let CSS transition animate to new.
   pillEl.style.width = oldW + 'px';
-  void pillEl.offsetWidth; // force reflow
+  void pillEl.offsetWidth; // force reflow so the browser sees the snap
   pillEl.style.width = newW + 'px';
-  // Clear the explicit width once the transition completes so it stays flexible.
-  setTimeout(() => { pillEl.style.width = ''; }, 400);
+
+  _pillResizeTimer = setTimeout(() => {
+    pillEl.style.width = '';
+    _pillResizeTimer = null;
+  }, 350);
 }
 
 // persistent=true: message stays visible until next updateStatus call
