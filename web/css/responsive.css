@@ -1,0 +1,321 @@
+/* Push all body content left to make room for the fixed pinned panel */
+body.panel-pinned {
+  padding-right: 300px;
+  box-sizing: border-box;
+}
+
+/* Desktop layout: left-anchor the pill and prevent it overlapping the panel.
+   Only applies at >650px — on mobile the pill stays centred and the panel
+   is a full-screen overlay so no constraint is needed.
+   left:var(--gap) aligns the pill's left edge with the note content left edge
+   (content also has padding-left:var(--gap)). */
+@media (min-width: 651px) {
+  /* Left-align for all desktop platforms (macOS padding-left already in the
+     platform-darwin rule above; traffic lights appear inside the pill there). */
+  #button-container {
+    left: 5px;
+    transform: none;
+  }
+
+  /* Cap max-width so the pill doesn't run under the 300px side panel. */
+  body.panel-visible:not(.panel-pinned) #button-container,
+  body.panel-pinned #button-container {
+    left: 5px;
+    max-width: calc(100% - 300px - var(--gap) - 6px);
+  }
+
+  /* Shift the status pill left by half the panel width so it stays centred
+     in the visible content area when the panel is revealed (floating). When
+     pinned, body.panel-pinned adds padding-right:300px so #editor-section
+     already shrinks — no extra offset is needed for that case. */
+  body.panel-visible:not(.panel-pinned) #bottom-status-area {
+    left: calc(50% - 150px);
+  }
+}
+
+/* Arrow click cycles which container is shown */
+#files-container,
+#todo-container,
+#schedule-container {
+  display: none;
+  box-sizing: border-box;
+  padding-left: 10px;
+}
+
+#files-container.active,
+#todo-container.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#schedule-container.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Mobile: centre toolbar and show status message above it ── */
+@media (max-width: 650px) and (any-pointer: coarse) {
+  body:not(.electron) #button-container {
+    top: calc(5px + env(safe-area-inset-top));
+    justify-content: center;
+    margin-left: 0;
+    padding: 0.25em 0.35em;
+  }
+
+  body:not(.electron) #tools-overflow-row {
+    justify-content: center;
+  }
+
+
+  /* Hide arrow button on mobile — replaced by swipe */
+  #panel-arrow {
+    display: none !important;
+  }
+
+  /* Hide pin button and open button on mobile */
+  #panel-pin,
+  #panel-open-btn {
+    display: none !important;
+  }
+
+  /* ── Status and backup messages — fixed to bottom of viewport on mobile ── */
+  body:not(.electron) #bottom-status-area {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background-color: var(--bg);
+    text-align: center;
+    /* Small vertical padding; extra bottom clearance for home indicator */
+    padding: 0.15em 1em max(env(safe-area-inset-bottom), 0.15em);
+    margin: 10px;
+  }
+
+  /* Push editor/preview content above the fixed status bar only */
+  body:not(.electron) #editor-section {
+    padding-bottom: 32px;
+  }
+
+  body:not(.electron) #status-message {
+    z-index: 11;
+    bottom: 4px;
+  }
+
+  /* ── Swipe navigation: Notes list slides from left ── */
+  /* Gap is anchored to the physical screen edge (ignores safe areas) so the
+     panel floats with an even margin.  Internal padding-top compensates for
+     the notch so content inside the panel is not obscured. */
+  body:not(.electron) #panel-lists {
+    position: fixed;
+    top: var(--gap);
+    left: var(--gap);
+    right: auto;
+    width: calc(80vw - var(--gap) * 2);
+    max-width: 300px;
+    height: calc(100% - var(--gap) * 2);
+    transform: translateX(calc(-100% - var(--gap) * 3));
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    display: flex !important;
+    visibility: visible;
+    pointer-events: auto;
+    flex-direction: column;
+    border: none;
+    border-radius: 20px;
+    z-index: 150;
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    box-shadow: none;
+    padding-top: calc(env(safe-area-inset-top) + var(--gap));
+    padding-left: calc(var(--gap) * 2);
+  }
+
+  body:not(.electron) #panel-lists.visible,
+  body:not(.electron) #panel-lists.pinned {
+    transform: translateX(calc(-100% - var(--gap) * 3));
+  }
+
+  body:not(.electron) #panel-lists.mobile-open-left,
+  body:not(.electron) #panel-lists.mobile-open-left.visible,
+  body:not(.electron) #panel-lists.mobile-open-left.pinned {
+    transform: translateX(0);
+    box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+  }
+
+  /* ── Right panel (tasks/schedule) slides from right ── */
+  #mobile-right-panel {
+    position: fixed;
+    top: var(--gap);
+    right: var(--gap);
+    width: calc(80vw - var(--gap) * 2);
+    max-width: 300px;
+    height: calc(100% - var(--gap) * 2);
+    transform: translateX(calc(100% + var(--gap) * 3));
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg);
+    border: none;
+    border-radius: 20px;
+    z-index: 150;
+    padding: calc(env(safe-area-inset-top) + var(--gap)) calc(var(--gap) * 2) var(--gap);
+    box-sizing: border-box;
+    overflow: hidden;
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    box-shadow: none;
+  }
+
+  #mobile-right-panel.mobile-open-right {
+    transform: translateX(0);
+    box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+  }
+
+  /* Overlay backdrop when a panel is open */
+  #mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--shadow);
+    z-index: 140;
+  }
+
+  #mobile-overlay.active {
+    display: block;
+  }
+
+  /* Remove body padding-right override on mobile */
+  body:not(.electron).panel-pinned {
+    padding-right: 0;
+  }
+
+  /* ── Edge-to-edge content scrolling ───────────────────────────────────────
+     Remove safe-area padding from the body so the scrollable content area
+     can reach the physical screen edges.  The toolbar and status bar already
+     account for safe areas via their own top/bottom offsets.  The content
+     padding-top is extended here to clear the notch + toolbar together. */
+  body:not(.electron) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  /* Content top-padding must clear the notch AND the toolbar pill */
+  body:not(.electron) textarea,
+  body:not(.electron) #editor-highlight {
+    padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
+  }
+
+  body:not(.electron) #preview {
+    padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
+  }
+
+  /* ── Find/Replace: bottom sheet on mobile ── */
+  body:not(.electron) #global-search-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 55vh;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 16px var(--shadow);
+    padding-bottom: max(env(safe-area-inset-bottom), 24px);
+    transform: translateY(0);
+    transition: transform 0.25s ease, opacity 0.25s ease, visibility 0.25s ease;
+  }
+
+  body:not(.electron) #global-search-panel.gs-hidden {
+    transform: translateY(100%);
+  }
+
+  body:not(.electron) #global-search-panel .gs-row {
+    padding: 8px 10px;
+  }
+
+  body:not(.electron) #gs-search-input,
+  body:not(.electron) #gs-replace-input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+
+  /* Prevent iOS tap highlight flash and pressed state */
+  button, a, input[type="checkbox"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Disable :active highlight flash on touch devices */
+  #button-container .button-group > button:not(.sub-button):active,
+  #tools-overflow-row .button-group > button:not(.sub-button):active,
+  .sub-button:active {
+    background-color: transparent;
+    color: inherit;
+  }
+
+  /* Eliminate 300ms tap delay and block pinch-to-zoom on iOS */
+  * {
+    touch-action: manipulation;
+  }
+
+  /* Restore vertical scrolling for preview and editor — overrides pan-x/manipulation wildcard */
+  #preview,
+  #editor-wrapper > textarea {
+    touch-action: pan-y;
+  }
+
+  /* Minimum touch target size for iOS accessibility */
+  body:not(.electron) #button-container .button-group > button:not(.sub-button) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove bottom padding from preview on mobile — the fixed status bar
+     provides enough clearance; bottom padding causes visual dead-space. */
+  body:not(.electron) #preview {
+    padding-bottom: 0;
+  }
+
+}
+
+/* ── Desktop (Electron + web browser): hide the side panel at narrow widths ───
+   hover:hover identifies all desktop devices (mouse input).  Mobile touch
+   devices have any-pointer:coarse and hover:none so they never match here.
+   JS state (panel-visible / panel-pinned) is preserved; the panel reappears
+   when the window widens. */
+@media (max-width: 650px) and (hover: hover) {
+  #panel-lists.visible,
+  #panel-lists.pinned {
+    transform: translateX(100%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body.panel-pinned {
+    padding-right: 0;
+  }
+
+  /* Toolbar max-width/centering constraints no longer needed when the panel is hidden. */
+  body.panel-visible #button-container,
+  body.panel-pinned #button-container {
+    left: 50%;
+    max-width: 100%;
+  }
+
+  /* Force left-alignment on narrow desktop/laptop windows.
+     Overrides the mobile justify-content:center rule which can apply on
+     touchscreen laptops where any-pointer:coarse and hover:hover both match. */
+  body:not(.electron) #button-container {
+    justify-content: flex-start;
+  }
+}

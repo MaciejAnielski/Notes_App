@@ -1,0 +1,230 @@
+/* ── Calendar colour picker (Settings note preview) ── */
+.calendar-color-picker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.calendar-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 50%;
+}
+
+.calendar-color-picker::-webkit-color-swatch {
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.calendar-color-picker::-moz-color-swatch {
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.calendar-name-label {
+  font-weight: 500;
+}
+
+/* ── Theme colour pickers (Settings note preview) ── */
+.theme-color-picker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.theme-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 50%;
+}
+
+.theme-color-picker::-webkit-color-swatch {
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.theme-color-picker::-moz-color-swatch {
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.theme-label {
+  font-weight: 500;
+  min-width: 100px;
+  display: inline-block;
+}
+
+.theme-reset-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.theme-reset-btn:hover {
+  color: var(--text);
+  background-color: var(--hover-overlay);
+}
+/* ── Text selection — themed to match accent ── */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+::-moz-selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+/* ── Missing / broken internal links in preview ── */
+#preview a.internal-link-new {
+  color: var(--link-missing);
+  text-decoration-style: dashed;
+  text-decoration-color: var(--link-missing);
+}
+
+/* ── Checkbox theming — override browser defaults ── */
+input[type="checkbox"] {
+  accent-color: var(--checkbox-accent);
+}
+
+/* Custom checkbox styling for preview and todo panel.
+   Inherit font so em/lh units scale with surrounding text. */
+#preview input[type="checkbox"],
+#todoList input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  width: 1em;
+  height: 1em;
+  border: 0.1em solid var(--checkbox-border);
+  border-radius: 0.2em;
+  background: var(--checkbox-bg);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  vertical-align: middle;
+  align-self: flex-start;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+#preview input[type="checkbox"]:checked,
+#todoList input[type="checkbox"]:checked {
+  background: var(--checkbox-checked-bg);
+  border-color: var(--checkbox-checked-bg);
+}
+
+#preview input[type="checkbox"]:checked::after,
+#todoList input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 26%;
+  top: 7%;
+  width: 28%;
+  height: 57%;
+  border: solid var(--bg);
+  border-width: 0 0.14em 0.14em 0;
+  transform: rotate(45deg);
+}
+
+#preview input[type="checkbox"]:focus-visible,
+#todoList input[type="checkbox"]:focus-visible {
+  outline: 0.15em solid var(--checkbox-checked-bg);
+  outline-offset: 0.1em;
+}
+
+/* Schedule item checkboxes: em-based sizing so they scale with browser zoom. */
+#schedule-container .schedule-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  width: 1em;
+  height: 1em;
+  border: 0.1em solid var(--checkbox-border);
+  border-radius: 2px;
+  background: var(--checkbox-bg);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+#schedule-container .schedule-item input[type="checkbox"]:checked {
+  background: var(--checkbox-checked-bg);
+  border-color: var(--checkbox-checked-bg);
+}
+
+#schedule-container .schedule-item input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 26%;
+  top: 7%;
+  width: 28%;
+  height: 57%;
+  border: solid var(--bg);
+  border-width: 0 0.14em 0.14em 0;
+  transform: rotate(45deg);
+}
+
+#schedule-container .schedule-item input[type="checkbox"]:focus-visible {
+  outline: 0.15em solid var(--checkbox-checked-bg);
+  outline-offset: 0.1em;
+}
+
+/* Global search UI checkbox: custom appearance to match content checkboxes. */
+#global-search-panel input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  width: 0.85em;
+  height: 0.85em;
+  border: 0.1em solid var(--checkbox-border);
+  border-radius: 0.2em;
+  background: var(--checkbox-bg);
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+}
+
+#global-search-panel input[type="checkbox"]:checked {
+  background: var(--checkbox-checked-bg);
+  border-color: var(--checkbox-checked-bg);
+}
+
+#global-search-panel input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 26%;
+  top: 7%;
+  width: 28%;
+  height: 57%;
+  border: solid var(--bg);
+  border-width: 0 0.14em 0.14em 0;
+  transform: rotate(45deg);
+}
+
+#global-search-panel input[type="checkbox"]:focus-visible {
+  outline: 0.15em solid var(--checkbox-checked-bg);
+  outline-offset: 0.1em;
+}

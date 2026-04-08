@@ -1,0 +1,186 @@
+/* ── Textarea & preview ── */
+textarea {
+  background-color: var(--bg);
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow-y: auto;
+  padding: var(--gap);
+  padding-top: var(--toolbar-h);
+  margin: 0;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  line-height: 1.5;
+  flex: 1;
+  min-height: 0;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+/* ── Editor wrapper — contains highlight pre + transparent textarea ── */
+#editor-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden; /* clip the pre layer which grows to its natural content height */
+  background-color: var(--bg);
+}
+
+/* Textarea inside wrapper: transparent text, visible caret */
+#editor-wrapper > textarea {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%;
+  height: 100%;
+  flex: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--caret);
+  z-index: 1;
+  /* Keep same base metrics as highlight pre */
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  tab-size: 8;
+  -moz-tab-size: 8;
+}
+
+/* Placeholder text — all inputs and the editor textarea */
+#editor-wrapper > textarea::placeholder,
+input::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+/* ── Syntax highlight pre layer ── */
+/* CRITICAL: font-family, font-size, font-weight, line-height, padding,
+   white-space, word-wrap, tab-size, and box-sizing MUST exactly match
+   the textarea above — any difference drifts the cursor out of sync.   */
+#editor-highlight {
+  position: absolute;
+  top: 0; left: 0; right: 0; /* no bottom: 0 — grows to natural content height */
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible; /* wrapper clips; transform-based scroll avoids scrollTop clamping */
+  /* Metrics — must identically match textarea */
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1.5;
+  padding: var(--gap);
+  padding-top: var(--toolbar-h); /* CRITICAL: must match textarea padding exactly */
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  tab-size: 8;
+  -moz-tab-size: 8;
+  box-sizing: border-box;
+  background-color: var(--bg);
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+}
+
+/* ── Syntax highlight token colours ── */
+/* Rule: colour only — never font-size, font-weight, font-style,
+   letter-spacing, or word-spacing (those break cursor alignment). */
+
+/* Headings — descending shades */
+.hl-h1 { color: var(--h1); }
+.hl-h2 { color: var(--h2); }
+.hl-h3 { color: var(--h3); }
+.hl-h4 { color: var(--h4); }
+.hl-h5 { color: var(--h5); }
+.hl-h6 { color: var(--h6); }
+
+/* The # markers are slightly darker than heading text */
+.hl-heading-marker { color: var(--heading-marker); }
+
+/* Bold (colour only — do NOT add font-weight) */
+.hl-bold        { color: var(--bold); }
+/* Italic (colour only — do NOT add font-style) */
+.hl-italic      { color: var(--italic); }
+/* Bold-italic combination */
+.hl-bold-italic { color: var(--bold-italic); }
+
+/* Inline code */
+.hl-code { color: var(--code); background-color: var(--code-bg); }
+
+/* Fenced code block fence lines and content */
+.hl-fence      { color: var(--fence); }
+.hl-code-block { color: var(--code); }
+
+/* Strikethrough */
+.hl-strike { color: var(--strike); }
+
+/* Highlight ==text== — golden, inner text inherits so nesting stays gold.
+   Background added so highlights remain visible on tinted/yellowy themes. */
+.hl-highlight      { color: var(--highlight); }
+.hl-highlight-text { color: var(--highlight); background-color: var(--highlight-bg); border-radius: 2px; }
+.hl-highlight-text * { color: inherit; }
+
+/* Links and wiki-links */
+.hl-link { color: var(--link); }
+.hl-wiki { color: var(--wiki); }
+
+/* List markers */
+.hl-list-marker { color: var(--list-marker); }
+
+/* Blockquote > marker and text */
+.hl-blockquote        { color: var(--blockquote-text); }
+.hl-blockquote-marker { color: var(--blockquote-border); }
+
+/* Emphasis inside a blockquote line inherits the blockquote text colour */
+.hl-blockquote .hl-bold,
+.hl-blockquote .hl-bold-italic,
+.hl-blockquote .hl-italic,
+.hl-blockquote .hl-strike { color: inherit; }
+
+/* Horizontal rule lines */
+.hl-hr { color: var(--hr); }
+
+/* Schedule syntax at end of line */
+.hl-schedule { color: var(--schedule); }
+
+/* Task checkbox marker — full "- [ ]" / "- [x]" */
+.hl-task-marker { color: var(--task-marker); }
+
+/* Footnote references [^id] */
+.hl-footnote { color: var(--footnote-marker); }
+
+/* Image syntax ![alt](url) */
+.hl-image { color: var(--image-syntax); }
+
+textarea:focus {
+  outline: none;
+}
+
+#preview {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  padding-top: var(--toolbar-h);
+  padding-bottom: var(--gap);
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  border: none;
+  border-radius: 0;
+  box-sizing: border-box;
+  background-color: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

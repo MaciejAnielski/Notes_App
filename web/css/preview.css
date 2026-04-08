@@ -1,0 +1,313 @@
+/* Indent all direct children with margin so they sit at the same visual
+   position as before. Scrollable blocks (.table-wrapper, pre, .mermaid-diagram)
+   are excluded — they expand edge-to-edge within #preview and use their own
+   internal padding/scroll-indent for the at-rest indentation. */
+#preview > *:not(.table-wrapper):not(pre):not(.mermaid-diagram) {
+  margin-left: var(--gap);
+  margin-right: var(--gap);
+}
+
+/* ── Preview heading colours — descending shades ── */
+
+#preview h1 {
+  color: var(--h1);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 5px;
+  margin-bottom: 16px;
+  margin-top: 0px;
+}
+
+#preview h2 { color: var(--h2); }
+#preview h3 { color: var(--h3); }
+#preview h4 { color: var(--h4); }
+#preview h5 { color: var(--h5); }
+#preview h6 { color: var(--h6); }
+
+/* ── Inline emphasis in preview ── */
+/* Bold uses slightly brighter shade */
+#preview strong { color: var(--bold); }
+/* Italic uses soft shade */
+#preview em { color: var(--italic); }
+/* Strikethrough muted */
+#preview del { color: var(--strike); }
+
+/* ── Emphasis inside blockquotes: inherit the quote text colour ── */
+/* Prevents bold/italic/strike from overriding the blockquote's themed colour */
+#preview blockquote strong,
+#preview blockquote em,
+#preview blockquote del { color: inherit; }
+
+/* ── Inline code ── */
+#preview code {
+  color: var(--code);
+  background-color: var(--code-bg);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  /* Override UA stylesheet which sets font-size:smaller on <code> */
+  font-size: 0.9em;
+}
+
+/* Code inside a fenced block — reset inline styling */
+#preview pre code {
+  color: var(--code);
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 1em; /* inherit from pre, not from the inline-code override */
+}
+
+/* Fenced code block container */
+#preview pre {
+  background-color: var(--code-block-bg);
+  border-radius: 4px;
+  padding: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.75em var(--gap);
+  /* Override UA stylesheet which sets font-size:smaller on <pre> */
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+/* ── Highlights (==text==) — nested elements inherit the colour ── */
+#preview mark,
+#preview mark * { color: var(--mark-color); }
+
+/* ── H1 note title: navigates back when a breadcrumb chain exists ── */
+#preview h1.note-title-back {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+@media (hover: hover) {
+  #preview h1.note-title-back:hover {
+    opacity: 0.75;
+  }
+}
+
+#preview p {
+  margin: 0.5em 0;
+}
+
+#preview li p:first-child:last-child {
+  margin: 0;
+}
+
+#preview a {
+  color: var(--link);
+}
+
+/* ── Lists ── */
+#preview ul,
+#preview ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0em;
+}
+
+/* Nested lists: no extra vertical margin */
+#preview li > ul,
+#preview li > ol {
+  margin: 0;
+}
+
+#preview li {
+  margin: 0.15em 0;
+}
+
+#preview ul { list-style-type: disc; }
+#preview ul ul { list-style-type: circle; }
+#preview ul ul ul { list-style-type: square; }
+
+/* Task-list items must never show a bullet, regardless of nesting depth. */
+#preview li.task-item,
+#todoList li.task-item,
+.graph-tooltip li.task-item {
+  list-style: none;
+}
+
+/* Align checkbox to the vertical centre of the text line. */
+#preview li.task-item,
+#todoList li.task-item,
+.graph-tooltip li.task-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+/* ── Blockquotes ── */
+#preview blockquote {
+  margin: 12px 0;
+  padding: 6px 14px;
+  border-left: 3px solid var(--blockquote-border);
+  background-color: var(--blockquote-bg);
+  color: var(--blockquote-text);
+  border-radius: 0 4px 4px 0;
+  font-size: 1em; /* prevent any inherited or UA font-size from shrinking blockquotes */
+}
+
+#preview blockquote p {
+  margin: 0;
+}
+
+/* ── Collapsible headings ── */
+#preview details {
+  margin: 0 0 1.4em;
+}
+
+#preview details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+#preview details > summary::-webkit-details-marker {
+  display: none;
+}
+
+#preview details > summary h2,
+#preview details > summary h3,
+#preview details > summary h4,
+#preview details > summary h5,
+#preview details > summary h6 {
+  display: inline;
+  margin: revert;
+}
+
+#preview details > summary::after {
+  content: ' ›';
+  font-size: 0.8em;
+  color: var(--hr);
+  transition: none;
+}
+
+#preview details[open] > summary::after {
+  content: ' ⌄';
+}
+
+/* ── Tables ── */
+
+/* Scrollable wrapper: allows wide tables to scroll horizontally rather than
+   overflow the page. margin: 0.75em var(--gap) aligns the table visually with
+   the rest of note content (same left/right indent as body text). */
+#preview .table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.75em var(--gap);
+  padding-left: 0;
+}
+
+#preview table {
+  border-collapse: collapse;
+  margin: 0;
+  width: auto;
+  min-width: max-content;
+}
+
+#preview th,
+#preview td {
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+}
+
+#preview thead tr {
+  background-color: var(--table-header-bg);
+}
+
+#preview tbody tr:nth-child(even) {
+  background-color: var(--table-alt-row);
+}
+
+/* ── Footnotes ── */
+.footnote-ref {
+  color: var(--footnote);
+  text-decoration: none;
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.footnote-ref:hover {
+  text-decoration: underline;
+}
+
+/* Markdown horizontal rules (---) — match the notes panel separator style */
+#preview hr {
+  border: none;
+  border-top: 1px solid var(--accent);
+  margin: 16px 0;
+}
+
+.footnote-hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0 12px;
+}
+
+.footnotes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--footnote-muted);
+}
+
+.footnotes li {
+  margin-bottom: 4px;
+}
+
+.footnote-back {
+  color: var(--footnote-back);
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.footnote-back:hover {
+  text-decoration: underline;
+}
+
+/* ── Images inside preview — constrain size to avoid overflow ── */
+#preview img {
+  max-width: 100%;
+  max-height: 60vh;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+@media (max-width: 650px) and (any-pointer: coarse) {
+  #preview img {
+    max-height: 40vh;
+  }
+}
+/* ── Schedule / search navigation highlight (flashes then fades) ── */
+#preview .schedule-highlight {
+  background-color: var(--sched-highlight-bg);
+  border-radius: 3px;
+  outline: 2px solid var(--sched-highlight-outline);
+  transition: background-color 1.5s ease, outline-color 1.5s ease;
+}
+
+/* Collapse breadcrumb highlight — same visual as schedule-highlight but also
+   applies inside <summary> elements (visible even when <details> is closed).
+   Applied/removed by JS; no CSS transition so it appears/disappears instantly. */
+#preview summary .schedule-highlight,
+#preview summary.schedule-highlight {
+  background-color: var(--sched-highlight-bg);
+  border-radius: 3px;
+  outline: 2px solid var(--sched-highlight-outline);
+}
+
+/* ── Highlight syntax (==text==) ── */
+#preview mark {
+  background-color: var(--mark-bg);
+  color: var(--mark-color);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-style: normal;
+}
+/* ── Image border in preview ── */
+#preview img {
+  border: 1px solid var(--image-border);
+}
