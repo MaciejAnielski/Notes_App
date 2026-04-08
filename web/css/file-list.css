@@ -17,7 +17,6 @@
 
 #searchBox:focus,
 #searchTasksBox:focus {
-  outline: none;
   box-shadow: none;
   background-color: var(--today-bg);
 }
@@ -39,10 +38,11 @@
   overflow-y: auto;
 }
 
-#fileList li {
-  margin: 0.15em 0em;
+#fileList li,
+#nav-list li {
+  margin: 0.15em 0;
   border-radius: 5px;
-  padding: 2px 0px 2px 5px;
+  padding: 2px 0 2px 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -50,13 +50,15 @@
   position: relative;
 }
 
-#fileList li span {
+#fileList li span,
+#nav-list li span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#fileList li:hover {
+#fileList li:hover,
+#nav-list li:hover {
   background-color: var(--today-bg);
 }
 
@@ -79,7 +81,7 @@
   color: var(--linked-color);
   border-left: 2px dashed var(--linked-border);
   padding-left: 6px;
-  margin-left: 0px;
+  margin-left: 0;
 }
 
 /* Step number badge on each linked note */
@@ -96,29 +98,8 @@
 #nav-list {
   list-style: none;
   margin: 0;
-  padding: 10px 0px 10px 0px;
+  padding: 10px 0;
   flex-shrink: 0;
-}
-
-#nav-list li {
-  margin: 0.15em 0em;
-  border-radius: 5px;
-  padding: 2px 0px 2px 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  position: relative;
-}
-
-#nav-list li span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#nav-list li:hover {
-  background-color: var(--today-bg);
 }
 
 /* ── Today's Daily Note highlight ── */

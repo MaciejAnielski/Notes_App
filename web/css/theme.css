@@ -1,44 +1,8 @@
-/* ── Calendar colour picker (Settings note preview) ── */
-.calendar-color-picker {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 50%;
-  padding: 0;
-  cursor: pointer;
-  background: none;
-  vertical-align: middle;
-  margin-left: 6px;
-  flex-shrink: 0;
-}
-
-.calendar-color-picker::-webkit-color-swatch-wrapper {
-  padding: 0;
-  border-radius: 50%;
-}
-
-.calendar-color-picker::-webkit-color-swatch {
-  border: 1px solid var(--border);
-  border-radius: 50%;
-}
-
-.calendar-color-picker::-moz-color-swatch {
-  border: 1px solid var(--border);
-  border-radius: 50%;
-}
-
-.calendar-name-label {
-  font-weight: 500;
-}
-
-/* ── Theme colour pickers (Settings note preview) ── */
+/* ── Colour pickers (Settings note preview) ── */
+.calendar-color-picker,
 .theme-color-picker {
   -webkit-appearance: none;
   appearance: none;
-  width: 28px;
-  height: 28px;
   border: none;
   border-radius: 50%;
   padding: 0;
@@ -49,19 +13,32 @@
   flex-shrink: 0;
 }
 
+/* Calendar picker: smaller circle */
+.calendar-color-picker { width: 20px; height: 20px; }
+
+/* Theme picker: slightly larger */
+.theme-color-picker { width: 28px; height: 28px; }
+
+.calendar-color-picker::-webkit-color-swatch-wrapper,
 .theme-color-picker::-webkit-color-swatch-wrapper {
   padding: 0;
   border-radius: 50%;
 }
 
-.theme-color-picker::-webkit-color-swatch {
+.calendar-color-picker::-webkit-color-swatch,
+.calendar-color-picker::-moz-color-swatch {
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.theme-color-picker::-webkit-color-swatch,
+.theme-color-picker::-moz-color-swatch {
   border: 2px solid var(--border);
   border-radius: 50%;
 }
 
-.theme-color-picker::-moz-color-swatch {
-  border: 2px solid var(--border);
-  border-radius: 50%;
+.calendar-name-label {
+  font-weight: 500;
 }
 
 .theme-label {
@@ -87,11 +64,6 @@
 }
 /* ── Text selection — themed to match accent ── */
 ::selection {
-  background: var(--selection-bg);
-  color: var(--selection-text);
-}
-
-::-moz-selection {
   background: var(--selection-bg);
   color: var(--selection-text);
 }

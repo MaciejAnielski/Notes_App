@@ -102,12 +102,7 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  scrollbar-width: none;
   padding: 10px 10px 0 5px;
-}
-
-#schedule-timeline-wrapper::-webkit-scrollbar {
-  display: none;
 }
 
 #scheduleGrid {
@@ -143,7 +138,7 @@
 .schedule-item {
   position: absolute;
   left: 40px;
-  right: 0px;
+  right: 0;
   background-color: var(--sched-item-bg);
   border-left: 3px solid var(--sched-item-border);
   border-radius: 0 5px 5px 0;
@@ -202,7 +197,7 @@
   left: auto;
   right: auto;
   margin: 5px 10px 5px 45px;
-  padding: 0px 6px;
+  padding: 0 6px;
   align-items: center;
   box-sizing: border-box;
 }
@@ -252,8 +247,6 @@
 .task-status-dot.dot-inline {
   margin-left: 5px;
   vertical-align: middle;
-  align-self: flex-start;
-  margin-top: calc((1lh - 7px) / 2);
 }
 
 .dot-unscheduled { background-color: var(--text); }
