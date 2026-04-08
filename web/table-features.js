@@ -48,6 +48,30 @@ function wrapTablesForScroll(container) {
   });
 }
 
+// On desktop browsers a vertical wheel event bubbles past .table-wrapper
+// (which only has overflow-x) and scrolls #preview vertically instead.
+// Intercept wheel events over overflowing wrappers and redirect them to
+// horizontal scroll — mirrors the same pattern used for MathJax in math-eval.js.
+function setupTableWheelScroll() {
+  const LINE_HEIGHT_PX = 40;
+  previewDiv.addEventListener('wheel', (e) => {
+    const wrapper = e.target.closest('.table-wrapper');
+    if (!wrapper) return;
+    if (wrapper.scrollWidth <= wrapper.clientWidth) return;
+    e.preventDefault();
+    const rawDelta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    const normalizedDelta =
+      e.deltaMode === 1 ? rawDelta * LINE_HEIGHT_PX :
+      e.deltaMode === 2 ? rawDelta * window.innerHeight :
+      rawDelta;
+    wrapper.scrollLeft += normalizedDelta;
+  }, { passive: false });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupTableWheelScroll();
+});
+
 // ── Table smart features: sorting, filtering, copy ─────────────────────────
 
 // Per-table sort state: maps table element → { colIndex, direction }
