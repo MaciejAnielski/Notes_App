@@ -350,7 +350,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
-  padding: 0.25em 0.35em;
+  padding: 0.25em 0.25em;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -1640,14 +1640,14 @@ body.panel-pinned {
   /* Left-align for all desktop platforms (macOS padding-left already in the
      platform-darwin rule above; traffic lights appear inside the pill there). */
   #button-container {
-    left: var(--gap);
+    left: 5px;
     transform: none;
   }
 
   /* Cap max-width so the pill doesn't run under the 300px side panel. */
   body.panel-visible:not(.panel-pinned) #button-container,
   body.panel-pinned #button-container {
-    left: var(--gap);
+    left: 5px;
     max-width: calc(100% - 300px - var(--gap) - 6px);
   }
 
