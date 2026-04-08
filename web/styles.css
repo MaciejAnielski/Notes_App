@@ -1690,9 +1690,9 @@ body.panel-pinned {
 .schedule-date-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 0;
-  padding-bottom: 5px;
+  padding: 0px 0px 10px 0px;
 }
 
 .schedule-date-row button {
@@ -1708,7 +1708,7 @@ body.panel-pinned {
   flex: 1;
   text-align: center;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text);
   cursor: pointer;
   user-select: none;
 }
