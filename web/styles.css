@@ -1800,6 +1800,7 @@ body.panel-pinned {
 
 #scheduleGrid {
   position: relative;
+  margin: 10px 0px 20px 0px;
 }
 
 .schedule-time-label {
