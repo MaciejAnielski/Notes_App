@@ -43,14 +43,7 @@ body.panel-pinned {
 }
 
 #files-container.active,
-#todo-container.active {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
+#todo-container.active,
 #schedule-container.active {
   display: flex;
   flex-direction: column;

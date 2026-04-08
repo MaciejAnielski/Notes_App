@@ -13,7 +13,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0px 0px 0px 0px;
+  padding: 0;
 }
 
 #todo-container li {
@@ -50,7 +50,7 @@
 
 /* ── Empty-state panel hints ── */
 .panel-hint {
-  color: var(--text-muted, #888);
+  color: var(--muted);
   font-size: 0.8em;
   font-style: italic;
   text-align: center;
@@ -169,7 +169,7 @@ body.panel-pinned #panel-open-btn {
   box-sizing: border-box;
   flex-direction: column;
   /* ── Floating card treatment ── */
-  border-radius: 20px 20px 20px 20px;
+  border-radius: 20px;
   box-shadow: -4px 0 20px var(--shadow-light);
   /* ── Animated slide ── */
   transform: translateX(100%);
@@ -197,8 +197,6 @@ body.panel-pinned #panel-open-btn {
   transform: translateX(0);
   visibility: visible;
   pointer-events: auto;
-  flex-direction: column;
-  flex-shrink: 0;
   z-index: 101;
   border-radius: 0;
   box-shadow: none;
@@ -206,7 +204,7 @@ body.panel-pinned #panel-open-btn {
 
 /* Restore floating visuals when hovering over the pinned panel */
 #panel-lists.pinned:hover {
-  border-radius: 20px 20px 20px 20px;
+  border-radius: 20px;
   box-shadow: -4px 0 20px var(--shadow-light);
 }
 

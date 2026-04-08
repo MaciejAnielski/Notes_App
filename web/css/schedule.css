@@ -4,7 +4,7 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 0;
-  padding: 0px 0px 10px 0px;
+  padding: 0 0 10px;
 }
 
 .schedule-date-row button {
@@ -29,7 +29,7 @@
 #schedule-week-row {
   display: flex;
   justify-content: space-around;
-  padding: 5px 0px;
+  padding: 5px 0;
 }
 
 .schedule-week-cell {
@@ -101,9 +101,9 @@
 #schedule-timeline-wrapper {
   flex: 1;
   overflow-y: auto;
-  min-height: 0px;
+  min-height: 0;
   scrollbar-width: none;
-  padding-top: 10px 10px 0px 5px;
+  padding: 10px 10px 0 5px;
 }
 
 #schedule-timeline-wrapper::-webkit-scrollbar {
@@ -112,7 +112,7 @@
 
 #scheduleGrid {
   position: relative;
-  margin: 10px 0px 20px 0px;
+  margin: 10px 0 20px;
 }
 
 .schedule-time-label {
@@ -133,7 +133,7 @@
   left: 40px;
   right: 0;
   border-top: 0.5px solid var(--gridline);
-  margin: 0px 10px 0px 5px;
+  margin: 0 10px 0 5px;
 }
 
 .schedule-gridline-hour {
@@ -148,7 +148,7 @@
   border-left: 3px solid var(--sched-item-border);
   border-radius: 0 5px 5px 0;
   padding: 2px 6px;
-  margin: 0px 10px 0px 5px;
+  margin: 0 10px 0 5px;
   font-size: 12px;
   overflow: hidden;
   box-sizing: border-box;
@@ -194,8 +194,6 @@
 /* flex-shrink:0 keeps it at its natural height; the timeline wrapper below takes the rest. */
 .schedule-allday-section {
   flex-shrink: 0;
-  padding: 0px;
-  margin-bottom: 0px;
 }
 
 .schedule-allday-section .schedule-item {
