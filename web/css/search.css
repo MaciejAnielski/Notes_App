@@ -205,7 +205,7 @@
 .wikilink-item:hover,
 .wikilink-item-active {
   background: var(--accent);
-  color: #fff;
+  color: var(--text-on-accent);
 }
 
 /* Notes not yet created — shown with a muted "new" label */

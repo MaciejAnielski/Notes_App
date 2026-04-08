@@ -15,9 +15,6 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
-}
-
-body {
   background-color: var(--bg);
   color: var(--text);
   font-family: Arial, sans-serif;
@@ -210,27 +207,6 @@ body.platform-darwin #panel-arrow {
   display: none; /* Chrome, Safari, Edge */
 }
 
-textarea::-webkit-scrollbar,
-#preview::-webkit-scrollbar,
-#panel-lists::-webkit-scrollbar,
-#fileList::-webkit-scrollbar,
-#todoList::-webkit-scrollbar,
-#files-container::-webkit-scrollbar,
-#todo-container::-webkit-scrollbar,
-#mobile-right-panel::-webkit-scrollbar {
-  display: none;
-}
-
-textarea,
-#preview,
-#panel-lists,
-#fileList,
-#todoList,
-#files-container,
-#todo-container,
-#mobile-right-panel {
-  scrollbar-width: none; /* Firefox */
-}
 
 /* Hidden on desktop — only visible on mobile via swipe */
 #mobile-right-panel {

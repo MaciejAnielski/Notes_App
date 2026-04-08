@@ -119,17 +119,11 @@
 #preview ul ul { list-style-type: circle; }
 #preview ul ul ul { list-style-type: square; }
 
-/* Task-list items must never show a bullet, regardless of nesting depth. */
+/* Task-list items: no bullet, flex-aligned so checkbox centres with text. */
 #preview li.task-item,
 #todoList li.task-item,
 .graph-tooltip li.task-item {
   list-style: none;
-}
-
-/* Align checkbox to the vertical centre of the text line. */
-#preview li.task-item,
-#todoList li.task-item,
-.graph-tooltip li.task-item {
   display: flex;
   align-items: center;
   gap: 0.35em;
@@ -274,6 +268,7 @@
   display: block;
   border-radius: 4px;
   margin: 4px 0;
+  border: 1px solid var(--image-border);
 }
 
 @media (max-width: 650px) and (any-pointer: coarse) {
@@ -306,8 +301,4 @@
   border-radius: 2px;
   padding: 0 2px;
   font-style: normal;
-}
-/* ── Image border in preview ── */
-#preview img {
-  border: 1px solid var(--image-border);
 }
