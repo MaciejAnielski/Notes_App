@@ -1505,7 +1505,7 @@ body.panel-pinned #panel-open-btn {
   z-index: 50;
   background-color: var(--bg);
   overflow: hidden;
-  padding: 10px 10px 0px 10px;
+  padding: 10px 10px 0px 0px;
   margin: 10px;
   box-sizing: border-box;
   flex-direction: column;
