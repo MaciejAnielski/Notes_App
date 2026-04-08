@@ -1904,8 +1904,8 @@ body.panel-pinned {
 /* ── Schedule now indicator ── */
 .schedule-now-indicator {
   position: absolute;
-  left: 54px;
-  right: 0;
+  left: 38px;
+  right: 5px;
   height: 2px;
   background-color: var(--error);
   z-index: 10;
