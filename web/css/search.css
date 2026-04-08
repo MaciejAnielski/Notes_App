@@ -1,0 +1,223 @@
+/* ── Global Search & Replace Panel ── */
+#global-search-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-height: 50vh;
+  background-color: var(--bg);
+  border-radius: 0 0 0 12px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 2px 8px var(--shadow), 0 8px 24px var(--shadow-light);
+  overflow: hidden;
+  /* ── Animated open/close ── */
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1),
+              opacity 0.25s ease,
+              visibility 0.25s ease;
+}
+
+#global-search-panel.gs-hidden {
+  transform: translateY(-10px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.gs-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  flex-shrink: 0;
+}
+
+.gs-row + .gs-row {
+  border-top: 1px solid var(--surface);
+}
+
+#gs-search-input,
+#gs-replace-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  padding: 5px 8px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+#gs-search-input:focus,
+#gs-replace-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+#gs-status {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Panel buttons — borderless, text-only style */
+#gs-find-btn,
+#gs-replace-btn,
+#gs-replace-all-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 3px 8px;
+  font-size: 13px;
+  margin-right: 0;
+  flex-shrink: 0;
+}
+
+#gs-find-btn:hover,
+#gs-replace-btn:hover,
+#gs-replace-all-btn:hover {
+  background-color: var(--hover-overlay);
+  color: var(--text);
+}
+
+#gs-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 3px 5px;
+  margin: 0;
+  border-radius: 3px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+#gs-close:hover {
+  color: var(--text);
+  background-color: var(--surface);
+}
+
+#gs-case-label {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+#gs-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+#gs-results::-webkit-scrollbar {
+  display: none;
+}
+
+#gs-results li {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--surface);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#gs-results li:hover {
+  background-color: var(--surface);
+}
+
+#gs-results li.gs-active {
+  background-color: var(--gs-active-bg);
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+}
+
+.gs-note-name {
+  color: var(--gs-note-name);
+  font-weight: bold;
+  display: block;
+  margin-bottom: 1px;
+  font-size: 11px;
+}
+
+.gs-snippet {
+  color: var(--gs-snippet);
+  white-space: nowrap;
+  overflow: hidden;
+  display: block;
+}
+
+.gs-snippet mark {
+  background-color: var(--gs-snippet-mark);
+  color: var(--gs-snippet-mark-text);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* ── Edit-mode search match highlight in the syntax-highlight pre layer ── */
+#editor-highlight .hl-search-match {
+  background-color: var(--gs-snippet-mark);
+  color: var(--gs-snippet-mark-text);
+  border-radius: 2px;
+  outline: 1px solid var(--sched-highlight-outline);
+}
+/* ── Wiki-link autocomplete dropdown ─────────────────────────────────────── */
+
+#wikilink-dropdown {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px var(--shadow), 0 8px 20px var(--shadow-light);
+  max-height: 240px;
+  overflow-y: auto;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.wikilink-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.88em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.wikilink-item:hover,
+.wikilink-item-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Notes not yet created — shown with a muted "new" label */
+.wikilink-item-new {
+  opacity: 0.75;
+}
+.wikilink-item-new::after {
+  content: ' (new)';
+  font-size: 0.8em;
+  opacity: 0.65;
+}
+.wikilink-item-new:hover::after,
+.wikilink-item-active.wikilink-item-new::after {
+  opacity: 0.85;
+}

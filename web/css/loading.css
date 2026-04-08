@@ -1,0 +1,294 @@
+/* ── Loading screen ── */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: var(--bg, #1e1e1e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--accent, #a272b0);
+  margin-bottom: 20px;
+  letter-spacing: 0.05em;
+}
+
+.loading-progress-container {
+  width: 200px;
+  height: 4px;
+  background: var(--surface, #2e2e2e);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.loading-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #a272b0);
+  border-radius: 2px;
+  transition: width 0.35s ease;
+}
+
+.loading-progress-label {
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+  opacity: 0.5;
+  margin-top: 12px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Sync settings UI (Settings note preview) ── */
+.sync-controls {
+  padding: 8px 0 12px;
+}
+
+.sync-status-msg {
+  font-size: 13px;
+  color: var(--muted, #888);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.sync-wait-msg {
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.sync-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sync-dot-active {
+  background-color: var(--success, #4caf72);
+}
+
+.sync-status-label {
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+}
+
+.sync-email-input {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  padding: 8px 10px;
+  background: var(--surface, #2e2e2e);
+  border: 1px solid var(--border, #444);
+  border-radius: 6px;
+  color: var(--text, #e8dcf4);
+  font-size: 14px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.sync-email-input::placeholder {
+  color: var(--muted, #888);
+}
+
+.sync-btn {
+  display: inline-block;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.sync-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sync-btn-primary {
+  background: var(--accent, #a272b0);
+  color: var(--text-on-accent, #fff);
+}
+
+.sync-btn-secondary {
+  background: transparent;
+  color: var(--muted, #888);
+  border: 1px solid var(--border, #444);
+}
+
+.sync-otp-toggle {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: var(--link, #9cdcfe);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 8px;
+  text-decoration: underline;
+}
+
+.sync-otp-row {
+  margin-bottom: 6px;
+}
+
+.sync-step {
+  margin-bottom: 4px;
+}
+
+.sync-error {
+  font-size: 12px;
+  color: var(--error, #e05c5c);
+  margin: 4px 0 0;
+}
+
+/* ── Encryption settings ── */
+
+.encryption-controls {
+  padding: 8px 0 12px;
+}
+
+.encryption-warning {
+  font-size: 12px;
+  color: var(--warning, #d4a24a);
+  margin: 0 0 12px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(212, 162, 74, 0.1);
+  border: 1px solid rgba(212, 162, 74, 0.25);
+}
+
+.pairing-area {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--surface, #2e2e2e);
+  border-radius: 8px;
+  border: 1px solid var(--border, #444);
+}
+
+.pairing-qr-code {
+  display: block;
+  margin: 12px auto;
+  width: 180px;
+  height: 180px;
+  image-rendering: pixelated;
+  border-radius: 6px;
+}
+
+.pairing-code-display {
+  text-align: center;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--accent, #a272b0);
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--bg, #1e1e1e);
+  border-radius: 8px;
+  border: 1px solid var(--border, #444);
+  user-select: all;
+}
+
+.pairing-wait-msg {
+  text-align: center;
+  font-style: italic;
+}
+
+.pairing-success {
+  color: var(--success, #4caf72) !important;
+  font-style: normal !important;
+}
+
+.pairing-error {
+  color: var(--error, #e05c5c) !important;
+  font-style: normal !important;
+}
+
+.encryption-devices {
+  margin-top: 16px;
+}
+
+.encryption-devices-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #e8dcf4);
+  margin: 0 0 6px;
+}
+
+.device-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.device-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+  border-bottom: 1px solid var(--border, #333);
+}
+
+.device-item:last-child {
+  border-bottom: none;
+}
+
+.device-current {
+  color: var(--accent, #a272b0);
+}
+
+.device-remove-btn {
+  background: none;
+  border: none;
+  color: var(--muted, #888);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.device-remove-btn:hover {
+  color: var(--error, #e05c5c);
+}
+
+.encryption-backup-row {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.passphrase-prompt {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--surface, #2e2e2e);
+  border-radius: 8px;
+  border: 1px solid var(--border, #444);
+}

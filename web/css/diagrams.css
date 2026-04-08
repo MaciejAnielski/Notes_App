@@ -1,0 +1,275 @@
+/* ── MathJax overflow: long equations scroll horizontally on all platforms ── */
+/* MathJax CHTML injects line-height:0 on mjx-container; override it so the
+   full equation height is visible and not clipped to the top half. */
+#preview mjx-container[jax="CHTML"] {
+  line-height: normal;
+}
+
+/* Block / display math: cap at parent width, align left. */
+#preview mjx-container[display="true"] {
+  display: block !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+/* Inline math: cap at line width. */
+#preview mjx-container:not([display="true"]) {
+  display: inline-block;
+  max-width: 100% !important;
+  vertical-align: middle;
+}
+
+/* Only equations whose content actually overflows get horizontal scrolling.
+   The .math-overflow class is applied by JS after each render. */
+#preview mjx-container.math-overflow {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* iOS momentum scrolling */
+  -webkit-overflow-scrolling: touch;
+  /* Prevent page-level swipe-back/forward navigation while scrolling math. */
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  /* Hide scrollbar track while keeping scroll functional. */
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE / Edge legacy */
+}
+#preview mjx-container.math-overflow::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / WebKit */
+}
+
+/* Fallback for older MathJax CHTML class names */
+#preview .MathJax_Display,
+#preview .MathJax[display="true"] {
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+/* ── Plain (non-task) checkboxes ── */
+/* [ ] checkbox items render as li.task-item elements inside a .plain-cb-list
+   <ul>, identical to - [ ] task items. No extra CSS needed beyond task-item. */
+
+/* ── Mermaid diagrams ── */
+.mermaid-diagram {
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.75em 0;
+  text-align: left;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Pan/zoom toggle button — top-left corner, always visible */
+.mermaid-panzoom-btn {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--surface);
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0.45;
+  color: var(--text);
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.mermaid-panzoom-btn:hover,
+.mermaid-panzoom-btn.active {
+  opacity: 1;
+}
+
+/* Pan/zoom active state — sizing/position applied via JS; just set visual properties */
+.mermaid-diagram.mermaid-panzoom-active {
+  background: var(--bg);
+  user-select: none;
+  touch-action: none;
+  /* Small inner padding so the SVG doesn't sit flush against the edge */
+  padding: 36px var(--gap, 10px) var(--gap, 10px);
+  box-sizing: border-box;
+}
+
+.mermaid-diagram.mermaid-panzoom-active svg {
+  max-width: none;
+  display: block;
+}
+
+/* ── Projects note — clickable emoji headings ── */
+.project-emoji-btn {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background 0.12s;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+.project-emoji-btn:hover {
+  background: var(--surface);
+  outline: 1px solid var(--border);
+}
+
+/* Ensure all Mermaid text inherits legible colour from theme */
+.mermaid-diagram svg text {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Flowchart node labels — inherit from theme, override Mermaid inline fills
+   only when the text would otherwise be invisible against its node background */
+.mermaid-diagram .node .label,
+.mermaid-diagram .node foreignObject div {
+  color: var(--mermaid-text, var(--text));
+}
+
+/* Edge / arrow labels */
+.mermaid-diagram .edgeLabel,
+.mermaid-diagram .edgeLabel rect {
+  fill: var(--surface) !important;
+}
+.mermaid-diagram .edgeLabel span,
+.mermaid-diagram .edgeLabel p {
+  color: var(--mermaid-text, var(--text));
+}
+
+/* Sequence diagram — actor boxes and messages */
+.mermaid-diagram .actor {
+  stroke: var(--accent);
+}
+.mermaid-diagram .messageText,
+.mermaid-diagram .loopText tspan,
+.mermaid-diagram .labelText tspan {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Gantt — section labels and task text legibility */
+.mermaid-diagram .section {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Gantt — active tasks use amber (like done tasks but amber instead of green) */
+.mermaid-diagram .task.active rect,
+.mermaid-diagram rect.task.active {
+  fill: var(--warning) !important;
+  stroke: var(--warning) !important;
+}
+
+/* Pie chart — title and legend text */
+.mermaid-diagram .pieTitleText {
+  fill: var(--mermaid-text, var(--text));
+}
+.mermaid-diagram .legend text {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Class diagram — class title and member text */
+.mermaid-diagram .classTitle {
+  fill: var(--mermaid-text, var(--text));
+}
+.mermaid-diagram .classText {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* State diagram — state labels and descriptions */
+.mermaid-diagram .stateLabel .nodeLabel,
+.mermaid-diagram .statediagram-state .nodeLabel {
+  color: var(--mermaid-text, var(--text));
+}
+
+/* ER diagram — entity and attribute text */
+.mermaid-diagram .er.entityLabel {
+  fill: var(--mermaid-text, var(--text));
+}
+.mermaid-diagram .er.attributeBoxOdd,
+.mermaid-diagram .er.attributeBoxEven {
+  stroke: var(--accent);
+}
+
+/* Journey — task and section text */
+.mermaid-diagram .journey .taskText,
+.mermaid-diagram .journey .taskTextOutsideRight,
+.mermaid-diagram .journey .taskTextOutsideLeft {
+  fill: var(--mermaid-text, var(--text));
+}
+.mermaid-diagram .journey .sectionTitle {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Requirement diagram — labels */
+.mermaid-diagram .reqBox {
+  stroke: var(--accent);
+}
+.mermaid-diagram .reqLabelBox text {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Mindmap — node text */
+.mermaid-diagram .mindmap-node text {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Timeline — period and event text */
+.mermaid-diagram .timeline-text {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Quadrant chart — axis labels and title */
+.mermaid-diagram .quadrant text {
+  fill: var(--mermaid-text, var(--text));
+}
+
+/* Ensure Mermaid lines/arrows use theme line colour */
+.mermaid-diagram .flowchart-link,
+.mermaid-diagram .relation,
+.mermaid-diagram .transition {
+  stroke: var(--mermaid-line, var(--border));
+}
+.mermaid-diagram marker path {
+  fill: var(--mermaid-line, var(--border));
+  stroke: var(--mermaid-line, var(--border));
+}
+
+/* ── Clickable Math Formulas ── */
+.math-evaluable {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--math-underline);
+  transition: opacity 0.15s;
+}
+
+/* Block (display) formulas: shrink the clickable container to fit-content so
+   the dashed underline only appears beneath the equation itself, not across
+   the full line width. */
+.math-evaluable[display="true"] {
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+.math-evaluable:hover {
+  opacity: 0.7;
+}
+
+/* Inline result (e.g. $x + y =$) */
+.math-result {
+  color: var(--math-result);
+  margin-left: 0.25em;
+}
+
+/* Block result (e.g. $$x + y =$$) */
+.math-result-block {
+  display: block;
+  text-align: left;
+  margin-top: 0.4em;
+  font-size: 1em;
+}

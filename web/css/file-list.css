@@ -1,0 +1,171 @@
+/* ── Search boxes ── */
+#searchBox,
+#searchTasksBox {
+  display: block;
+  background: none;
+  color: var(--text);
+  border: none;
+  border-radius: 5px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 5px 5px 5px;
+  margin: var(--gap) 0;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  outline: none;
+}
+
+#searchBox:focus,
+#searchTasksBox:focus {
+  outline: none;
+  box-shadow: none;
+  background-color: var(--today-bg);
+}
+
+@media (hover: hover) {
+  #searchBox:hover,
+  #searchTasksBox:hover {
+    background-color: var(--today-bg);
+  }
+}
+
+/* ── File list ── */
+#fileList {
+  list-style: none;
+  margin: 0;
+  padding: 0px 0px 0px 0px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+#fileList li {
+  margin: 0.15em 0em;
+  border-radius: 5px;
+  padding: 2px 0px 2px 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+#fileList li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#fileList li:hover {
+  background-color: var(--today-bg);
+}
+
+/* ── Active note: straight accent border on the left, background on hover only ── */
+/* Uses border-left with zero left-side border-radius so the border is perfectly
+   straight — the ::before approach was rounded by overflow:hidden + border-radius. */
+#fileList li.active-file,
+#nav-list li.active-file {
+  font-weight: bold;
+  color: var(--active-color);
+  border-left: 3px solid var(--accent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-left: 2px; /* 5px normal - 3px border = same text position */
+}
+
+/* ── Link chain: connected thread with fading trail ── */
+#fileList li.linked-file,
+#nav-list li.linked-file {
+  color: var(--linked-color);
+  border-left: 2px dashed var(--linked-border);
+  padding-left: 6px;
+  margin-left: 0px;
+}
+
+/* Step number badge on each linked note */
+#fileList li.linked-file::before,
+#nav-list li.linked-file::before {
+  content: attr(data-chain-index);
+  font-size: 10px;
+  color: var(--linked-border);
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
+/* ── Nav section: Projects / Note Graph / Settings ── */
+#nav-list {
+  list-style: none;
+  margin: 0px;
+  padding: 10px 0px 10px 0px;
+  flex-shrink: 0;
+}
+
+#nav-list li {
+  margin: 0.15em 0em;
+  border-radius: 5px;
+  padding: 2px 0px 2px 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+#nav-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#nav-list li:hover {
+  background-color: var(--today-bg);
+}
+
+/* ── Today's Daily Note highlight ── */
+#fileList li.today-note {
+  background-color: var(--today-bg);
+}
+
+#fileList li.today-note > span {
+  color: var(--today-color);
+  font-weight: bold;
+}
+
+/* Placeholder shown when today's daily note hasn't been created yet */
+#fileList li.today-note-pending > span {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* ── Second note: currently open note shown just below today's note ── */
+/* Indicated only by the straight accent border — no persistent background so
+   the background stays consistent with the note's non-active appearance and
+   only changes on hover (via the shared :hover rule). */
+#fileList li.second-note {
+  border-left: 3px solid var(--accent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-left: 2px; /* keep text at same indent as normal items */
+}
+
+#fileList li.second-note > span {
+  color: var(--today-color);
+  font-weight: bold;
+}
+
+/* ── Copy float feedback ────────────────────────────────────────────────── */
+/* Briefly surfaces the copied element with the same floating box-shadow as
+   the toolbar pill — a tight shadow plus a wide diffuse halo. */
+@keyframes copy-float-pulse {
+  0%   { box-shadow: none; }
+  15%  { box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light); }
+  72%  { box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light); }
+  100% { box-shadow: none; }
+}
+
+.copy-float {
+  animation: copy-float-pulse 1.4s ease-out forwards;
+  position: relative;
+  z-index: 1;
+}
+

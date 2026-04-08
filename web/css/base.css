@@ -1,0 +1,243 @@
+/* ── Base ── */
+html {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  /* Prevent iOS Safari from scrolling the page / rubber-banding */
+  position: fixed;
+  width: 100%;
+}
+
+body {
+  height: 100%;
+  height: 100dvh; /* dynamic viewport height — adjusts for iOS keyboard & address bar */
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  /* iOS safe area: toolbar placed below notch, app fills full screen */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ── Button container — flat by default, floating pill on hover ── */
+#button-container {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.25em 0.25em;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 100;
+  background-color: transparent;
+  border-radius: 999px;
+  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              background-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+@media (hover: hover) {
+  #button-container:hover {
+    background-color: var(--bg);
+    box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+  }
+}
+
+/* Floating pill when note is scrolled below the top */
+#button-container.scrolled-down {
+  background-color: var(--bg);
+  box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+}
+
+#bottom-status-area.scroll-faded {
+  opacity: 0 !important;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+
+/* Prevent button groups from shrinking so overflow is detectable via getBoundingClientRect */
+#button-container .button-group {
+  flex-shrink: 0;
+}
+
+/* ── macOS: custom titlebar drag regions ────────────────────────────────────
+   Only applied when body.platform-darwin is set by app-init.js.
+
+   #window-drag-region  — position:fixed strip covering the full toolbar row.
+                          z-index 98, behind the toolbar (100). Handles empty
+                          space on the right side of the toolbar not covered by
+                          #button-container content.
+   #button-container    — anchored to the left edge so the native traffic-light
+                          buttons (rendered by Electron at x=10) visually sit
+                          inside the pill.  padding-left reserves space for the
+                          three 12 px circles + gaps (~68 px from x=10) plus a
+                          small margin.  Also marked draggable so empty gaps
+                          between buttons initiate a native drag; interactive
+                          children opt-out below.
+
+   Tune trafficLightPosition in main.js and padding-left here together.
+*/
+body.platform-darwin #window-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--toolbar-h);
+  -webkit-app-region: drag;
+  app-region: drag;
+  z-index: 98;
+}
+
+body.platform-darwin #button-container {
+  left: 8px;
+  transform: none;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* ── macOS custom traffic lights — HTML circles inside the toolbar pill ── */
+#traffic-lights {
+  display: none; /* hidden on all platforms except darwin */
+}
+
+body.platform-darwin #traffic-lights {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px 0 4px;
+  flex-shrink: 0;
+}
+
+.traffic-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  flex-shrink: 0;
+  background: none;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  position: relative;
+  transition: filter 0.12s ease;
+}
+
+#btn-close    { background: #ff5f56; }
+#btn-minimize { background: #ffbd2e; }
+#btn-maximize { background: #27c93f; }
+
+/* Dim all three when the window is inactive */
+body.window-inactive .traffic-btn {
+  background: var(--muted) !important;
+  opacity: 0.5;
+}
+
+/* Show symbols on group hover */
+#traffic-lights:hover .traffic-btn::after {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.traffic-btn::after {
+  content: '';
+  display: none;
+  position: absolute;
+  inset: 0;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.55);
+}
+#traffic-lights:hover #btn-close::after    { content: '✕'; }
+#traffic-lights:hover #btn-minimize::after { content: '–'; }
+#traffic-lights:hover #btn-maximize::after { content: '+'; }
+
+/* Every interactive descendant must opt out so native clicks are not swallowed. */
+body.platform-darwin #button-container button,
+body.platform-darwin #button-container input,
+body.platform-darwin #tools-overflow-row button,
+body.platform-darwin #tools-overflow-row input {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* The side panel overlaps the drag region at the top of the window.
+   Mark the entire panel as no-drag so the pin button and all panel
+   interactions are not swallowed by the macOS window-drag shell handler. */
+body.platform-darwin #panel-lists {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* panel-open-btn sits in the top-right corner which overlaps the drag region;
+   mark it no-drag so clicks are not swallowed by the native drag handler. */
+body.platform-darwin #panel-open-btn {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* panel-arrow covers the full right edge including the drag-region strip;
+   mark it no-drag so mouseenter/mouseleave events reach the DOM handler. */
+body.platform-darwin #panel-arrow {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+/* ── Hide scrollbars while keeping scroll functionality ── */
+/* Global scrollbar hiding for all elements */
+* {
+  scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+textarea::-webkit-scrollbar,
+#preview::-webkit-scrollbar,
+#panel-lists::-webkit-scrollbar,
+#fileList::-webkit-scrollbar,
+#todoList::-webkit-scrollbar,
+#files-container::-webkit-scrollbar,
+#todo-container::-webkit-scrollbar,
+#mobile-right-panel::-webkit-scrollbar {
+  display: none;
+}
+
+textarea,
+#preview,
+#panel-lists,
+#fileList,
+#todoList,
+#files-container,
+#todo-container,
+#mobile-right-panel {
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hidden on desktop — only visible on mobile via swipe */
+#mobile-right-panel {
+  display: none;
+}
+
+#mobile-overlay {
+  display: none;
+}
+
