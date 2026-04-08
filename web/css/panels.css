@@ -5,8 +5,8 @@
 
 #todo-container ul {
   list-style: none;
-  padding: 0px 2.5px 0px 2.5px;
-  margin: 0px;
+  padding: 0 2.5px;
+  margin: 0;
 }
 
 #todoList {
@@ -17,7 +17,7 @@
 }
 
 #todo-container li {
-  margin: 0.15em 0em;
+  margin: 0.15em 0;
 }
 
 #todo-container li span {
@@ -29,8 +29,8 @@
 
 #todo-container .todo-note-title {
   display: block;
-  margin: 0px 2.5px 5px 2.5px;
-  padding: 0px 0px 5px 0px;
+  margin: 0 2.5px 5px;
+  padding: 0 0 5px;
   border-bottom: 1px solid var(--accent);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -86,7 +86,6 @@
   justify-content: center;
   padding: 0;
   z-index: 100;
-  transition: none;
 }
 
 /* Hide the arrow entirely when panel is pinned or visible */
@@ -143,7 +142,7 @@ body.panel-pinned #panel-open-btn {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 var(--gap) 0;
+  padding: 0 var(--gap);
   box-sizing: border-box;
   position: relative;
 }
@@ -164,7 +163,7 @@ body.panel-pinned #panel-open-btn {
   z-index: 50;
   background-color: var(--bg);
   overflow: hidden;
-  padding: 10px 10px 0px 0px;
+  padding: 10px 10px 0 0;
   margin: 10px;
   box-sizing: border-box;
   flex-direction: column;

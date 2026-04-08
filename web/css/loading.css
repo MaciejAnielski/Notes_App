@@ -52,8 +52,9 @@
   letter-spacing: 0.02em;
 }
 
-/* ── Sync settings UI (Settings note preview) ── */
-.sync-controls {
+/* ── Sync / Encryption settings UI (Settings note preview) ── */
+.sync-controls,
+.encryption-controls {
   padding: 8px 0 12px;
 }
 
@@ -166,10 +167,6 @@
 }
 
 /* ── Encryption settings ── */
-
-.encryption-controls {
-  padding: 8px 0 12px;
-}
 
 .encryption-warning {
   font-size: 12px;

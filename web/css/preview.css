@@ -14,7 +14,7 @@
   border-bottom: 1px solid var(--accent);
   padding-bottom: 5px;
   margin-bottom: 16px;
-  margin-top: 0px;
+  margin-top: 0;
 }
 
 #preview h2 { color: var(--h2); }
@@ -70,8 +70,7 @@
   line-height: 1.5;
 }
 
-/* ── Highlights (==text==) — nested elements inherit the colour ── */
-#preview mark,
+/* ── Highlights (==text==) — force nested bold/italic/etc to inherit colour ── */
 #preview mark * { color: var(--mark-color); }
 
 /* ── H1 note title: navigates back when a breadcrumb chain exists ── */
@@ -102,7 +101,7 @@
 #preview ul,
 #preview ol {
   padding-left: 1.5em;
-  margin: 0.5em 0em;
+  margin: 0.5em 0;
 }
 
 /* Nested lists: no extra vertical margin */
@@ -187,7 +186,6 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin: 0.75em var(--gap);
-  padding-left: 0;
 }
 
 #preview table {
@@ -284,14 +282,11 @@
   transition: background-color 1.5s ease, outline-color 1.5s ease;
 }
 
-/* Collapse breadcrumb highlight — same visual as schedule-highlight but also
-   applies inside <summary> elements (visible even when <details> is closed).
-   Applied/removed by JS; no CSS transition so it appears/disappears instantly. */
+/* Inside <summary> the highlight must appear/disappear instantly (no fade),
+   so collapsed sections snap in and out without a lingering glow. */
 #preview summary .schedule-highlight,
 #preview summary.schedule-highlight {
-  background-color: var(--sched-highlight-bg);
-  border-radius: 3px;
-  outline: 2px solid var(--sched-highlight-outline);
+  transition: none;
 }
 
 /* ── Highlight syntax (==text==) ── */

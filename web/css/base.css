@@ -34,7 +34,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
-  padding: 0.25em 0.25em;
+  padding: 0.25em;
   display: flex;
   align-items: center;
   gap: 2px;

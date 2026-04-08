@@ -125,11 +125,6 @@
   flex: 1;
   min-height: 0;
   border-top: 1px solid var(--border);
-  scrollbar-width: none;
-}
-
-#gs-results::-webkit-scrollbar {
-  display: none;
 }
 
 #gs-results li {
