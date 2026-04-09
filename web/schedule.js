@@ -9,6 +9,9 @@
 // ── Schedule cache ────────────────────────────────────────────────────────
 let _scheduleCache = null;
 
+// ── All-day section collapse state ────────────────────────────────────────
+let _alldayCollapsed = localStorage.getItem('schedule_allday_collapsed') === 'true';
+
 // Module-level regex constants — defined once, not per render or per line.
 const _RE_TIMED    = />\s*(\d{6})\s+(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
 const _RE_MULTIDAY = />\s*(\d{6})\s+(\d{6})(?:\s+@(\S+))?\s*$/;
@@ -344,6 +347,46 @@ function _makeScheduleBlock(item, extraClass) {
   return block;
 }
 
+// ── All-day toggle SVG (straight line or squiggly line) ──────────────────
+// svgH: pixel height of the SVG; isSquiggly: true when section is collapsed.
+function _makeAlldaySVG(svgH, isSquiggly) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', '20');
+  svg.setAttribute('height', String(svgH));
+  svg.setAttribute('viewBox', `0 0 20 ${svgH}`);
+  svg.setAttribute('class', 'schedule-allday-toggle');
+  svg.style.display = 'block';
+
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.5');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+
+  const cx = 10, pad = 6;
+  const y0 = pad, y1 = svgH - pad;
+
+  if (!isSquiggly) {
+    path.setAttribute('d', `M ${cx} ${y0} L ${cx} ${y1}`);
+  } else {
+    // S-curve waves: period 14px, amplitude ±4.5px
+    const period = 14, amp = 4.5;
+    let d = `M ${cx} ${y0}`;
+    let y = y0;
+    while (y + period <= y1) {
+      d += ` C ${cx + amp} ${y + period * 0.25},${cx - amp} ${y + period * 0.75},${cx} ${y + period}`;
+      y += period;
+    }
+    if (y < y1) d += ` L ${cx} ${y1}`;
+    path.setAttribute('d', d);
+  }
+
+  svg.appendChild(path);
+  return svg;
+}
+
 // ── Main schedule render ──────────────────────────────────────────────────
 
 let _renderScheduleRunning = false;
@@ -406,22 +449,65 @@ async function _doRenderSchedule(cachedNotes) {
 
   // ── All-day section ───────────────────────────────────────────────────────
   if (allDayItems.length > 0) {
-    const section = document.createElement('div');
-    section.className = 'schedule-allday-section';
-
     // Sort: events (non-task) above tasks
     const sorted = [
       ...allDayItems.filter(it => !it.isTask),
       ...allDayItems.filter(it =>  it.isTask)
     ];
 
+    // Collapse/expand only meaningful when more than 2 items
+    const canCollapse = sorted.length > 2;
+    const isCollapsed = canCollapse && _alldayCollapsed;
+
+    // Approximate pixel heights for SVG sizing
+    // Each item: ALLDAY_ITEM_H (28px) + 5px top + 5px bottom margin ≈ 38px
+    const ITEM_ROW_H = ALLDAY_ITEM_H + 10;
+    const expandedSvgH = Math.max(sorted.length * ITEM_ROW_H, 40);
+    const collapsedSvgH = Math.max(2 * ITEM_ROW_H, 40);
+
+    const section = document.createElement('div');
+    section.className = 'schedule-allday-section' + (isCollapsed ? ' collapsed' : '');
+
+    // ── Left column: toggle line SVG ──────────────────────────────────────
+    const lineCol = document.createElement('div');
+    lineCol.className = 'schedule-allday-line-col';
+    if (canCollapse) {
+      lineCol.setAttribute('role', 'button');
+      lineCol.setAttribute('aria-label', isCollapsed ? 'Expand all-day items' : 'Collapse all-day items');
+    }
+    const initSvgH = isCollapsed ? collapsedSvgH : expandedSvgH;
+    lineCol.appendChild(_makeAlldaySVG(initSvgH, isCollapsed));
+    section.appendChild(lineCol);
+
+    // ── Right column: items (scrollable when collapsed) ───────────────────
+    const itemsCol = document.createElement('div');
+    itemsCol.className = 'schedule-allday-items-col';
+
     sorted.forEach(item => {
       const isPastEvent = !item.isTask && dateStr < toYYMMDD(new Date());
       const cls = (item.isCompleted || isPastEvent) ? 'completed' : '';
       const block = _makeScheduleBlock(item, cls);
       block.style.height = ALLDAY_ITEM_H + 'px';
-      section.appendChild(block);
+      itemsCol.appendChild(block);
     });
+
+    section.appendChild(itemsCol);
+
+    // ── Toggle collapse/expand ────────────────────────────────────────────
+    if (canCollapse) {
+      const doToggle = () => {
+        _alldayCollapsed = !_alldayCollapsed;
+        localStorage.setItem('schedule_allday_collapsed', _alldayCollapsed);
+        section.classList.toggle('collapsed', _alldayCollapsed);
+        lineCol.setAttribute('aria-label', _alldayCollapsed ? 'Expand all-day items' : 'Collapse all-day items');
+        // Swap the SVG line between straight and squiggly
+        const newSvgH = _alldayCollapsed ? collapsedSvgH : expandedSvgH;
+        lineCol.replaceChild(_makeAlldaySVG(newSvgH, _alldayCollapsed), lineCol.querySelector('svg'));
+        if (!_alldayCollapsed) itemsCol.scrollTop = 0;
+      };
+      // Single listener on the column — covers clicks on the SVG too via bubbling
+      lineCol.addEventListener('click', doToggle);
+    }
 
     // Insert all-day section outside the scrollable timeline wrapper so it
     // remains visible at the top regardless of how far the timed grid is scrolled.

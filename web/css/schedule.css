@@ -189,6 +189,53 @@
 /* flex-shrink:0 keeps it at its natural height; the timeline wrapper below takes the rest. */
 .schedule-allday-section {
   flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding: 0 10px 4px 5px;
+}
+
+/* Left column: holds the straight/squiggly toggle line SVG */
+.schedule-allday-line-col {
+  width: 40px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 5px; /* align with first item's top margin */
+}
+
+/* The SVG toggle line itself */
+.schedule-allday-toggle {
+  color: var(--border);
+  flex-shrink: 0;
+}
+
+.schedule-allday-line-col[role="button"] {
+  cursor: pointer;
+}
+
+.schedule-allday-line-col[role="button"] .schedule-allday-toggle {
+  transition: color 0.15s;
+}
+
+.schedule-allday-line-col[role="button"]:hover .schedule-allday-toggle {
+  color: var(--text);
+}
+
+/* Right column: the scrollable items list */
+.schedule-allday-items-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Collapsed: show only 2 items, scroll to see the rest */
+.schedule-allday-section.collapsed .schedule-allday-items-col {
+  max-height: 76px;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox: hide scrollbar */
+}
+
+.schedule-allday-section.collapsed .schedule-allday-items-col::-webkit-scrollbar {
+  display: none; /* Chrome/Safari: hide scrollbar */
 }
 
 .schedule-allday-section .schedule-item {
@@ -196,7 +243,7 @@
   top: auto;
   left: auto;
   right: auto;
-  margin: 5px 10px 5px 45px;
+  margin: 5px 0;
   padding: 0 6px;
   align-items: center;
   box-sizing: border-box;
