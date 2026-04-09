@@ -194,18 +194,19 @@
   padding: 0 10px 4px 5px;
 }
 
-/* Left column: holds the straight/squiggly toggle line SVG */
+/* Left column: holds the straight/loopy toggle line SVG */
 .schedule-allday-line-col {
   width: 40px;
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding-top: 5px; /* align with first item's top margin */
+  padding-top: 0;
 }
 
 /* The SVG toggle line itself */
 .schedule-allday-toggle {
   color: var(--border);
+  opacity: 0.45;
   flex-shrink: 0;
 }
 
@@ -214,11 +215,12 @@
 }
 
 .schedule-allday-line-col[role="button"] .schedule-allday-toggle {
-  transition: color 0.15s;
+  transition: color 0.15s, opacity 0.15s;
 }
 
 .schedule-allday-line-col[role="button"]:hover .schedule-allday-toggle {
   color: var(--text);
+  opacity: 0.8;
 }
 
 /* Right column: the scrollable items list */

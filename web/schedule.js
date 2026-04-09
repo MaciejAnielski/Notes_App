@@ -347,9 +347,11 @@ function _makeScheduleBlock(item, extraClass) {
   return block;
 }
 
-// ── All-day toggle SVG (straight line or squiggly line) ──────────────────
-// svgH: pixel height of the SVG; isSquiggly: true when section is collapsed.
-function _makeAlldaySVG(svgH, isSquiggly) {
+// ── All-day toggle SVG (straight line or loopy line) ─────────────────────
+// svgH: pixel height of the SVG; isLoopy: true when section is collapsed.
+// The line spans from the top of the first item to the bottom of the last
+// visible item (pad=5 matches the 5px top/bottom margin on each item row).
+function _makeAlldaySVG(svgH, isLoopy) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('width', '20');
@@ -365,19 +367,21 @@ function _makeAlldaySVG(svgH, isSquiggly) {
   path.setAttribute('stroke-linecap', 'round');
   path.setAttribute('stroke-linejoin', 'round');
 
-  const cx = 10, pad = 6;
+  const cx = 10, pad = 5;
   const y0 = pad, y1 = svgH - pad;
 
-  if (!isSquiggly) {
+  if (!isLoopy) {
     path.setAttribute('d', `M ${cx} ${y0} L ${cx} ${y1}`);
   } else {
-    // S-curve waves: period 14px, amplitude ±4.5px
-    const period = 14, amp = 4.5;
+    // Oval loops alternating left and right using SVG arcs: period 12px, rx 4.5px
+    const period = 12, rx = 4.5, ry = period / 2;
     let d = `M ${cx} ${y0}`;
     let y = y0;
+    let rightward = true;
     while (y + period <= y1) {
-      d += ` C ${cx + amp} ${y + period * 0.25},${cx - amp} ${y + period * 0.75},${cx} ${y + period}`;
+      d += ` A ${rx} ${ry} 0 0 ${rightward ? 1 : 0} ${cx} ${y + period}`;
       y += period;
+      rightward = !rightward;
     }
     if (y < y1) d += ` L ${cx} ${y1}`;
     path.setAttribute('d', d);
@@ -500,7 +504,7 @@ async function _doRenderSchedule(cachedNotes) {
         localStorage.setItem('schedule_allday_collapsed', _alldayCollapsed);
         section.classList.toggle('collapsed', _alldayCollapsed);
         lineCol.setAttribute('aria-label', _alldayCollapsed ? 'Expand all-day items' : 'Collapse all-day items');
-        // Swap the SVG line between straight and squiggly
+        // Swap the SVG line between straight and loopy
         const newSvgH = _alldayCollapsed ? collapsedSvgH : expandedSvgH;
         lineCol.replaceChild(_makeAlldaySVG(newSvgH, _alldayCollapsed), lineCol.querySelector('svg'));
         if (!_alldayCollapsed) itemsCol.scrollTop = 0;
