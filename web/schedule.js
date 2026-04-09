@@ -464,8 +464,8 @@ async function _doRenderSchedule(cachedNotes) {
     const isCollapsed = canCollapse && _alldayCollapsed;
 
     // Approximate pixel heights for SVG sizing
-    // Each item: ALLDAY_ITEM_H (28px) + 5px top + 5px bottom margin ≈ 38px
-    const ITEM_ROW_H = ALLDAY_ITEM_H + 10;
+    // Each item: ALLDAY_ITEM_H (28px) + 5px bottom margin (no top margin) = 33px
+    const ITEM_ROW_H = ALLDAY_ITEM_H + 5;
     const expandedSvgH = Math.max(sorted.length * ITEM_ROW_H, 40);
     const collapsedSvgH = Math.max(2 * ITEM_ROW_H, 40);
 

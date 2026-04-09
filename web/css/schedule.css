@@ -231,7 +231,7 @@
 
 /* Collapsed: show only 2 items, scroll to see the rest */
 .schedule-allday-section.collapsed .schedule-allday-items-col {
-  max-height: 76px;
+  max-height: 66px;
   overflow-y: auto;
   scrollbar-width: none; /* Firefox: hide scrollbar */
 }
