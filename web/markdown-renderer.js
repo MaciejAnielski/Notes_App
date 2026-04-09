@@ -797,6 +797,9 @@ function setupMermaidPanZoom(wrapper) {
   let lastPinchDist = null;
   // Inline styles saved before expanding, restored on exit
   let savedStyles = {};
+  // ResizeObserver watches the anchor element so the overlay re-positions
+  // whenever the editor area changes size (window resize, sidebar pin/unpin, etc.)
+  let anchorResizeObserver = null;
 
   function applyTransform() {
     svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
@@ -962,7 +965,17 @@ function setupMermaidPanZoom(wrapper) {
     const previewEl = document.getElementById('preview');
     if (previewEl) previewEl.dataset.pzSavedOverflow = previewEl.style.overflow || '';
 
-    window.addEventListener('resize', onResize);
+    // Watch the anchor element for size changes so the overlay repositions
+    // on both window resize and sidebar pin/unpin (which changes the
+    // editor area's width via body.panel-pinned padding-right).
+    const anchorEl = document.getElementById('editor-section') || document.getElementById('preview');
+    if (anchorEl && window.ResizeObserver) {
+      anchorResizeObserver = new ResizeObserver(() => { if (active) applyFullAreaLayout(); });
+      anchorResizeObserver.observe(anchorEl);
+    } else {
+      // Fallback for browsers without ResizeObserver (handles window resize only)
+      window.addEventListener('resize', onResize);
+    }
     // Intercept trackpad pinch (ctrlKey+wheel) at the window level so the
     // browser cannot use it to zoom the page while pan/zoom mode is active.
     window.addEventListener('wheel', globalPinchInterceptor, { passive: false });
@@ -995,7 +1008,12 @@ function setupMermaidPanZoom(wrapper) {
       delete previewEl.dataset.pzSavedOverflow;
     }
 
-    window.removeEventListener('resize', onResize);
+    if (anchorResizeObserver) {
+      anchorResizeObserver.disconnect();
+      anchorResizeObserver = null;
+    } else {
+      window.removeEventListener('resize', onResize);
+    }
     window.removeEventListener('wheel',  globalPinchInterceptor);
     wrapper.removeEventListener('mousedown',  onMouseDown);
     document.removeEventListener('mousemove', onMouseMove);
