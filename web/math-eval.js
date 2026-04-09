@@ -497,10 +497,24 @@ function setupClickableMathFormulas() {
 
 // After each MathJax render, mark only the equations that actually overflow
 // with .math-overflow so that CSS scroll behaviour is applied selectively.
+//
+// Why getBoundingClientRect instead of scrollWidth/clientWidth:
+// MathJax sets position:relative on mjx-container and inserts mjx-assistive-mml
+// (position:absolute) for screen readers. Chrome includes absolutely-positioned
+// children in scrollWidth even for non-scroll containers, so the native MathML
+// inside mjx-assistive-mml inflates scrollWidth and produces false positives.
+// Comparing mjx-math (the visible CHTML formula) to the container's own bounding
+// box side-steps the issue entirely and is immune to subpixel rounding too.
+//
+// Reads are batched before writes to avoid layout thrashing.
 function markOverflowingMathContainers() {
-  previewDiv.querySelectorAll('mjx-container').forEach(el => {
-    el.classList.toggle('math-overflow', el.scrollWidth > el.clientWidth);
+  const entries = Array.from(previewDiv.querySelectorAll('mjx-container')).map(el => {
+    const inner = el.querySelector('mjx-math');
+    const formulaW = inner ? inner.getBoundingClientRect().width : 0;
+    const containerW = el.getBoundingClientRect().width;
+    return { el, overflows: formulaW > containerW + 1 };
   });
+  entries.forEach(({ el, overflows }) => el.classList.toggle('math-overflow', overflows));
 }
 
 function setupMathWheelScroll() {
@@ -508,8 +522,8 @@ function setupMathWheelScroll() {
   previewDiv.addEventListener('wheel', (e) => {
     const container = e.target.closest('mjx-container');
     if (!container) return;
-    // Only intercept when the formula can actually scroll horizontally.
-    if (container.scrollWidth <= container.clientWidth) return;
+    // Only intercept when the formula is marked as overflowing (set by markOverflowingMathContainers).
+    if (!container.classList.contains('math-overflow')) return;
     e.preventDefault();
     // Prefer whichever axis has larger magnitude so diagonal trackpad swipes
     // map to horizontal scroll using the user's primary intended direction.
