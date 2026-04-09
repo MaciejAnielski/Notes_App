@@ -180,12 +180,15 @@
 /* ── Tables ── */
 
 /* Scrollable wrapper: allows wide tables to scroll horizontally rather than
-   overflow the page. margin: 0.75em var(--gap) aligns the table visually with
-   the rest of note content (same left/right indent as body text). */
+   overflow the page. No side margins — wrapper is edge-to-edge like
+   .mermaid-diagram; table cell padding provides at-rest visual indent. */
 #preview .table-wrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin: 0.75em var(--gap);
+  margin: 0.75em 0;
+  /* Prevent swipe-back/forward navigation while scrolling the table. */
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
 }
 
 #preview table {

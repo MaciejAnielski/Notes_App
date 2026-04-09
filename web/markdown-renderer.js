@@ -1238,7 +1238,10 @@ async function renderPreview() {
     await MathJax.typesetPromise([previewDiv]);
     if (_renderGen !== _loadNoteGeneration || currentFileName !== _renderTarget) return;
     setupClickableMathFormulas();
-    markOverflowingMathContainers();
+    // Defer until the browser has completed layout for the new MathJax nodes;
+    // reading scrollWidth/clientWidth synchronously here yields stale values
+    // and causes nearly every container to be falsely marked as overflowing.
+    requestAnimationFrame(markOverflowingMathContainers);
   }
 
   // Settings note: inject interactive controls
