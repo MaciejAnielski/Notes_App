@@ -245,8 +245,7 @@
   top: auto;
   left: auto;
   right: auto;
-  margin: 5px 0;
-  padding: 0 6px;
+  margin: 0 10px 5px 5px;
   align-items: center;
   box-sizing: border-box;
 }
