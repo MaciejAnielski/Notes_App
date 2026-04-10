@@ -408,7 +408,6 @@ function showPanel(force = false) {
   panelLists.classList.add('visible');
   document.body.classList.add('panel-visible');
   checkToolbarOverflow();
-  updateBackupStatus();
 }
 
 function scheduleHidePanel() {
@@ -428,9 +427,6 @@ panelLists.addEventListener('mouseenter', showPanel);
 panelLists.addEventListener('mouseleave', scheduleHidePanel);
 
 applyPinState();
-updateBackupStatus();
-
-setInterval(updateBackupStatus, 3600000);
 
 // Restore the last active panel
 {
@@ -848,7 +844,6 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     activateNotesInLeftPanel();
     panelLists.classList.add('mobile-open-left');
     mobileOverlay.classList.add('active');
-    updateBackupStatus();
   }
 
   function openRightPanel() {
@@ -975,10 +970,6 @@ if (typeof BroadcastChannel !== 'undefined' && !window.electronAPI && !window.Ca
 
 // ── Cross-window sync via storage events ──────────────────────────────────
 window.addEventListener('storage', e => {
-  if (e.key === 'last_backup_time') {
-    updateBackupStatus();
-    return;
-  }
   // Re-apply theme/calendar colours when changed in another tab
   if (e.key === 'app_theme' || e.key === 'calendar_colors' || e.key === 'project_emojis') {
     if (e.key === 'app_theme') {
@@ -1184,7 +1175,6 @@ function _setupPowerSyncHandlers() {
   if (bottomArea) {
     bottomArea.style.cursor = 'pointer';
     bottomArea.title = 'Tap to sync';
-    updateBackupStatus(); // Refresh to show "· Tap to Sync" hint on iOS
     bottomArea.addEventListener('click', async () => {
       if (autoSaveTimer !== null) {
         clearTimeout(autoSaveTimer);
@@ -1223,7 +1213,6 @@ if (window.Capacitor?.isNativePlatform()) {
     if (!bottomArea) return;
     bottomArea.style.cursor = 'pointer';
     bottomArea.title = 'Tap to sync';
-    updateBackupStatus();
     bottomArea.addEventListener('click', async () => {
       if (autoSaveTimer !== null) {
         clearTimeout(autoSaveTimer);

@@ -207,18 +207,6 @@ body.panel-pinned #panel-open-btn {
   box-shadow: -4px 0 20px var(--shadow-light);
 }
 
-/* ── Last Backed Up status — bottom-center of editor section ── */
-#last-backup-status {
-  grid-row: 1;
-  grid-column: 1;
-  font-size: 11px;
-  color: var(--hr);
-  text-align: center;
-  padding: 1.5px 0;
-  transition: opacity 1s ease;
-}
-
-
 /* ── Panel section headings ── */
 #files-container h2,
 #todo-container h2,

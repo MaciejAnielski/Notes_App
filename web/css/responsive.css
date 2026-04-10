@@ -77,28 +77,21 @@ body.panel-pinned {
     display: none !important;
   }
 
-  /* ── Status and backup messages — fixed to bottom of viewport on mobile ── */
+  /* ── Status messages — fixed to bottom of viewport on mobile, pill-shaped ── */
   body:not(.electron) #bottom-status-area {
     position: fixed;
     bottom: 0;
-    left: 0;
-    right: 0;
+    left: 50%;
+    /* transform: translateX(-50%) inherited from toolbar.css — centres the pill */
     z-index: 10;
     background-color: var(--bg);
-    text-align: center;
-    /* Small vertical padding; extra bottom clearance for home indicator */
-    padding: 0.15em 1em max(env(safe-area-inset-bottom), 0.15em);
-    margin: 10px;
+    /* Extra bottom padding clears the home indicator on notched devices */
+    padding: 0.25em 1.2em max(env(safe-area-inset-bottom), 0.25em);
   }
 
   /* Push editor/preview content above the fixed status bar only */
   body:not(.electron) #editor-section {
     padding-bottom: 32px;
-  }
-
-  body:not(.electron) #status-message {
-    z-index: 11;
-    bottom: 4px;
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
