@@ -62,7 +62,6 @@ const statusDiv = document.getElementById('status-message');
 const deleteSelectedBtn = document.getElementById('delete-selected');
 const exportSelectedBtn = document.getElementById('export-selected');
 const findBtn = document.getElementById('find-btn');
-const backupStatusEl = document.getElementById('last-backup-status');
 const panelLists = document.getElementById('panel-lists');
 const panelArrow = document.getElementById('panel-arrow');
 const panelPin = document.getElementById('panel-pin');
@@ -335,65 +334,23 @@ function _animatePillResize(pillEl, changeFn) {
 // persistent=true: message stays visible until next updateStatus call
 function updateStatus(message, success, persistent = false) {
   const pillEl = document.getElementById('bottom-status-area');
+  // Restore visibility before measuring so _animatePillResize always sees the
+  // pill as live — this lets consecutive messages animate smoothly even if the
+  // previous one had already started fading out.
+  if (pillEl) { pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
   _animatePillResize(pillEl, () => {
     statusDiv.textContent = toTitleCase(message);
     statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
     statusDiv.style.opacity = '1';
-    backupStatusEl.style.opacity = '0';
   });
-  // Show pill for the status message
-  if (pillEl) { pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
   if (statusTimeout) clearTimeout(statusTimeout);
   if (persistent) {
     statusTimeout = null;
   } else {
     statusTimeout = setTimeout(() => {
       statusDiv.style.opacity = '0';
-      if (backupStatusEl.textContent) {
-        backupStatusEl.style.opacity = '1';
-      } else {
-        // No backup status to fall back to — hide the pill
-        if (pillEl) { pillEl.style.opacity = '0'; pillEl.style.pointerEvents = 'none'; }
-      }
+      if (pillEl) { pillEl.style.opacity = '0'; pillEl.style.pointerEvents = 'none'; }
     }, 3000);
-  }
-}
-
-function updateBackupStatus() {
-  const el = document.getElementById('last-backup-status');
-  const pillEl = document.getElementById('bottom-status-area');
-  if (!el) return;
-  const isSynced = !!window.PowerSyncNoteStorage;
-  const isIOS = !!window.Capacitor?.isNativePlatform();
-  const t = localStorage.getItem('last_backup_time');
-  // On iOS, sync is manual — append a tap hint since title tooltips don't show.
-  const suffix = (isSynced && isIOS) ? ' · Tap to Sync' : '';
-  const prefix = isSynced ? 'Synced · ' : '';
-  if (!t) {
-    _animatePillResize(pillEl, () => { el.textContent = ''; });
-    // Hide pill only when no status message is currently showing
-    if (pillEl && statusDiv.style.opacity !== '1') {
-      pillEl.style.opacity = '0';
-      pillEl.style.pointerEvents = 'none';
-    }
-    return;
-  }
-  const diff = Date.now() - parseInt(t, 10);
-  const mins  = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  let ago;
-  if (mins < 1)       ago = 'Just Now';
-  else if (mins < 60) ago = `${mins}m Ago`;
-  else if (hours < 24) ago = `${hours}h Ago`;
-  else                 ago = `${days}d Ago`;
-  _animatePillResize(pillEl, () => {
-    el.textContent = `${prefix}Last Backup ${ago}${suffix}`;
-  });
-  // Show pill when there is real backup status to display
-  if (pillEl && statusDiv.style.opacity !== '1') {
-    pillEl.style.opacity = '1';
-    pillEl.style.pointerEvents = '';
   }
 }
 
