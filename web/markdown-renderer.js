@@ -1644,6 +1644,30 @@ function injectEncryptionSettings(container) {
 
       // Use the unwrapped storage for migration (write ciphertext directly)
       const storage = window.NoteStorage._unwrapped || window.NoteStorage;
+
+      // Warn if some notes are already encrypted with a different key.
+      // migrateToEncrypted() skips notes that already start with 'enc:v1:', so any
+      // notes synced from another device (or a previous encryption session) will
+      // remain encrypted with the old key and be unreadable on this device.
+      const allNotesRaw = await storage.getAllNotes();
+      const alreadyEncrypted = allNotesRaw.filter(
+        n => n.content && CryptoEngine.isEncrypted(n.content)
+      );
+      if (alreadyEncrypted.length > 0) {
+        console.warn(
+          '[encryption] ' + alreadyEncrypted.length +
+          ' note(s) are already encrypted with a different key and will remain unreadable:',
+          alreadyEncrypted.map(n => n.name)
+        );
+        const foreignKeyWarn = document.createElement('p');
+        foreignKeyWarn.className = 'encryption-warning';
+        foreignKeyWarn.textContent =
+          alreadyEncrypted.length + ' note' + (alreadyEncrypted.length !== 1 ? 's' : '') +
+          ' are already encrypted with a different key and cannot be read on this device. ' +
+          'Pair with the device that holds the original key, or restore a key backup, to recover them.';
+        wrap.appendChild(foreignKeyWarn);
+      }
+
       const count = await CryptoStorage.migrateToEncrypted(storage, masterKey, (done, total) => {
         progressEl.textContent = `Encrypting notes\u2026 ${done}/${total}`;
       });

@@ -92,6 +92,7 @@ window.CryptoStorage = {
     wrapped.getAllNotes = async function () {
       const notes = await storage.getAllNotes();
       const results = [];
+      const failed = [];
       for (const n of notes) {
         if (_SPECIAL_NOTES.has(n.name) || !CryptoEngine.isEncrypted(n.content)) {
           results.push(n);
@@ -101,9 +102,16 @@ window.CryptoStorage = {
             results.push({ name: n.name, content: plaintext });
           } catch (e) {
             console.error('[crypto-storage] Decrypt failed for note:', n.name, e);
+            failed.push(n.name);
             results.push(n); // pass through ciphertext
           }
         }
+      }
+      // Expose the set of undecryptable note names so the UI can warn the user.
+      // These notes are encrypted with a key this device doesn't hold (e.g. from
+      // a previous key or a device that was never paired with this one).
+      if (window._encryption) {
+        window._encryption.undecryptableNotes = failed.length > 0 ? new Set(failed) : null;
       }
       return results;
     };

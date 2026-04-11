@@ -1474,6 +1474,25 @@ async function migrateLocalNotesToSync() {
       delete window._encryption._checkForEncryptedContent;
     }
 
+    // ── E2E Encryption: warn when specific notes can't be decrypted ──────────
+    // Encryption is active but some notes returned ciphertext — they were
+    // encrypted with a different key (older key, or a device that was never
+    // paired with this one). The notes are not lost, but unreadable until the
+    // correct key is restored from a backup or via device pairing.
+    if (window._encryption.active && window._encryption.undecryptableNotes?.size > 0) {
+      const count = window._encryption.undecryptableNotes.size;
+      console.warn(
+        '[encryption]', count, 'note(s) could not be decrypted with the current key:',
+        [...window._encryption.undecryptableNotes]
+      );
+      updateStatus(
+        count + ' note' + (count !== 1 ? 's' : '') +
+        ' could not be decrypted \u2014 they may have been encrypted with a different key. ' +
+        'Restore a key backup in Settings \u2192 Encryption to recover them.',
+        false
+      );
+    }
+
     // If this device needs an encryption key, show a persistent warning and
     // make notes read-only to prevent saving ciphertext as plaintext.
     if (window._encryption.needsKey && !window._encryption.active) {
