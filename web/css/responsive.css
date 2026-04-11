@@ -10,8 +10,8 @@ body.panel-pinned {
    left:var(--gap) aligns the pill's left edge with the note content left edge
    (content also has padding-left:var(--gap)). */
 @media (min-width: 651px) {
-  /* Left-align for all desktop platforms (macOS padding-left already in the
-     platform-darwin rule above; traffic lights appear inside the pill there). */
+  /* Left-align for all desktop platforms (macOS anchors the pill to the left
+     edge so the custom HTML traffic lights appear at the start of the pill). */
   #button-container {
     left: 5px;
     transform: none;
