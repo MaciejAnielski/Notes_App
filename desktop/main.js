@@ -290,11 +290,11 @@ function createWindow(secondary = false) {
     title: 'Notes App',
     backgroundColor: '#1e1e1e',
     show: false,
-    // macOS: hide the entire native title bar (including traffic lights).
-    // Custom HTML traffic-light buttons are rendered inside #button-container
-    // so they float inside the toolbar pill.  IPC handlers below handle the
+    // macOS: hide the native title bar and move the native traffic lights
+    // off-screen so only the custom HTML traffic-light buttons inside
+    // #button-container are visible.  IPC handlers below handle the
     // close / minimise / maximise actions from those buttons.
-    ...(isMac ? { titleBarStyle: 'hidden' } : {}),
+    ...(isMac ? { titleBarStyle: 'hidden', trafficLightPosition: { x: -100, y: 0 } } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

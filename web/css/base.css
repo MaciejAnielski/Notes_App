@@ -80,15 +80,13 @@ body {
                           z-index 98, behind the toolbar (100). Handles empty
                           space on the right side of the toolbar not covered by
                           #button-container content.
-   #button-container    — anchored to the left edge so the native traffic-light
-                          buttons (rendered by Electron at x=10) visually sit
-                          inside the pill.  padding-left reserves space for the
-                          three 12 px circles + gaps (~68 px from x=10) plus a
-                          small margin.  Also marked draggable so empty gaps
-                          between buttons initiate a native drag; interactive
-                          children opt-out below.
-
-   Tune trafficLightPosition in main.js and padding-left here together.
+   #button-container    — anchored to the left edge so the custom HTML
+                          traffic-light buttons (#traffic-lights) sit at the
+                          start of the pill.  Native Electron traffic lights are
+                          moved off-screen via trafficLightPosition in main.js.
+                          Also marked draggable so empty gaps between buttons
+                          initiate a native drag; interactive children opt-out
+                          below.
 */
 body.platform-darwin #window-drag-region {
   position: fixed;
