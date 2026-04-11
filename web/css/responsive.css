@@ -91,7 +91,7 @@ body.panel-pinned {
 
   /* Push editor/preview content above the fixed status bar only */
   body:not(.electron) #editor-section {
-    padding-bottom: 32px;
+    padding-bottom: 0;
   }
 
   /* ── Swipe navigation: Notes list slides from left ── */
@@ -100,12 +100,10 @@ body.panel-pinned {
      the notch so content inside the panel is not obscured. */
   body:not(.electron) #panel-lists {
     position: fixed;
-    top: var(--gap);
-    left: var(--gap);
     right: auto;
     width: calc(80vw - var(--gap) * 2);
     max-width: 300px;
-    height: calc(100% - var(--gap) * 2);
+    height: 100%;
     transform: translateX(calc(-100% - var(--gap) * 3));
     transition: transform 0.25s ease, box-shadow 0.25s ease;
     display: flex !important;
@@ -262,7 +260,7 @@ body.panel-pinned {
 
   /* Minimum touch target size for iOS accessibility */
   body:not(.electron) #button-container .button-group > button:not(.sub-button) {
-    min-height: 44px;
+    min-height: 35px;
     min-width: 44px;
   }
 
