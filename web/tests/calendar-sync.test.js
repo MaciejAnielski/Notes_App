@@ -83,14 +83,18 @@ describe('parseMarkdownEvents', () => {
     expect(dateToYYMMDD(events[0].startDate)).toBe('260315');
   });
 
-  test('parses a multi-day event', () => {
+  test('parses a multi-day event — endDate is exclusive (iOS format)', () => {
+    // "Conference > 260315 260317" means March 15–17 inclusive.
+    // parseMarkdownEvents must add 1 day so the endDate sent to iOS Calendar
+    // is exclusive (March 18), matching the convention for single all-day events.
     const content = 'Conference > 260315 260317\n';
     const events = parseMarkdownEvents(content, '260315');
     expect(events).toHaveLength(1);
     expect(events[0].text).toBe('Conference');
     expect(events[0].allDay).toBe(true);
     expect(dateToYYMMDD(events[0].startDate)).toBe('260315');
-    expect(dateToYYMMDD(events[0].endDate)).toBe('260317');
+    // endDate must be March 18 (exclusive) so iOS shows March 15–17
+    expect(dateToYYMMDD(events[0].endDate)).toBe('260318');
   });
 
   test('parses a timed event', () => {
@@ -498,6 +502,56 @@ describe('syncMarkdownToCalendar', () => {
 
     expect(NoteStorage.setNote).not.toHaveBeenCalled();
   });
+
+  // ── Multi-day event endDate round-trip regression (Bug 1) ─────────────────
+  // "Conference > 260315 260317" should create a 3-day iOS event (March 15–17).
+  // The exclusive endDate sent to iOS must be March 18, not March 17, so that
+  // iOS Calendar displays March 15, 16, and 17. If March 17 were sent instead,
+  // iOS would show only March 15–16 and the next sync would corrupt the line.
+  test('multi-day event: createEvent receives exclusive endDate (day after last visible day)', async () => {
+    const plugin = makePlugin();
+    global.window.Capacitor = { Plugins: { CalendarPlugin: plugin } };
+
+    const noteContent = '# 260315 Daily Note\nConference > 260315 260317\n';
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    expect(plugin.createEvent).toHaveBeenCalledTimes(1);
+    const call = plugin.createEvent.mock.calls[0][0];
+    expect(call.title).toBe('Conference');
+    expect(call.allDay).toBe(true);
+    // startDate must be March 15
+    expect(new Date(call.startDate).toISOString().slice(0, 10)).toBe('2026-03-15');
+    // endDate must be March 18 (exclusive) — NOT March 17
+    expect(new Date(call.endDate).toISOString().slice(0, 10)).toBe('2026-03-18');
+  });
+
+  // ── Recurring events ───────────────────────────────────────────────────────
+  // The app has no RRULE support. Each iOS recurring-event instance is treated
+  // as an independent, discrete occurrence. This test documents that a
+  // recurring event line in markdown creates a single non-recurring iOS event.
+  test('recurring events are not supported: each markdown line creates one discrete iOS event', async () => {
+    const plugin = makePlugin();
+    global.window.Capacitor = { Plugins: { CalendarPlugin: plugin } };
+
+    // Two separate lines for the "same" recurring meeting on different dates
+    const noteContent = [
+      '# 260315 Daily Note',
+      'Weekly Standup > 260315 0900 0930',
+      'Weekly Standup > 260322 0900 0930',
+    ].join('\n') + '\n';
+    NoteStorage.getAllNotes.mockResolvedValue([{ name: '260315 Daily Note', content: noteContent }]);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncMarkdownToCalendar(['cal-1']);
+
+    // Both lines are created as independent iOS events with no recurrence link
+    expect(plugin.createEvent).toHaveBeenCalledTimes(2);
+    const titles = plugin.createEvent.mock.calls.map(([c]) => c.title);
+    expect(titles).toEqual(['Weekly Standup', 'Weekly Standup']);
+  });
 });
 
 // ── syncCalendarToMarkdown integration tests ─────────────────────────────────
@@ -635,6 +689,55 @@ describe('syncCalendarToMarkdown', () => {
     const savedContent = NoteStorage.setNote.mock.calls[0][1];
     expect(savedContent).toContain('@TeamCalendar');
     expect(savedContent).not.toContain('@ ');
+  });
+
+  // ── All-day duplicate detection — date comparison (Bug 4) ──────────────────
+  // Two iOS all-day events with identical titles but different dates must NOT
+  // be collapsed into a single markdown line. The duplicate check must compare
+  // start dates, not just titles.
+  test('two all-day events with the same title on different dates are both inserted', async () => {
+    const FUTURE_DATE2 = new Date(FUTURE_DATE.getTime() + 86400000 * 3); // 3 days later
+    const dateStr2 = dateToYYMMDD(FUTURE_DATE2);
+    const noteName2 = `${dateStr2} Daily Note`;
+
+    const makeEventOnDate = (id, title, d) => ({
+      eventId: id,
+      title,
+      allDay: true,
+      calendarId: 'notes-cal-id',
+      calendarTitle: 'Notes App Events',
+      startDate: new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString(),
+      endDate:   new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString(),
+    });
+
+    const plugin = makeCalPlugin([
+      makeEventOnDate('same-1', 'Standup', FUTURE_DATE),
+      makeEventOnDate('same-2', 'Standup', FUTURE_DATE2),
+    ]);
+    const calPlugin = plugin;
+    global.window.Capacitor = { Plugins: { CalendarPlugin: calPlugin } };
+
+    NoteStorage.getNote.mockResolvedValue(null);
+    NoteStorage.setNote.mockResolvedValue();
+
+    await syncCalendarToMarkdown(['cal-1']);
+
+    // Both notes should be written with the Standup event
+    const noteCall1 = NoteStorage.setNote.mock.calls.find(([n]) => n === noteName);
+    const noteCall2 = NoteStorage.setNote.mock.calls.find(([n]) => n === noteName2);
+    expect(noteCall1).toBeDefined();
+    expect(noteCall2).toBeDefined();
+    expect(noteCall1[1]).toContain('Standup');
+    expect(noteCall2[1]).toContain('Standup');
+
+    // Both events tracked in metadata with their own IDs
+    const store = getSavedStore();
+    const ids = [
+      ...(store[noteName]?.events || []),
+      ...(store[noteName2]?.events || []),
+    ].map(e => e.eventId);
+    expect(ids).toContain('same-1');
+    expect(ids).toContain('same-2');
   });
 });
 

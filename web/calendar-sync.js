@@ -318,7 +318,7 @@ async function migrateInlineMetadata(store) {
     if (!m) continue;
 
     // Strip the inline comment from the note
-    const stripped = content.replace(CALENDAR_META_RE + '\n?', '').replace(/<!-- calendar_events:.*?-->\n?/, '');
+    const stripped = content.replace(/<!-- calendar_events:.*?-->\n?/, '');
     await NoteStorage.setNote(name, stripped);
 
     // Don't overwrite an existing store entry
@@ -369,10 +369,12 @@ function parseMarkdownEvents(content) {
     } else if ((m = line.match(reM))) {
       const text = m[1].replace(/^[-*+]\s+/, '').replace(/^#+\s*/, '').trim();
       if (!text) continue;
+      const endDate = yymmddToDate(m[3]);
+      endDate.setDate(endDate.getDate() + 1); // inclusive markdown end → exclusive iOS end
       events.push({
         text,
         startDate: yymmddToDate(m[2]),
-        endDate: yymmddToDate(m[3]),
+        endDate,
         allDay: true,
         lineIndex: i,
         calendarTag: m[4] || null
@@ -619,7 +621,12 @@ async function syncCalendarToMarkdown(calendarIds) {
       // title and time already present in the note (possibly without @calendar).
       const duplicate = existingMdEvents.find(e => {
         if (e.text !== evt.title) return false;
-        if (evt.allDay) return e.allDay;
+        if (evt.allDay) {
+          // Also verify the start date matches so same-title events on different
+          // days (or in different notes) are not incorrectly merged.
+          return e.allDay &&
+            Math.abs(e.startDate.getTime() - evtStart.getTime()) < 86400000;
+        }
         return !e.allDay &&
           Math.abs(e.startDate.getTime() - evtStart.getTime()) < 60000 &&
           Math.abs(e.endDate.getTime() - evtEnd.getTime()) < 60000;
@@ -907,6 +914,10 @@ async function runCalendarSync() {
       console.warn('[calendar-sync] Aborting: calendar access not granted');
       return;
     }
+
+    // Refresh calendar title→ID lookup so @CalendarName routing reflects any
+    // calendars added or renamed since the last sync.
+    _calendarsByTitle = null;
 
     // Ensure Settings note exists and calendar list is up to date
     await updateCalendarsNote();
