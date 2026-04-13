@@ -77,6 +77,12 @@ body.panel-pinned {
     display: none !important;
   }
 
+  /* Notes h2 does nothing on mobile (no panel to cycle to) — remove the
+     pointer cursor so it doesn't mislead the user into tapping it. */
+  body:not(.electron) #files-container h2 {
+    cursor: default;
+  }
+
   /* ── Status messages — fixed to bottom of viewport on mobile, pill-shaped ── */
   body:not(.electron) #bottom-status-area {
     position: fixed;
@@ -156,7 +162,7 @@ body.panel-pinned {
     border-radius: 20px 0 0 20px;
     z-index: 150;
     padding-top: calc(env(safe-area-inset-top) + var(--gap));
-    padding-right: env(safe-area-inset-right);
+    padding-right: max(env(safe-area-inset-right), var(--gap));
     padding-bottom: max(env(safe-area-inset-bottom), var(--gap));
     padding-left: var(--gap);
     box-sizing: border-box;
@@ -170,6 +176,14 @@ body.panel-pinned {
   #mobile-right-panel.mobile-open-right {
     transform: translateX(0);
     box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+  }
+
+  /* The shared container rule (outside the media query) gives every panel
+     padding-left: 10px. Inside #mobile-right-panel that would double up with
+     the panel's own padding-left: var(--gap). Reset it here. */
+  body:not(.electron) #todo-container,
+  body:not(.electron) #schedule-container {
+    padding-left: 0;
   }
 
   /* Overlay backdrop when a panel is open */

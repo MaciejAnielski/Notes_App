@@ -141,11 +141,11 @@ input[type="checkbox"] {
   align-self: flex-start;
 }
 
-/* Schedule: 1em square, slightly less rounded (matches item row style) */
+/* Schedule: 1em square, same rounding as preview/todo checkboxes */
 #schedule-container .schedule-item input[type="checkbox"] {
   width: 1em;
   height: 1em;
-  border-radius: 2px;
+  border-radius: 0.2em;
 }
 
 /* Search panel: slightly smaller to sit inline with the compact search row */
