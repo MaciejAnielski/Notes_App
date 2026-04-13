@@ -37,6 +37,13 @@
   white-space: nowrap;
 }
 
+@media (hover: hover) {
+  #todo-container .todo-note-title:hover {
+    color: var(--panel-heading-hover);
+    cursor: pointer;
+  }
+}
+
 #todoList > li {
   margin-bottom: 20px;
 }
