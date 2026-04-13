@@ -301,3 +301,104 @@
 .dot-overdue     { background-color: var(--error); }
 .dot-today       { background-color: var(--warning); }
 .dot-future      { background-color: var(--success); }
+
+/* ── Schedule drag-to-move and drag-to-resize ────────────────────────────── */
+
+/* Grab cursor on the block body (hover-capable devices only) */
+@media (hover: hover) {
+  .schedule-item { cursor: grab; }
+  .schedule-item input[type="checkbox"] { cursor: default; }
+  .schedule-event-icon { cursor: grab; }
+}
+
+/* Dim the original block while it is being moved */
+.schedule-item-drag-source {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+/* Global grabbing cursor + no text selection while any drag is active */
+body.schedule-dragging,
+body.schedule-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* Floating clone that follows the cursor during drag-to-move */
+.schedule-drag-clone {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.85;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  border-radius: 0 5px 5px 0;
+  border-left: 3px solid var(--sched-item-border);
+  background: var(--sched-item-bg);
+  font-size: 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35em;
+  padding: 2px 6px;
+}
+
+/* Drop target outline — shows where the item will land */
+.schedule-drop-outline {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  margin: 0 10px 0 5px;
+  border: 2px dashed var(--sched-item-border);
+  border-radius: 0 5px 5px 0;
+  background: var(--sched-item-bg);
+  opacity: 0.5;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 5;
+  display: none;
+}
+
+/* Resize handle: invisible 8px strip at the bottom of each timed block */
+.schedule-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  border-radius: 0 0 5px 0;
+  touch-action: none;
+}
+
+/* Subtle grip indicator shown on hover */
+.schedule-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+@media (hover: hover) {
+  .schedule-item:hover .schedule-resize-handle::after { opacity: 0.3; }
+}
+
+/* Hide resize handle inside the all-day section (those items are not resizable) */
+.schedule-allday-section .schedule-resize-handle { display: none; }
+
+/* Larger hit area on touch devices */
+@media (any-pointer: coarse) {
+  .schedule-resize-handle { height: 14px; }
+}
+
+/* Prevent scroll-hijacking on draggable items (touch) */
+.schedule-item { touch-action: pan-y; }
+.schedule-allday-section .schedule-item { touch-action: pan-y; }
