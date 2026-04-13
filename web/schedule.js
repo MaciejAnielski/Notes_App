@@ -344,6 +344,18 @@ function _makeScheduleBlock(item, extraClass) {
     }, 50);
   });
   block.appendChild(nameSpan);
+
+  // Resize handle — positioned at the bottom of the block.
+  // Hidden via CSS for all-day items; visible (cursor only) for timed items.
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'schedule-resize-handle';
+  block.appendChild(resizeHandle);
+
+  // Drag-to-move and drag-to-resize (schedule-drag.js)
+  if (typeof attachScheduleDragHandlers === 'function') {
+    attachScheduleDragHandlers(block, item);
+  }
+
   return block;
 }
 
@@ -397,6 +409,11 @@ let _renderScheduleRunning = false;
 let _renderScheduleQueued = false;
 
 async function renderSchedule(cachedNotes) {
+  // If a drag is in progress, queue the re-render instead of firing mid-drag.
+  if (typeof isScheduleDragActive === 'function' && isScheduleDragActive()) {
+    _renderScheduleQueued = true;
+    return;
+  }
   // Serialize concurrent calls to prevent timer interleaving
   if (_renderScheduleRunning) {
     _renderScheduleQueued = true;
@@ -581,6 +598,9 @@ async function _doRenderSchedule(cachedNotes) {
     const block = _makeScheduleBlock(item, classes);
     block.style.top    = top + 'px';
     block.style.height = height + 'px';
+    // Store time bounds for conflict detection during drag
+    block.dataset.startMins = startMin;
+    block.dataset.endMins   = endMin;
 
     scheduleGrid.appendChild(block);
   });
