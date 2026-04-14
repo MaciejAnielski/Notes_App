@@ -20,6 +20,7 @@ const _SD_ALLDAY_DUR    = 30;   // default duration (min) for all-day → timed 
 const _SD_DRAG_THRESH   = 4;    // px movement before mousedown becomes a drag
 const _SD_SCROLL_ZONE   = 60;   // px from wrapper edge to trigger auto-scroll
 const _SD_SCROLL_SPEED  = 6;    // max px per RAF frame for auto-scroll
+const _SD_TOUCH_DELAY   = 300;  // ms long-press required before touch drag activates
 
 // ── Module state ───────────────────────────────────────────────────────────
 let _sd_drag   = null;   // active drag descriptor, or null when idle
@@ -53,15 +54,15 @@ function _sdMinsToTopPx(mins) {
   return (mins / 30) * _SD_ROW_H;
 }
 
-// Returns the minutes-from-midnight value for a given viewport clientY,
-// accounting for the grid's scroll offset inside the timeline wrapper.
+// Returns the minutes-from-midnight value for a given viewport clientY.
+// getBoundingClientRect() already returns viewport-relative coordinates that
+// fully account for any ancestor scroll, so no manual scrollTop correction
+// is needed — adding it would double-count the offset.
 function _sdClientYToGridMins(clientY) {
   const grid = document.getElementById('scheduleGrid');
   if (!grid) return 0;
-  const wrapper = document.getElementById('schedule-timeline-wrapper');
   const gridRect = grid.getBoundingClientRect();
-  // clientY relative to grid top, plus current scroll so result is in "grid space"
-  const relY = clientY - gridRect.top + (wrapper ? wrapper.scrollTop : 0);
+  const relY = clientY - gridRect.top;
   return _sdPxToMins(relY);
 }
 
@@ -180,6 +181,14 @@ function _sdStartScrollLoop() {
     }
     if (delta !== 0) {
       wrapper.scrollTop = Math.max(0, wrapper.scrollTop + delta);
+      // Refresh the drop outline so it stays in sync as the grid scrolls.
+      if (_sd_drag && _sd_drag.active && _sd_drag.type === 'move' &&
+          _sdInTimedArea(_sd_lastClientY)) {
+        const { startMins, endMins } = _sdCalcMove(_sd_lastClientY);
+        _sdShowOutline(startMins, endMins - startMins);
+        _sd_drag.pendingStart = _sdMinsToHHMM(startMins);
+        _sd_drag.pendingEnd   = _sdMinsToHHMM(endMins);
+      }
     }
     _sd_rafId = requestAnimationFrame(tick);
   }
@@ -239,9 +248,22 @@ function _sdOnMove(e) {
 
   // Upgrade 'pending' → active once threshold is crossed
   if (!_sd_drag.active) {
+    // On touch: wait for the long-press timer to fire before activating drag.
+    // This prevents scroll gestures from accidentally hijacking touch events.
+    if (!_sd_drag.touchReady) return;
+
     const dx = Math.abs(clientX - _sd_drag.startX);
     const dy = Math.abs(clientY - _sd_drag.startY);
     if (dx < _SD_DRAG_THRESH && dy < _SD_DRAG_THRESH) return;
+
+    // If the gesture is more horizontal than vertical it is likely a swipe or
+    // page-scroll attempt — cancel the drag entirely rather than activating it.
+    if (dx > dy) {
+      if (_sd_drag.touchTimer) clearTimeout(_sd_drag.touchTimer);
+      _sd_drag = null;
+      return;
+    }
+
     // Threshold crossed — activate
     _sd_drag.active = true;
     document.body.classList.add('schedule-dragging');
@@ -299,6 +321,7 @@ function _sdOnMove(e) {
 async function _sdOnUp(e) {
   if (!_sd_drag) return;
   const d = _sd_drag;
+  if (d.touchTimer) clearTimeout(d.touchTimer);
   _sd_drag = null;  // clear first so isScheduleDragActive() returns false
 
   _sdCleanup(d.block);
@@ -339,7 +362,23 @@ function _sdStartMove(e, block, item) {
     durationMins, offsetMins,
     cloneOffsetY,
     pendingStart: null, pendingEnd: null,
+    touchTimer: null, touchReady: false,
   };
+
+  // On touch devices require a long-press before drag can activate, so that
+  // normal vertical scroll gestures are not accidentally hijacked.
+  if (e.type === 'touchstart') {
+    _sd_drag.touchTimer = setTimeout(() => {
+      if (_sd_drag) {
+        _sd_drag.touchTimer  = null;
+        _sd_drag.touchReady  = true;
+        if (navigator.vibrate) navigator.vibrate(10);
+      }
+    }, _SD_TOUCH_DELAY);
+  } else {
+    // Mouse: always ready immediately.
+    _sd_drag.touchReady = true;
+  }
   // Don't preventDefault here — that would kill the nameSpan click event.
   // It is called in _sdOnMove once DRAG_THRESHOLD is confirmed.
 }
@@ -358,7 +397,20 @@ function _sdStartResize(e, block, item) {
     active: false,
     startMins,
     pendingEnd: null,
+    touchTimer: null, touchReady: false,
   };
+
+  if (e.type === 'touchstart') {
+    _sd_drag.touchTimer = setTimeout(() => {
+      if (_sd_drag) {
+        _sd_drag.touchTimer  = null;
+        _sd_drag.touchReady  = true;
+        if (navigator.vibrate) navigator.vibrate(10);
+      }
+    }, _SD_TOUCH_DELAY);
+  } else {
+    _sd_drag.touchReady = true;
+  }
   // Don't preventDefault here for the same reason.
 }
 
@@ -402,5 +454,16 @@ document.addEventListener('touchmove', e => {
   _sdOnMove(e);
 }, { passive: false });
 
-document.addEventListener('touchend',    _sdOnUp, { passive: true });
-document.addEventListener('touchcancel', _sdOnUp, { passive: true });
+document.addEventListener('touchend', _sdOnUp, { passive: true });
+
+// touchcancel fires when the system interrupts the touch (incoming call,
+// multi-finger gesture, etc.).  The drag must be silently discarded — NOT
+// committed — so we use a dedicated handler rather than reusing _sdOnUp.
+function _sdOnCancel() {
+  if (!_sd_drag) return;
+  const d = _sd_drag;
+  if (d.touchTimer) clearTimeout(d.touchTimer);
+  _sd_drag = null;
+  _sdCleanup(d.block);
+}
+document.addEventListener('touchcancel', _sdOnCancel, { passive: true });
