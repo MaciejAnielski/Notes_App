@@ -294,13 +294,6 @@
   animation: preview-nav-float 1.4s ease-out forwards;
 }
 
-/* Inside <summary> the highlight must appear/disappear instantly (no animation),
-   so collapsed sections snap in and out cleanly. */
-#preview summary .schedule-highlight,
-#preview summary.schedule-highlight {
-  animation: none;
-}
-
 /* ── Highlight syntax (==text==) ── */
 #preview mark {
   background-color: var(--mark-bg);
