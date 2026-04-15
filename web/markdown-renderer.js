@@ -1271,6 +1271,7 @@ async function renderPreview() {
     injectEncryptionSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
+    injectBookmarklets(previewDiv);
   }
 
   // Projects note: make emojis clickable to change them
@@ -2206,6 +2207,222 @@ function injectThemeColorPickers(container) {
     if (typeof syncThemeToNote === 'function') syncThemeToNote();
     reinitMermaidTheme();
   });
+}
+
+// ── Bookmarklets in Settings note preview ─────────────────────────────────
+// Injects draggable ⚙ Learn Page and 📋 Extract bookmarklet <a> links into
+// the "🔖 Bookmarklets" section. Web only — no bookmarks bar on Electron/iOS.
+// The source strings use hardcoded app-palette colours since they run on
+// external pages (CSS variables are not available there).
+
+function injectBookmarklets(container) {
+  if (window.electronAPI || window.Capacitor?.isNativePlatform()) return;
+
+  // Find the <details> wrapping the "Bookmarklets" h2 (autocollapsed headings
+  // get wrapped in <details> by setupCollapsibleHeadings)
+  let bmSection = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Bookmarklets')) { bmSection = details; break; }
+  }
+  if (!bmSection) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Bookmarklets')) { bmSection = h.parentElement; break; }
+    }
+  }
+  if (!bmSection) return;
+  if (bmSection.querySelector('.bookmarklet-controls')) return; // already injected
+
+  // ── Bookmarklet source strings ──────────────────────────────────────────
+  // Palette used (mirrors app defaults so the panels feel native):
+  //   bg #1e1e1e · surface #2a1f35 · input #141414
+  //   border #4a3558 · subtle #3a2a4a · dim #6b5a7a
+  //   text #e8dcf4 · muted #9a8aaa
+  //   accent #a272b0 · accent-bg #3a1060 · accent-dark #6b3080
+  //   success #4caf72 · success-bg #1a3428
+  //   error #e05c5c · error-bg #3a1820
+  //   code #9ec7b5 · code-bg #141414 · warning #d4a24a
+
+  const LEARN_SRC = `(function(){
+var STORAGE_KEY='pageExtractorFields',PANEL_ID='pex-panel';
+var ep=document.getElementById(PANEL_ID);
+if(ep){ep.remove();document.body.style.cursor='';return;}
+var fields=[],pickIdx=null,hlEl=null;
+try{fields=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){fields=[];}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(fields));}
+function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function defAttr(el){var t=el.tagName.toLowerCase();return t==='time'?'datetime':t==='a'?'href':t==='img'?'src':t==='meta'?'content':'text';}
+function genSel(tgt){
+  if(tgt.closest&&tgt.closest('#'+PANEL_ID))return null;
+  if(tgt.id&&tgt.id.length<40&&!/^\d/.test(tgt.id)&&!/[a-f0-9]{8,}/.test(tgt.id)){try{var s='#'+CSS.escape(tgt.id);if(document.querySelector(s)===tgt)return s;}catch(e){}}
+  function desc(el){var tag=el.tagName.toLowerCase();var cls=Array.from(el.classList).filter(function(c){return c.length>1&&!/^(is-|has-|js-)/.test(c)&&!/^(active|selected|open|closed|hover|focus|visible|hidden|disabled|loading|current|expanded|collapsed|show|hide|first|last|odd|even|highlighted|featured)$/.test(c);});if(cls.length>0){try{return tag+'.'+cls.slice(0,2).map(CSS.escape).join('.');}catch(e){}}return tag;}
+  var path=[],cur=tgt;
+  while(cur&&cur!==document.body&&cur!==document.documentElement){path.unshift(cur);cur=cur.parentElement;}
+  for(var i=path.length-1;i>=0;i--){var cand=path.slice(i).map(desc).join(' > ');try{var m=document.querySelectorAll(cand);if(m.length===1&&m[0]===tgt)return cand;}catch(e){}}
+  return path.map(desc).join(' > ');
+}
+function getVal(sel,attr){if(!sel)return '';try{var el=document.querySelector(sel);if(!el)return '';if(attr==='href')return el.href||el.getAttribute('href')||'';if(attr==='src')return el.src||el.getAttribute('src')||'';if(attr==='datetime')return el.getAttribute('datetime')||el.innerText||'';if(attr==='content')return el.getAttribute('content')||'';return (el.innerText||el.textContent||'').trim().replace(/\s+/g,' ');}catch(e){return '';}}
+function fmtMd(f,v){if(!v)return '';switch(f.format){case 'heading':return '# '+v;case 'link':return '['+f.label+']('+v+')';case 'plain':return v;default:return '**'+f.label+':** '+v;}}
+function buildMd(){var lines=fields.map(function(f){return fmtMd(f,getVal(f.selector,f.attribute)||'(not found)');});lines.push('**URL:** '+window.location.href);return lines.join('\\n\\n');}
+function copyText(t,cb){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(cb).catch(function(){fbCopy(t);if(cb)cb();});}else{fbCopy(t);if(cb)cb();}}
+function fbCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
+function renderPanel(){
+  var panel=document.getElementById(PANEL_ID);if(!panel)return;
+  var fHtml=fields.map(function(f,i){
+    var prev=getVal(f.selector,f.attribute),isP=pickIdx===i;
+    var sb=f.selector?(prev?'#4caf72':'#d4a24a'):'#4a3558';
+    var fmt=f.format||'bold';
+    return '<div style="background:#2a1f35;border:1px solid #3a2a4a;border-radius:8px;padding:10px;margin-bottom:8px;">'+
+      '<div style="display:flex;gap:5px;margin-bottom:7px;align-items:center;">'+
+      '<input data-a="label" data-i="'+i+'" value="'+esc(f.label)+'" placeholder="Label" style="flex:1;min-width:0;background:#141414;border:1px solid #4a3558;border-radius:5px;color:#e8dcf4;padding:5px 8px;font-size:12px;font-family:inherit;">'+
+      '<select data-a="attribute" data-i="'+i+'" style="background:#141414;border:1px solid #4a3558;border-radius:5px;color:#e8dcf4;padding:5px 6px;font-size:11px;">'+
+      '<option value="text"'+(f.attribute==='text'?' selected':'')+'>Text</option>'+
+      '<option value="href"'+(f.attribute==='href'?' selected':'')+'>href</option>'+
+      '<option value="datetime"'+(f.attribute==='datetime'?' selected':'')+'>datetime</option>'+
+      '<option value="content"'+(f.attribute==='content'?' selected':'')+'>content</option>'+
+      '</select>'+
+      '<select data-a="format" data-i="'+i+'" style="background:#141414;border:1px solid #4a3558;border-radius:5px;color:#e8dcf4;padding:5px 6px;font-size:11px;">'+
+      '<option value="bold"'+(fmt==='bold'?' selected':'')+'> **Bold**</option>'+
+      '<option value="heading"'+(fmt==='heading'?' selected':'')+'># Heading</option>'+
+      '<option value="link"'+(fmt==='link'?' selected':'')+'>[ Link]()</option>'+
+      '<option value="plain"'+(fmt==='plain'?' selected':'')+'>Plain</option>'+
+      '</select>'+
+      '<button data-a="delete" data-i="'+i+'" style="background:#3a1820;border:none;border-radius:5px;color:#e05c5c;padding:5px 9px;cursor:pointer;font-size:12px;line-height:1;flex-shrink:0;">✕</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:5px;align-items:center;">'+
+      '<input data-a="selector" data-i="'+i+'" value="'+esc(f.selector||'')+'" placeholder="CSS selector" style="flex:1;min-width:0;background:#141414;border:1px solid '+sb+';border-radius:5px;color:#9ec7b5;padding:5px 8px;font-size:11px;font-family:monospace;">'+
+      '<button data-a="pick" data-i="'+i+'" style="background:#6b3080;border:none;border-radius:5px;color:'+(isP?'#c9a7e0':'#e8dcf4')+';padding:5px 9px;cursor:pointer;font-size:11px;white-space:nowrap;flex-shrink:0;">'+(isP?'🎯 picking...':'🖱 Pick')+'</button>'+
+      '</div>'+
+      '<div style="margin-top:6px;font-size:11px;color:#6b5a7a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+
+      (prev?'<span style="color:#4caf72;">→ </span>'+esc(prev.substring(0,70))+(prev.length>70?'…':''):'<span style="color:#4a3558;font-style:italic;">no match on this page</span>')+
+      '</div></div>';
+  }).join('');
+  var mdOut=buildMd();
+  panel.innerHTML=
+    '<div id="pex-drag" style="background:#2a1f35;border-bottom:1px solid #3a2a4a;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;">'+
+    '<span style="font-weight:600;font-size:13px;color:#e8dcf4;">⚙ Page → Notes Extractor</span>'+
+    '<div style="display:flex;gap:8px;align-items:center;">'+
+    '<span style="font-size:11px;color:#6b5a7a;">'+fields.length+' field'+(fields.length!==1?'s':'')+'</span>'+
+    '<button data-a="close" style="background:none;border:none;color:#6b5a7a;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;">✕</button>'+
+    '</div></div>'+
+    (pickIdx!==null?'<div style="background:#3a1060;color:#c9a7e0;padding:7px 14px;font-size:12px;text-align:center;border-bottom:1px solid #3a2a4a;">Click an element on the page — Esc to cancel</div>':'')+
+    '<div style="padding:10px;overflow-y:auto;max-height:320px;">'+
+    (fHtml||'<div style="color:#6b5a7a;text-align:center;padding:20px 0;font-size:12px;">No fields yet — add one below</div>')+
+    '<button data-a="add" style="width:100%;background:#1a3428;border:1px solid #4caf72;border-radius:6px;color:#4caf72;padding:7px;cursor:pointer;font-size:12px;margin-top:6px;">+ Add Field</button>'+
+    '</div>'+
+    (fields.length>0?
+      '<div style="border-top:1px solid #3a2a4a;">'+
+      '<div style="padding:7px 14px;background:#141414;display:flex;justify-content:space-between;align-items:center;">'+
+      '<span style="font-size:11px;color:#6b5a7a;">Markdown preview</span>'+
+      '<button data-a="copy" style="background:#3a1060;border:1px solid #6b3080;border-radius:5px;color:#a272b0;padding:3px 9px;cursor:pointer;font-size:11px;">📋 Copy</button>'+
+      '</div>'+
+      '<pre style="margin:0;padding:8px 14px 10px;background:#141414;font-size:10px;color:#9ec7b5;max-height:130px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace;line-height:1.5;">'+esc(mdOut)+'</pre>'+
+      '</div>':'')+
+    '<div style="background:#141414;border-top:1px solid #3a2a4a;padding:7px 14px;display:flex;justify-content:space-between;align-items:center;">'+
+    '<button data-a="clear" style="background:none;border:1px solid #4a3558;border-radius:5px;color:#9a8aaa;padding:3px 9px;cursor:pointer;font-size:11px;">Clear all</button>'+
+    '<span style="font-size:10px;color:#3a2a4a;">pageExtractorFields</span>'+
+    '</div>';
+  setupDrag(panel,document.getElementById('pex-drag'));
+}
+function setupDrag(panel,handle){if(!handle)return;handle.onmousedown=function(e){if(e.target.tagName==='BUTTON')return;var sx=e.clientX,sy=e.clientY,sl=panel.offsetLeft,st=panel.offsetTop;function mv(e){panel.style.left=(sl+e.clientX-sx)+'px';panel.style.top=(st+e.clientY-sy)+'px';panel.style.right='auto';}function up(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);}document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);e.preventDefault();};}
+function onClick(e){
+  var a=e.target.getAttribute('data-a');if(!a)return;
+  var i=parseInt(e.target.getAttribute('data-i'),10);
+  if(a==='close'){cleanup();}
+  else if(a==='add'){fields.push({label:'Field '+(fields.length+1),selector:'',attribute:'text',format:'bold'});save();renderPanel();}
+  else if(a==='delete'){if(pickIdx===i){pickIdx=null;stopPick();}fields.splice(i,1);save();renderPanel();}
+  else if(a==='pick'){if(pickIdx===i){pickIdx=null;stopPick();}else{if(pickIdx!==null)stopPick();pickIdx=i;startPick();}renderPanel();}
+  else if(a==='clear'){if(confirm('Remove all '+fields.length+' field(s)?')){fields=[];if(pickIdx!==null){pickIdx=null;stopPick();}save();renderPanel();}}
+  else if(a==='copy'){var md=buildMd();copyText(md,function(){e.target.textContent='✓ Copied!';setTimeout(function(){e.target.innerHTML='📋 Copy';},1600);});}
+}
+function onChange(e){var a=e.target.getAttribute('data-a'),i=parseInt(e.target.getAttribute('data-i'),10);if(isNaN(i))return;if(a==='attribute'){fields[i].attribute=e.target.value;save();renderPanel();}else if(a==='format'){fields[i].format=e.target.value;save();renderPanel();}}
+var debT=null;
+function onInput(e){var a=e.target.getAttribute('data-a'),i=parseInt(e.target.getAttribute('data-i'),10);if(isNaN(i))return;if(a==='label'){fields[i].label=e.target.value;save();}else if(a==='selector'){fields[i].selector=e.target.value;save();clearTimeout(debT);debT=setTimeout(renderPanel,550);}}
+function startPick(){document.addEventListener('mouseover',onHov,true);document.addEventListener('click',onPickEl,true);document.addEventListener('keydown',onKey,true);document.body.style.cursor='crosshair';}
+function stopPick(){document.removeEventListener('mouseover',onHov,true);document.removeEventListener('click',onPickEl,true);document.removeEventListener('keydown',onKey,true);document.body.style.cursor='';clearHl();}
+function clearHl(){if(hlEl){hlEl.style.outline=hlEl._pexOut||'';hlEl.style.outlineOffset=hlEl._pexOff||'';delete hlEl._pexOut;delete hlEl._pexOff;hlEl=null;}}
+function onHov(e){var t=e.target;if(t.closest&&t.closest('#'+PANEL_ID))return;clearHl();hlEl=t;t._pexOut=t.style.outline;t._pexOff=t.style.outlineOffset;t.style.outline='2px solid #a272b0';t.style.outlineOffset='2px';}
+function onPickEl(e){var t=e.target;if(t.closest&&t.closest('#'+PANEL_ID))return;e.preventDefault();e.stopPropagation();if(pickIdx===null)return;var sel=genSel(t);if(sel){fields[pickIdx].selector=sel;if(!fields[pickIdx].attribute||fields[pickIdx].attribute==='text')fields[pickIdx].attribute=defAttr(t);save();}pickIdx=null;stopPick();renderPanel();}
+function onKey(e){if(e.key==='Escape'){pickIdx=null;stopPick();renderPanel();}}
+function cleanup(){stopPick();var p=document.getElementById(PANEL_ID);if(p)p.remove();}
+var panel=document.createElement('div');
+panel.id=PANEL_ID;
+panel.style.cssText='position:fixed;top:20px;right:20px;width:370px;background:#1e1e1e;border:1px solid #4a3558;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;z-index:2147483647;overflow:hidden;display:flex;flex-direction:column;';
+panel.addEventListener('click',onClick);
+panel.addEventListener('change',onChange);
+panel.addEventListener('input',onInput);
+document.body.appendChild(panel);
+renderPanel();
+})();`;
+
+  const EXTRACT_SRC = `(function(){
+var STORAGE_KEY='pageExtractorFields';
+var fields=[];
+try{fields=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+if(!fields.length){alert('No fields configured.\\nUse the ⚙ Learn Page bookmarklet first.');return;}
+function getVal(sel,attr){if(!sel)return '';try{var el=document.querySelector(sel);if(!el)return '';if(attr==='href')return el.href||el.getAttribute('href')||'';if(attr==='src')return el.src||el.getAttribute('src')||'';if(attr==='datetime')return el.getAttribute('datetime')||el.innerText||'';if(attr==='content')return el.getAttribute('content')||'';return (el.innerText||el.textContent||'').trim().replace(/\s+/g,' ');}catch(e){return '';}}
+function fmtMd(f,v){if(!v)return '';switch(f.format){case 'heading':return '# '+v;case 'link':return '['+f.label+']('+v+')';case 'plain':return v;default:return '**'+f.label+':** '+v;}}
+var missing=[];
+var lines=fields.map(function(f){var v=getVal(f.selector,f.attribute);if(!v)missing.push(f.label);return fmtMd(f,v);}).filter(Boolean);
+lines.push('**URL:** '+window.location.href);
+var md=lines.join('\\n\\n');
+function copyText(t,ok){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(ok).catch(function(){fbCopy(t);ok();});}else{fbCopy(t);ok();}}
+function fbCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
+function escHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showToast(ok){
+  var ex=document.getElementById('pex-toast');if(ex)ex.remove();
+  var toast=document.createElement('div');
+  toast.id='pex-toast';
+  toast.style.cssText='position:fixed;bottom:28px;right:28px;max-width:420px;min-width:260px;background:#1e1e1e;border:1px solid #4a3558;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;z-index:2147483647;overflow:hidden;';
+  var warnHtml=missing.length?'<div style="padding:6px 14px;background:#2d2200;border-bottom:1px solid #3a2a4a;font-size:11px;color:#d4a24a;">⚠ Not found: '+escHtml(missing.join(', '))+'</div>':'';
+  toast.innerHTML=
+    '<div style="background:'+(ok?'#1a3428':'#3a1820')+';color:'+(ok?'#4caf72':'#e05c5c')+';padding:9px 14px;font-weight:600;display:flex;align-items:center;gap:8px;">'+
+    '<span>'+(ok?'✓':'⚠')+'</span>'+
+    '<span>'+(ok?'Copied — paste into a note':'Copy failed — select below')+'</span>'+
+    '</div>'+
+    warnHtml+
+    '<pre style="margin:0;padding:10px 14px;background:#141414;font-size:10px;color:#9ec7b5;max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace;line-height:1.5;">'+escHtml(md)+'</pre>'+
+    '<div style="padding:7px 14px;background:#2a1f35;text-align:right;">'+
+    '<button id="pex-toast-close" style="background:none;border:none;color:#9a8aaa;cursor:pointer;font-size:12px;">Dismiss</button>'+
+    '</div>';
+  document.body.appendChild(toast);
+  document.getElementById('pex-toast-close').onclick=function(){toast.remove();};
+  setTimeout(function(){if(toast.parentNode){toast.style.transition='opacity 0.4s';toast.style.opacity='0';setTimeout(function(){if(toast.parentNode)toast.remove();},450);}},6000);
+}
+copyText(md,function(){showToast(true);});
+})();`;
+
+  // ── Build the UI ──────────────────────────────────────────────────────────
+  const wrap = document.createElement('div');
+  wrap.className = 'bookmarklet-controls';
+
+  const row = document.createElement('div');
+  row.className = 'bookmarklet-row';
+
+  const learnLink = document.createElement('a');
+  learnLink.href = 'javascript:' + encodeURIComponent(LEARN_SRC);
+  learnLink.className = 'bookmarklet-btn';
+  learnLink.textContent = '⚙ Learn Page';
+  learnLink.draggable = true;
+  learnLink.addEventListener('click', e => e.preventDefault());
+
+  const extractLink = document.createElement('a');
+  extractLink.href = 'javascript:' + encodeURIComponent(EXTRACT_SRC);
+  extractLink.className = 'bookmarklet-btn';
+  extractLink.textContent = '📋 Extract';
+  extractLink.draggable = true;
+  extractLink.addEventListener('click', e => e.preventDefault());
+
+  row.appendChild(learnLink);
+  row.appendChild(extractLink);
+  wrap.appendChild(row);
+
+  const hint = document.createElement('p');
+  hint.className = 'bookmarklet-hint';
+  hint.textContent = 'Drag to your bookmarks bar. Show it with Ctrl+Shift+B (⌘+Shift+B on Mac).';
+  wrap.appendChild(hint);
+
+  _appendControls(bmSection, wrap);
 }
 
 // ── Refresh Settings note UI after sync ───────────────────────────────────

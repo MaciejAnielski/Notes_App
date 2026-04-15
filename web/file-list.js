@@ -303,6 +303,18 @@ async function updateWebCalendarSettings(allNotes) {
     content = _insertSection(content, '## 🎨 Theme', "Customise the app's background and accent colours.");
   }
 
+  // Ensure Bookmarklets section (web only — no bookmarks bar in Electron/iOS)
+  if (!window.electronAPI && !window.Capacitor?.isNativePlatform() &&
+      !content.includes('## 🔖 Bookmarklets')) {
+    content = _insertSection(
+      content,
+      '## 🔖 Bookmarklets',
+      'Drag these bookmarklets to your browser\'s bookmarks bar.\n' +
+      'Run **⚙ Learn Page** on any page to map CSS selectors, then **📋 Extract** to copy the data as Markdown.',
+      '## 🎨 Theme'
+    );
+  }
+
   // Remove any old Projects Note Emojis section (was a standalone ## section; emojis
   // are now set by clicking them directly in the Projects note).
   if (content.includes('\n### Projects Note Emojis')) {
