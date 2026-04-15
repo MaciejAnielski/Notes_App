@@ -65,6 +65,9 @@ function _updateHighlight() {
   if (_searchMatchIdx >= 0 && _searchMatchLen > 0) {
     _applySearchHighlight();
   }
+  // Re-inject table row ghost text after every highlight refresh so it survives
+  // innerHTML rewrites caused by typing, auto-save, calendar sync, etc.
+  if (typeof window._tableGhostApply === 'function') window._tableGhostApply();
 }
 
 // Walk the pre's text nodes and wrap the character range in a <mark>.

@@ -921,8 +921,16 @@ function _fallbackCopy(text, glowTarget) {
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     const currentLine = text.slice(lineStart, pos);
 
-    // Only trigger when the current line is exactly '|'
-    if (currentLine !== '|') { _trHide(); return; }
+    // Keep suggestion visible when user types a space after '|' and a suggestion
+    // is already active — just shift the ghost insertion point forward by one.
+    if (currentLine === '| ' && _trSuggestion !== null) {
+      _ghostInsertPos = pos;
+      _ghostText = _trSuggestion.slice(2); // show remaining text after '| '
+      return; // ghost will be re-injected by _updateHighlight → _tableGhostApply
+    }
+
+    // Trigger on '|' or '| ' (pipe with optional space, e.g. after Enter-accepted row)
+    if (currentLine !== '|' && currentLine !== '| ') { _trHide(); return; }
 
     const linesAbove = text.slice(0, lineStart).split('\n');
     // text.slice(0, lineStart) always ends with \n so split always has a trailing
@@ -934,7 +942,16 @@ function _fallbackCopy(text, glowTarget) {
     const suggestion = _buildSuggestion(bodyRows);
     if (!suggestion) { _trHide(); return; }
 
-    _trShow(pos, suggestion);
+    if (currentLine === '| ') {
+      // Fresh suggestion on a '| ' line (e.g., auto-inserted after accepting a row)
+      _trHide();
+      _trSuggestion   = suggestion;
+      _ghostInsertPos = pos;
+      _ghostText      = suggestion.slice(2); // skip '| ' already typed
+      setTimeout(_applyGhostToPre, 50);
+    } else {
+      _trShow(pos, suggestion);
+    }
   });
 
   textarea.addEventListener('keydown', e => {
@@ -948,7 +965,7 @@ function _fallbackCopy(text, glowTarget) {
       const suggestion = _trSuggestion; // capture before _trHide() nulls it
       _trHide();
       textarea.setSelectionRange(lineStart, pos);
-      document.execCommand('insertText', false, suggestion + '\n');
+      document.execCommand('insertText', false, suggestion + '\n| ');
       textarea.focus();
     } else if (e.key === 'Escape') {
       e.stopPropagation();
@@ -957,4 +974,8 @@ function _fallbackCopy(text, glowTarget) {
   }, true); // capture phase — same priority as wiki dropdown
 
   textarea.addEventListener('blur', () => setTimeout(_trHide, 150));
+
+  // Expose ghost-reapply hook so _updateHighlight in syntax-highlight.js can
+  // re-inject the ghost span after every innerHTML refresh without a fixed delay.
+  window._tableGhostApply = _applyGhostToPre;
 }
