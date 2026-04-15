@@ -595,7 +595,7 @@ function expandCollapsedAncestors(el) {
 
 function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0) {
   const needle = caseSensitive ? text : text.toLowerCase();
-  const elements = previewDiv.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th');
+  const elements = previewDiv.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote');
   let seen = 0;
   let lastMatch = null;
   for (const el of elements) {
