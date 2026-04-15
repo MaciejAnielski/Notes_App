@@ -304,11 +304,9 @@
 
 /* ── Schedule drag-to-move and drag-to-resize ────────────────────────────── */
 
-/* Grab cursor on the block body (hover-capable devices only) */
+/* Grab cursor only on the title span — the only drag handle (hover-capable devices only) */
 @media (hover: hover) {
-  .schedule-item { cursor: grab; }
-  .schedule-item input[type="checkbox"] { cursor: default; }
-  .schedule-event-icon { cursor: grab; }
+  .schedule-item-name { cursor: grab; }
 }
 
 /* Dim the original block while it is being moved */
@@ -372,32 +370,8 @@ body.schedule-dragging * {
   touch-action: none;
 }
 
-/* Subtle grip indicator shown on hover */
-.schedule-resize-handle::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 3px;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 2px;
-  border-radius: 1px;
-  background: currentColor;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-@media (hover: hover) {
-  .schedule-item:hover .schedule-resize-handle::after { opacity: 0.3; }
-}
-
 /* Hide resize handle inside the all-day section (those items are not resizable) */
 .schedule-allday-section .schedule-resize-handle { display: none; }
-
-/* Larger hit area on touch devices */
-@media (any-pointer: coarse) {
-  .schedule-resize-handle { height: 14px; }
-}
 
 /* Prevent scroll-hijacking on draggable items (touch) */
 .schedule-item { touch-action: pan-y; }

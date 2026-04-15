@@ -124,6 +124,10 @@
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+}
+
+/* Only show the separator when there are results to display */
+#gs-results:has(li) {
   border-top: 1px solid var(--border);
 }
 

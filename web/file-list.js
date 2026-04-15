@@ -161,15 +161,16 @@ async function _doUpdateFileList() {
     items.push(li);
   }
 
-  // The currently open note is always shown second (after today's note),
-  // displayed in bold but without the highlighted border used for the today
-  // note.  Nav notes (Projects, Note Graph, Settings) are excluded from this
+  // The currently open note is always shown second (after today's note).
+  // It also receives active-file so its background highlights like the
+  // today note does when that is the active note.
+  // Nav notes (Projects, Note Graph, Settings) are excluded from this
   // second slot — they live in the nav-list below and are indicated there.
   const NAV_NAMES = new Set([PROJECTS_NOTE, GRAPH_NOTE, CALENDARS_NOTE]);
   if (currentFileName && noteMap[currentFileName] &&
       currentFileName !== todayNote &&
       !NAV_NAMES.has(currentFileName)) {
-    noteMap[currentFileName].classList.add('second-note');
+    noteMap[currentFileName].classList.add('second-note', 'active-file');
     items.push(noteMap[currentFileName]);
     delete noteMap[currentFileName];
   }

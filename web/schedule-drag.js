@@ -339,8 +339,6 @@ async function _sdOnUp(e) {
 
 function _sdStartMove(e, block, item) {
   if (e.type === 'mousedown' && e.button !== 0) return;
-  if (e.target.tagName === 'INPUT') return;                         // checkbox
-  if (e.target.classList.contains('schedule-resize-handle')) return; // handled separately
 
   const { clientX, clientY } = _sdClient(e);
 
@@ -419,10 +417,16 @@ function _sdStartResize(e, block, item) {
 // Called from schedule.js _makeScheduleBlock for every schedule block.
 // `item` is the parsed item descriptor.
 // Timed items get both move and resize handlers; all-day items get move only.
+// Drag-to-move is only initiated from the note title (nameSpan) so that
+// accidental moves are avoided — especially on mobile where fat-finger
+// misses are common.  Clicking the title without dragging still navigates.
 function attachScheduleDragHandlers(block, item) {
-  // ── Drag-to-move ──────────────────────────────────────────────────────
-  block.addEventListener('mousedown', e => _sdStartMove(e, block, item));
-  block.addEventListener('touchstart', e => _sdStartMove(e, block, item), { passive: true });
+  // ── Drag-to-move (title span only) ────────────────────────────────────
+  const nameSpan = block.querySelector('.schedule-item-name');
+  if (nameSpan) {
+    nameSpan.addEventListener('mousedown', e => _sdStartMove(e, block, item));
+    nameSpan.addEventListener('touchstart', e => _sdStartMove(e, block, item), { passive: true });
+  }
 
   // ── Drag-to-resize (timed items only, via resize handle) ──────────────
   if (!item.isAllDay) {
