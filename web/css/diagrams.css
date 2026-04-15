@@ -103,9 +103,11 @@
   display: block;
 }
 
-/* Keep the panzoom toggle button on top of the canvas content */
+/* Keep the panzoom toggle button on top of the canvas content,
+   and shift it below the floating toolbar when expanded. */
 .mermaid-diagram.mermaid-panzoom-active .mermaid-panzoom-btn {
   z-index: 6;
+  top: calc(var(--toolbar-h, 45px) + 8px);
 }
 
 /* ── Projects note — clickable emoji headings ── */

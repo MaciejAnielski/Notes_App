@@ -122,8 +122,10 @@ body.panel-visible #panel-arrow {
   background-color: var(--surface);
 }
 
-/* Hide when panel is pinned (pin button takes over that spot) */
-body.panel-pinned #panel-open-btn {
+/* Hide when panel is pinned (pin button takes over that spot),
+   or when the panel is visible so the button doesn't show during the bounce animation. */
+body.panel-pinned #panel-open-btn,
+body.panel-visible #panel-open-btn {
   display: none;
 }
 

@@ -11,6 +11,8 @@
   vertical-align: middle;
   margin-left: 6px;
   flex-shrink: 0;
+  outline: none;
+  overflow: hidden; /* clip browser's default square swatch border to the circle shape */
 }
 
 /* Calendar picker: smaller circle */

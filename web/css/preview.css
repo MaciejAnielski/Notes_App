@@ -277,19 +277,28 @@
     max-height: 40vh;
   }
 }
-/* ── Schedule / search navigation highlight (flashes then fades) ── */
-#preview .schedule-highlight {
-  background-color: var(--sched-highlight-bg);
-  border-radius: 3px;
-  outline: 2px solid var(--sched-highlight-outline);
-  transition: background-color 1.5s ease, outline-color 1.5s ease;
+/* ── Schedule / search navigation highlight (floats then fades) ── */
+/* Mirrors the copy-float animation from file-list.css — brief box-shadow
+   lift so the highlighted paragraph visually surfaces without colour flash. */
+@keyframes preview-nav-float {
+  0%   { box-shadow: none; }
+  15%  { box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light); }
+  70%  { box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light); }
+  100% { box-shadow: none; }
 }
 
-/* Inside <summary> the highlight must appear/disappear instantly (no fade),
-   so collapsed sections snap in and out without a lingering glow. */
+#preview .schedule-highlight {
+  border-radius: 4px;
+  position: relative;
+  z-index: 1;
+  animation: preview-nav-float 1.4s ease-out forwards;
+}
+
+/* Inside <summary> the highlight must appear/disappear instantly (no animation),
+   so collapsed sections snap in and out cleanly. */
 #preview summary .schedule-highlight,
 #preview summary.schedule-highlight {
-  transition: none;
+  animation: none;
 }
 
 /* ── Highlight syntax (==text==) ── */

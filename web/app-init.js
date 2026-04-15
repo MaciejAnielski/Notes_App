@@ -641,7 +641,8 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
       'font:' + cs.font + ';padding:' + cs.padding + ';border:' + cs.border + ';' +
       'width:' + textarea.offsetWidth + 'px;line-height:' + cs.lineHeight + ';';
     // Measure right after the opening trigger — stays fixed while typing.
-    const anchorOffset = _acMode === 'wiki' ? _acStart + 2 : _acStart + 1;
+    // wiki: skip past [[  (2 chars); md: skip past (  (1 char); new-note: already at title start.
+    const anchorOffset = _acMode === 'wiki' ? _acStart + 2 : _acMode === 'md' ? _acStart + 1 : _acStart;
     mirror.appendChild(document.createTextNode(textarea.value.slice(0, anchorOffset)));
     const anchor = document.createElement('span');
     anchor.textContent = '\u200b';
@@ -673,6 +674,28 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
   }
 
   function _complete(name) {
+    // New-note mode: either load an existing note or insert the chosen title.
+    if (_acMode === 'new-note') {
+      _hide();
+      NoteStorage.getNote(name).then(content => {
+        if (content !== null) {
+          // Existing note selected — load it immediately.
+          loadNote(name);
+        } else {
+          // Non-existing name — insert it as the note title (no link markup).
+          const curPos = textarea.selectionStart;
+          const before = textarea.value.slice(0, _acStart); // '# '
+          const after  = textarea.value.slice(curPos);
+          textarea.value = before + name + after;
+          const newPos = before.length + name.length;
+          textarea.selectionStart = textarea.selectionEnd = newPos;
+          textarea.focus();
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+      return;
+    }
+
     const pos = textarea.selectionStart;
     const before = textarea.value.slice(0, _acStart);
     const after  = textarea.value.slice(pos);
@@ -740,6 +763,45 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
     });
   }
 
+  // ── New-note filename suggestions ─────────────────────────────────────────
+  // Shows existing note names when the user is typing a title for a brand-new
+  // note (currentFileName === null, cursor on the first line after '# ').
+  // Selecting an existing note instantly loads it; typing a fresh name is unaffected.
+  function _handleNewNoteTrigger(partial, titleStart) {
+    _acStart = titleStart;
+    _acMode = 'new-note';
+    NoteStorage.getAllNoteNames().then(names => {
+      const normPartial = partial.toLowerCase();
+      const VIRTUAL = new Set([PROJECTS_NOTE, GRAPH_NOTE, CALENDARS_NOTE]);
+      const filtered = names
+        .filter(n => !n.startsWith('.') && !VIRTUAL.has(n))
+        .filter(n => !normPartial || n.toLowerCase().includes(normPartial))
+        .sort((a, b) => {
+          if (!normPartial) return b.localeCompare(a); // reverse-alpha (newest first) with no filter
+          const as = a.toLowerCase().startsWith(normPartial);
+          const bs = b.toLowerCase().startsWith(normPartial);
+          return (bs - as) || a.localeCompare(b);
+        })
+        .slice(0, 10);
+      if (filtered.length === 0) { _hide(); return; }
+      _acItems = filtered;
+      _acWantedSet = new Set();
+      _acIdx = 0;
+      _renderDropdown(filtered, new Set());
+      _positionDropdown();
+    });
+  }
+
+  // Expose a trigger so newNote() can open the popup immediately on creation.
+  window._triggerNewNoteDropdown = function() {
+    if (currentFileName !== null) return;
+    const firstLine = textarea.value.split('\n')[0];
+    const m = firstLine.match(/^#\s+(.*)/);
+    const partial = m ? m[1] : '';
+    const titleStart = firstLine.indexOf(' ') + 1; // position after '# '
+    _handleNewNoteTrigger(partial, titleStart);
+  };
+
   textarea.addEventListener('input', () => {
     const pos = textarea.selectionStart;
     const before = textarea.value.slice(0, pos);
@@ -758,6 +820,21 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
       const acStart = before.length - mdM[1].length - 1;
       _handleMatch(mdM[1].toLowerCase(), acStart, 'md');
       return;
+    }
+
+    // Priority 3: new-note mode — typing the title for a brand-new note
+    if (currentFileName === null) {
+      const firstLineEnd = textarea.value.indexOf('\n');
+      const onFirstLine = firstLineEnd === -1 || pos <= firstLineEnd;
+      if (onFirstLine) {
+        const firstLine = firstLineEnd === -1 ? textarea.value : textarea.value.slice(0, firstLineEnd);
+        const titleM = firstLine.match(/^#\s+(.*)/);
+        if (titleM) {
+          const titleStart = firstLine.indexOf(' ') + 1; // char index after '# '
+          _handleNewNoteTrigger(titleM[1], titleStart);
+          return;
+        }
+      }
     }
 
     _hide();
