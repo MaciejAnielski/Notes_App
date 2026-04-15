@@ -376,3 +376,11 @@ body.schedule-dragging * {
 /* Prevent scroll-hijacking on draggable items (touch) */
 .schedule-item { touch-action: pan-y; }
 .schedule-allday-section .schedule-item { touch-action: pan-y; }
+
+/* Drop-target highlight when a timed item is dragged over the all-day section */
+.schedule-allday-section.schedule-allday-drop-target {
+  outline: 2px dashed var(--sched-item-border);
+  outline-offset: -2px;
+  border-radius: 5px;
+  background: var(--sched-item-bg);
+}

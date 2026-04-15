@@ -742,6 +742,13 @@ async function newNote() {
     textarea.setSelectionRange('# '.length, '# '.length);
   }
   updateFileList();
+  // Show the filename suggestion popup so the user can see available note names
+  // and quickly open an existing note instead of creating a duplicate.
+  requestAnimationFrame(() => {
+    if (typeof window._triggerNewNoteDropdown === 'function') {
+      window._triggerNewNoteDropdown();
+    }
+  });
 }
 
 async function deleteNote() {

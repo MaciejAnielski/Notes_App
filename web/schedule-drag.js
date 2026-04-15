@@ -79,6 +79,15 @@ function _sdClient(e) {
 
 // ── Markdown write-back ────────────────────────────────────────────────────
 
+// Removes the HHMM HHMM tokens from a timed line, converting it to an
+// all-day line (> YYMMDD). Preserves the task prefix and @calendar-tag.
+// Returns the updated line, or null if the pattern isn't found.
+function _sdTimedToAlldayLine(line) {
+  const re = /(>\s*\d{6})\s+\d{4}\s+\d{4}((?:\s+@\S+)*)\s*$/;
+  if (!re.test(line)) return null;
+  return line.replace(re, (_, datePart, tags) => `${datePart}${tags}`);
+}
+
 // Replaces the HHMM HHMM portion of a timed schedule line, preserving
 // everything else (task prefix, date, @calendar-tag).
 // Returns the updated line string, or null if the line doesn't match.
@@ -111,6 +120,34 @@ async function _sdCommit(item, newStart, newEnd) {
   } else {
     updated = _sdReplaceTimedLine(lines[item.lineIndex], newStart, newEnd);
   }
+  if (!updated || updated === lines[item.lineIndex]) return;
+
+  lines[item.lineIndex] = updated;
+  const newContent = lines.join('\n');
+  await NoteStorage.setNote(item.fileName, newContent);
+
+  if (currentFileName === item.fileName) {
+    textarea.value = newContent;
+    if (isPreview || projectsViewActive) {
+      if (typeof renderPreview === 'function') renderPreview();
+    } else {
+      if (typeof refreshHighlight === 'function') refreshHighlight();
+    }
+  }
+
+  invalidateScheduleCache();
+  await renderSchedule();
+}
+
+// Converts a timed item back to an all-day item by stripping HHMM tokens.
+async function _sdCommitToAllday(item) {
+  if (item.isAllDay) return; // already all-day; nothing to do
+  const content = await NoteStorage.getNote(item.fileName);
+  if (!content) return;
+  const lines = content.split('\n');
+  if (item.lineIndex < 0 || item.lineIndex >= lines.length) return;
+
+  const updated = _sdTimedToAlldayLine(lines[item.lineIndex]);
   if (!updated || updated === lines[item.lineIndex]) return;
 
   lines[item.lineIndex] = updated;
@@ -219,6 +256,20 @@ function _sdInTimedArea(clientY) {
   return clientY >= r.top && clientY <= r.bottom;
 }
 
+// True when clientY is within the all-day section.
+function _sdInAlldayArea(clientY) {
+  const section = document.querySelector('.schedule-allday-section');
+  if (!section) return false;
+  const r = section.getBoundingClientRect();
+  return clientY >= r.top && clientY <= r.bottom;
+}
+
+// Add/remove the visual drop-target highlight on the all-day section.
+function _sdHighlightAllday(on) {
+  const section = document.querySelector('.schedule-allday-section');
+  if (section) section.classList.toggle('schedule-allday-drop-target', on);
+}
+
 // ── Drag-to-resize helpers ─────────────────────────────────────────────────
 
 function _sdCalcResize(clientY) {
@@ -234,6 +285,7 @@ function _sdCalcResize(clientY) {
 function _sdCleanup(block) {
   _sdStopScrollLoop();
   _sdRemoveOutline();
+  _sdHighlightAllday(false);
   document.body.classList.remove('schedule-dragging');
   if (_sd_clone) { _sd_clone.remove(); _sd_clone = null; }
   if (block)     { block.classList.remove('schedule-item-drag-source'); }
@@ -297,12 +349,23 @@ function _sdOnMove(e) {
     if (_sdInTimedArea(clientY)) {
       const { startMins, endMins } = _sdCalcMove(clientY);
       _sdShowOutline(startMins, endMins - startMins);
-      _sd_drag.pendingStart = _sdMinsToHHMM(startMins);
-      _sd_drag.pendingEnd   = _sdMinsToHHMM(endMins);
+      _sd_drag.pendingStart    = _sdMinsToHHMM(startMins);
+      _sd_drag.pendingEnd      = _sdMinsToHHMM(endMins);
+      _sd_drag.pendingToAllday = false;
+      _sdHighlightAllday(false);
+    } else if (!_sd_drag.item.isAllDay && _sdInAlldayArea(clientY)) {
+      // Timed item dragged over the all-day section — offer to convert it
+      _sdHideOutline();
+      _sd_drag.pendingStart    = null;
+      _sd_drag.pendingEnd      = null;
+      _sd_drag.pendingToAllday = true;
+      _sdHighlightAllday(true);
     } else {
       _sdHideOutline();
-      _sd_drag.pendingStart = null;
-      _sd_drag.pendingEnd   = null;
+      _sdHighlightAllday(false);
+      _sd_drag.pendingStart    = null;
+      _sd_drag.pendingEnd      = null;
+      _sd_drag.pendingToAllday = false;
     }
   } else if (_sd_drag.type === 'resize') {
     const endMins   = _sdCalcResize(clientY);
@@ -328,7 +391,9 @@ async function _sdOnUp(e) {
 
   if (!d.active) return;  // was just a click — nameSpan.click will fire normally
 
-  if (d.type === 'move' && d.pendingStart && d.pendingEnd) {
+  if (d.type === 'move' && d.pendingToAllday) {
+    await _sdCommitToAllday(d.item);
+  } else if (d.type === 'move' && d.pendingStart && d.pendingEnd) {
     await _sdCommit(d.item, d.pendingStart, d.pendingEnd);
   } else if (d.type === 'resize' && d.pendingEnd) {
     await _sdCommit(d.item, d.item.startTime, d.pendingEnd);
@@ -360,6 +425,7 @@ function _sdStartMove(e, block, item) {
     durationMins, offsetMins,
     cloneOffsetY,
     pendingStart: null, pendingEnd: null,
+    pendingToAllday: false,
     touchTimer: null, touchReady: false,
   };
 

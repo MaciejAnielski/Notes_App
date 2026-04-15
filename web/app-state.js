@@ -605,7 +605,7 @@ function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0
         expandCollapsedAncestors(el);
         el.classList.add('schedule-highlight');
         el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        setTimeout(() => el.classList.remove('schedule-highlight'), 2000);
+        el.addEventListener('animationend', () => el.classList.remove('schedule-highlight'), { once: true });
         return;
       }
       lastMatch = el;
@@ -616,6 +616,6 @@ function highlightTextInPreview(text, caseSensitive = false, occurrenceIndex = 0
     expandCollapsedAncestors(lastMatch);
     lastMatch.classList.add('schedule-highlight');
     lastMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    setTimeout(() => lastMatch.classList.remove('schedule-highlight'), 2000);
+    lastMatch.addEventListener('animationend', () => lastMatch.classList.remove('schedule-highlight'), { once: true });
   }
 }
