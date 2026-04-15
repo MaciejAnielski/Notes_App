@@ -14,10 +14,19 @@
 }
 
 /* Calendar picker: smaller circle */
-.calendar-color-picker { width: 20px; height: 20px; }
+.calendar-color-picker {
+  width: 20px;
+  height: 20px;
+  /* box-shadow ring is more reliable than pseudo-element borders across browsers */
+  box-shadow: 0 0 0 1.5px var(--border);
+}
 
 /* Theme picker: slightly larger */
-.theme-color-picker { width: 28px; height: 28px; }
+.theme-color-picker {
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 0 0 2px var(--border);
+}
 
 .calendar-color-picker::-webkit-color-swatch-wrapper,
 .theme-color-picker::-webkit-color-swatch-wrapper {
@@ -27,13 +36,13 @@
 
 .calendar-color-picker::-webkit-color-swatch,
 .calendar-color-picker::-moz-color-swatch {
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 50%;
 }
 
 .theme-color-picker::-webkit-color-swatch,
 .theme-color-picker::-moz-color-swatch {
-  border: 2px solid var(--border);
+  border: none;
   border-radius: 50%;
 }
 

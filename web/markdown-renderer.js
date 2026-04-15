@@ -957,7 +957,10 @@ function setupMermaidPanZoom(wrapper) {
 
     wrapper.classList.add('mermaid-panzoom-active');
     applyFullAreaLayout();
-    wrapper.style.zIndex   = '200';
+    // z-index 4: sits above normal preview content but below the status area
+    // (z-index 5), side panel (z-index 50+), and toolbar (z-index 100) so
+    // that all UI chrome remains visible — matching the editor/view container.
+    wrapper.style.zIndex   = '4';
     wrapper.style.overflow = 'hidden';
     wrapper.style.cursor   = 'grab';
 

@@ -86,19 +86,26 @@
   opacity: 1;
 }
 
-/* Pan/zoom active state — sizing/position applied via JS; just set visual properties */
+/* Pan/zoom active state — sizing/position applied via JS; just set visual properties.
+   Visually matches the editor/preview container: same background, same padding,
+   toolbar and status bar remain visible above (lower z-index than UI chrome). */
 .mermaid-diagram.mermaid-panzoom-active {
   background: var(--bg);
   user-select: none;
   touch-action: none;
-  /* Small inner padding so the SVG doesn't sit flush against the edge */
-  padding: 36px var(--gap, 10px) var(--gap, 10px);
+  /* Top padding clears the toolbar pill; sides/bottom match --gap */
+  padding: var(--toolbar-h, 48px) var(--gap, 10px) var(--gap, 10px);
   box-sizing: border-box;
 }
 
 .mermaid-diagram.mermaid-panzoom-active svg {
   max-width: none;
   display: block;
+}
+
+/* Keep the panzoom toggle button on top of the canvas content */
+.mermaid-diagram.mermaid-panzoom-active .mermaid-panzoom-btn {
+  z-index: 6;
 }
 
 /* ── Projects note — clickable emoji headings ── */
