@@ -1271,6 +1271,7 @@ async function renderPreview() {
     injectEncryptionSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
+    injectBookmarklets(previewDiv);
   }
 
   // Projects note: make emojis clickable to change them
@@ -2206,6 +2207,286 @@ function injectThemeColorPickers(container) {
     if (typeof syncThemeToNote === 'function') syncThemeToNote();
     reinitMermaidTheme();
   });
+}
+
+// ── Bookmarklets in Settings note preview ─────────────────────────────────
+// Injects draggable ⚙ Learn Page and 📋 Extract bookmarklet <a> links into
+// the "🔖 Bookmarklets" section. Web only — no bookmarks bar on Electron/iOS.
+//
+// Palette is derived from the user's current theme (background + accent) via
+// _deriveBookmarkletPalette(), so the dragged bookmarklet always carries the
+// user's custom colours.  The hrefs are rebuilt live whenever the theme colour
+// pickers fire an input event.
+
+// Derive a full bookmarklet colour palette from two theme hex values.
+// Uses HSL maths mirroring the approach in theme-engine.js, but limited to
+// the ~12 colour slots the bookmarklet panels actually need.
+function _deriveBookmarkletPalette(bg, accent) {
+  function hexToHsl(hex) {
+    const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+    const max=Math.max(r,g,b), min=Math.min(r,g,b);
+    let h=0, s=0;
+    const l=(max+min)/2;
+    if (max!==min) {
+      const d=max-min;
+      s=l>0.5?d/(2-max-min):d/(max+min);
+      if (max===r) h=((g-b)/d+(g<b?6:0))/6;
+      else if (max===g) h=((b-r)/d+2)/6;
+      else h=((r-g)/d+4)/6;
+    }
+    return [h*360, s*100, l*100];
+  }
+  function hslToHex(h, s, l) {
+    h=((h%360)+360)%360; s=Math.min(100,Math.max(0,s)); l=Math.min(100,Math.max(0,l));
+    h/=360; s/=100; l/=100;
+    let r,g,b;
+    if (s===0) { r=g=b=l; } else {
+      const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+      const h2r=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;return t<1/6?p+(q-p)*6*t:t<0.5?q:t<2/3?p+(q-p)*(2/3-t)*6:p;};
+      r=h2r(p,q,h+1/3); g=h2r(p,q,h); b=h2r(p,q,h-1/3);
+    }
+    return '#'+[r,g,b].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('');
+  }
+  const cl=(v,a,b)=>Math.min(b,Math.max(a,v));
+  const [bgH,bgS,bgL]=hexToHsl(bg);
+  const [acH,acS,acL]=hexToHsl(accent);
+  const dk=bgL<50;
+  return {
+    bg,
+    surface:     hslToHex(bgH, cl(bgS*0.5+acS*0.15,0,35), cl(dk?bgL+9:bgL-7,  8, 85)),
+    inputBg:     hslToHex(bgH, cl(bgS*0.6,0,20),           cl(dk?bgL-4:bgL+4,  4, 96)),
+    border:      hslToHex(acH, cl(acS*0.55,0,50),          cl(dk?bgL+22:bgL-18,10, 50)),
+    subtle:      hslToHex(acH, cl(acS*0.4,0,35),           cl(dk?bgL+13:bgL-12, 8, 45)),
+    text:        hslToHex(acH, cl(acS*0.25,0,25),          cl(dk?cl(93-bgL*0.1,82,94):cl(bgL*0.12,8,18),8,94)),
+    muted:       hslToHex(acH, cl(acS*0.35,0,35),          cl(dk?bgL+44:bgL-28,48, 75)),
+    dim:         hslToHex(acH, cl(acS*0.3,0,30),           cl(dk?bgL+22:bgL-16,32, 65)),
+    accent,
+    accentBg:    hslToHex(acH, cl(acS*0.8,20,70),          cl(dk?bgL+16:bgL-14,10, 35)),
+    accentDark:  hslToHex(acH, cl(acS*0.9,15,65),          cl(dk?acL-12:acL-18,15, 42)),
+    accentLight: hslToHex(acH, cl(acS*0.65,20,65),         cl(dk?acL+18:acL-8, 60, 88)),
+    code:        hslToHex((acH+150)%360, 30,               dk?68:35),
+  };
+}
+
+// Build the ⚙ Learn Page bookmarklet source, with colours from palette p.
+// Success/error/warning colours are kept fixed (green/red/amber are universal).
+function _buildLearnSrc(p) {
+  return `(function(){
+var STORAGE_KEY='pageExtractorFields',PANEL_ID='pex-panel';
+var ep=document.getElementById(PANEL_ID);
+if(ep){ep.remove();document.body.style.cursor='';return;}
+var fields=[],pickIdx=null,hlEl=null;
+try{fields=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){fields=[];}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(fields));}
+function esc(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function defAttr(el){var t=el.tagName.toLowerCase();return t==='time'?'datetime':t==='a'?'href':t==='img'?'src':t==='meta'?'content':'text';}
+function genSel(tgt){
+  if(tgt.closest&&tgt.closest('#'+PANEL_ID))return null;
+  if(tgt.id&&tgt.id.length<40&&!/^\\d/.test(tgt.id)&&!/[a-f0-9]{8,}/.test(tgt.id)){try{var s='#'+CSS.escape(tgt.id);if(document.querySelector(s)===tgt)return s;}catch(e){}}
+  function desc(el){var tag=el.tagName.toLowerCase();var cls=Array.from(el.classList).filter(function(c){return c.length>1&&!/^(is-|has-|js-)/.test(c)&&!/^(active|selected|open|closed|hover|focus|visible|hidden|disabled|loading|current|expanded|collapsed|show|hide|first|last|odd|even|highlighted|featured)$/.test(c);});if(cls.length>0){try{return tag+'.'+cls.slice(0,2).map(CSS.escape).join('.');}catch(e){}}return tag;}
+  var path=[],cur=tgt;
+  while(cur&&cur!==document.body&&cur!==document.documentElement){path.unshift(cur);cur=cur.parentElement;}
+  for(var i=path.length-1;i>=0;i--){var cand=path.slice(i).map(desc).join(' > ');try{var m=document.querySelectorAll(cand);if(m.length===1&&m[0]===tgt)return cand;}catch(e){}}
+  return path.map(desc).join(' > ');
+}
+function getVal(sel,attr){if(!sel)return '';try{var el=document.querySelector(sel);if(!el)return '';if(attr==='href')return el.href||el.getAttribute('href')||'';if(attr==='src')return el.src||el.getAttribute('src')||'';if(attr==='datetime')return el.getAttribute('datetime')||el.innerText||'';if(attr==='content')return el.getAttribute('content')||'';return (el.innerText||el.textContent||'').trim().replace(/\\s+/g,' ');}catch(e){return '';}}
+function fmtMd(f,v){if(!v)return '';switch(f.format){case 'heading':return '# '+v;case 'link':return '['+f.label+']('+v+')';case 'plain':return v;default:return '**'+f.label+':** '+v;}}
+function buildMd(){var lines=fields.map(function(f){return fmtMd(f,getVal(f.selector,f.attribute)||'(not found)');});lines.push('**URL:** '+window.location.href);return lines.join('\\n\\n');}
+function copyText(t,cb){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(cb).catch(function(){fbCopy(t);if(cb)cb();});}else{fbCopy(t);if(cb)cb();}}
+function fbCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
+function renderPanel(){
+  var panel=document.getElementById(PANEL_ID);if(!panel)return;
+  var fHtml=fields.map(function(f,i){
+    var prev=getVal(f.selector,f.attribute),isP=pickIdx===i;
+    var sb=f.selector?(prev?'#4caf72':'#d4a24a'):'${p.border}';
+    var fmt=f.format||'bold';
+    return '<div style="background:${p.surface};border:1px solid ${p.subtle};border-radius:8px;padding:10px;margin-bottom:8px;">'+
+      '<div style="display:flex;gap:5px;margin-bottom:7px;align-items:center;">'+
+      '<input data-a="label" data-i="'+i+'" value="'+esc(f.label)+'" placeholder="Label" style="flex:1;min-width:0;background:${p.inputBg};border:1px solid ${p.border};border-radius:5px;color:${p.text};padding:5px 8px;font-size:12px;font-family:inherit;">'+
+      '<select data-a="attribute" data-i="'+i+'" style="background:${p.inputBg};border:1px solid ${p.border};border-radius:5px;color:${p.text};padding:5px 6px;font-size:11px;">'+
+      '<option value="text"'+(f.attribute==='text'?' selected':'')+'>Text</option>'+
+      '<option value="href"'+(f.attribute==='href'?' selected':'')+'>href</option>'+
+      '<option value="datetime"'+(f.attribute==='datetime'?' selected':'')+'>datetime</option>'+
+      '<option value="content"'+(f.attribute==='content'?' selected':'')+'>content</option>'+
+      '</select>'+
+      '<select data-a="format" data-i="'+i+'" style="background:${p.inputBg};border:1px solid ${p.border};border-radius:5px;color:${p.text};padding:5px 6px;font-size:11px;">'+
+      '<option value="bold"'+(fmt==='bold'?' selected':'')+'> **Bold**</option>'+
+      '<option value="heading"'+(fmt==='heading'?' selected':'')+'># Heading</option>'+
+      '<option value="link"'+(fmt==='link'?' selected':'')+'>[ Link]()</option>'+
+      '<option value="plain"'+(fmt==='plain'?' selected':'')+'>Plain</option>'+
+      '</select>'+
+      '<button data-a="delete" data-i="'+i+'" style="background:#3a1820;border:none;border-radius:5px;color:#e05c5c;padding:5px 9px;cursor:pointer;font-size:12px;line-height:1;flex-shrink:0;">✕</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:5px;align-items:center;">'+
+      '<input data-a="selector" data-i="'+i+'" value="'+esc(f.selector||'')+'" placeholder="CSS selector" style="flex:1;min-width:0;background:${p.inputBg};border:1px solid '+sb+';border-radius:5px;color:${p.code};padding:5px 8px;font-size:11px;font-family:monospace;">'+
+      '<button data-a="pick" data-i="'+i+'" style="background:${p.accentDark};border:none;border-radius:5px;color:'+(isP?'${p.accentLight}':'${p.text}')+';padding:5px 9px;cursor:pointer;font-size:11px;white-space:nowrap;flex-shrink:0;">'+(isP?'🎯 picking...':'🖱 Pick')+'</button>'+
+      '</div>'+
+      '<div style="margin-top:6px;font-size:11px;color:${p.dim};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+
+      (prev?'<span style="color:#4caf72;">→ </span>'+esc(prev.substring(0,70))+(prev.length>70?'…':''):'<span style="color:${p.subtle};font-style:italic;">no match on this page</span>')+
+      '</div></div>';
+  }).join('');
+  var mdOut=buildMd();
+  panel.innerHTML=
+    '<div id="pex-drag" style="background:${p.surface};border-bottom:1px solid ${p.subtle};padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;">'+
+    '<span style="font-weight:600;font-size:13px;color:${p.text};">⚙ Page → Notes Extractor</span>'+
+    '<div style="display:flex;gap:8px;align-items:center;">'+
+    '<span style="font-size:11px;color:${p.dim};">'+fields.length+' field'+(fields.length!==1?'s':'')+'</span>'+
+    '<button data-a="close" style="background:none;border:none;color:${p.dim};cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;">✕</button>'+
+    '</div></div>'+
+    (pickIdx!==null?'<div style="background:${p.accentBg};color:${p.accentLight};padding:7px 14px;font-size:12px;text-align:center;border-bottom:1px solid ${p.subtle};">Click an element on the page — Esc to cancel</div>':'')+
+    '<div style="padding:10px;overflow-y:auto;max-height:320px;">'+
+    (fHtml||'<div style="color:${p.dim};text-align:center;padding:20px 0;font-size:12px;">No fields yet — add one below</div>')+
+    '<button data-a="add" style="width:100%;background:#1a3428;border:1px solid #4caf72;border-radius:6px;color:#4caf72;padding:7px;cursor:pointer;font-size:12px;margin-top:6px;">+ Add Field</button>'+
+    '</div>'+
+    (fields.length>0?
+      '<div style="border-top:1px solid ${p.subtle};">'+
+      '<div style="padding:7px 14px;background:${p.inputBg};display:flex;justify-content:space-between;align-items:center;">'+
+      '<span style="font-size:11px;color:${p.dim};">Markdown preview</span>'+
+      '<button data-a="copy" style="background:${p.accentBg};border:1px solid ${p.accentDark};border-radius:5px;color:${p.accent};padding:3px 9px;cursor:pointer;font-size:11px;">📋 Copy</button>'+
+      '</div>'+
+      '<pre style="margin:0;padding:8px 14px 10px;background:${p.inputBg};font-size:10px;color:${p.code};max-height:130px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace;line-height:1.5;">'+esc(mdOut)+'</pre>'+
+      '</div>':'')+
+    '<div style="background:${p.inputBg};border-top:1px solid ${p.subtle};padding:7px 14px;display:flex;justify-content:space-between;align-items:center;">'+
+    '<button data-a="clear" style="background:none;border:1px solid ${p.border};border-radius:5px;color:${p.muted};padding:3px 9px;cursor:pointer;font-size:11px;">Clear all</button>'+
+    '<span style="font-size:10px;color:${p.subtle};">pageExtractorFields</span>'+
+    '</div>';
+  setupDrag(panel,document.getElementById('pex-drag'));
+}
+function setupDrag(panel,handle){if(!handle)return;handle.onmousedown=function(e){if(e.target.tagName==='BUTTON')return;var sx=e.clientX,sy=e.clientY,sl=panel.offsetLeft,st=panel.offsetTop;function mv(e){panel.style.left=(sl+e.clientX-sx)+'px';panel.style.top=(st+e.clientY-sy)+'px';panel.style.right='auto';}function up(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);}document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);e.preventDefault();};}
+function onClick(e){
+  var a=e.target.getAttribute('data-a');if(!a)return;
+  var i=parseInt(e.target.getAttribute('data-i'),10);
+  if(a==='close'){cleanup();}
+  else if(a==='add'){fields.push({label:'Field '+(fields.length+1),selector:'',attribute:'text',format:'bold'});save();renderPanel();}
+  else if(a==='delete'){if(pickIdx===i){pickIdx=null;stopPick();}fields.splice(i,1);save();renderPanel();}
+  else if(a==='pick'){if(pickIdx===i){pickIdx=null;stopPick();}else{if(pickIdx!==null)stopPick();pickIdx=i;startPick();}renderPanel();}
+  else if(a==='clear'){if(confirm('Remove all '+fields.length+' field(s)?')){fields=[];if(pickIdx!==null){pickIdx=null;stopPick();}save();renderPanel();}}
+  else if(a==='copy'){var md=buildMd();copyText(md,function(){e.target.textContent='✓ Copied!';setTimeout(function(){e.target.innerHTML='📋 Copy';},1600);});}
+}
+function onChange(e){var a=e.target.getAttribute('data-a'),i=parseInt(e.target.getAttribute('data-i'),10);if(isNaN(i))return;if(a==='attribute'){fields[i].attribute=e.target.value;save();renderPanel();}else if(a==='format'){fields[i].format=e.target.value;save();renderPanel();}}
+var debT=null;
+function onInput(e){var a=e.target.getAttribute('data-a'),i=parseInt(e.target.getAttribute('data-i'),10);if(isNaN(i))return;if(a==='label'){fields[i].label=e.target.value;save();}else if(a==='selector'){fields[i].selector=e.target.value;save();clearTimeout(debT);debT=setTimeout(renderPanel,550);}}
+function startPick(){document.addEventListener('mouseover',onHov,true);document.addEventListener('click',onPickEl,true);document.addEventListener('keydown',onKey,true);document.body.style.cursor='crosshair';}
+function stopPick(){document.removeEventListener('mouseover',onHov,true);document.removeEventListener('click',onPickEl,true);document.removeEventListener('keydown',onKey,true);document.body.style.cursor='';clearHl();}
+function clearHl(){if(hlEl){hlEl.style.outline=hlEl._pexOut||'';hlEl.style.outlineOffset=hlEl._pexOff||'';delete hlEl._pexOut;delete hlEl._pexOff;hlEl=null;}}
+function onHov(e){var t=e.target;if(t.closest&&t.closest('#'+PANEL_ID))return;clearHl();hlEl=t;t._pexOut=t.style.outline;t._pexOff=t.style.outlineOffset;t.style.outline='2px solid ${p.accent}';t.style.outlineOffset='2px';}
+function onPickEl(e){var t=e.target;if(t.closest&&t.closest('#'+PANEL_ID))return;e.preventDefault();e.stopPropagation();if(pickIdx===null)return;var sel=genSel(t);if(sel){fields[pickIdx].selector=sel;if(!fields[pickIdx].attribute||fields[pickIdx].attribute==='text')fields[pickIdx].attribute=defAttr(t);save();}pickIdx=null;stopPick();renderPanel();}
+function onKey(e){if(e.key==='Escape'){pickIdx=null;stopPick();renderPanel();}}
+function cleanup(){stopPick();var p=document.getElementById(PANEL_ID);if(p)p.remove();}
+var panel=document.createElement('div');
+panel.id=PANEL_ID;
+panel.style.cssText='position:fixed;top:20px;right:20px;width:370px;background:${p.bg};border:1px solid ${p.border};border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;z-index:2147483647;overflow:hidden;display:flex;flex-direction:column;';
+panel.addEventListener('click',onClick);
+panel.addEventListener('change',onChange);
+panel.addEventListener('input',onInput);
+document.body.appendChild(panel);
+renderPanel();
+})();`;
+}
+
+// Build the 📋 Extract bookmarklet source, with colours from palette p.
+function _buildExtractSrc(p) {
+  return `(function(){
+var STORAGE_KEY='pageExtractorFields';
+var fields=[];
+try{fields=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){}
+if(!fields.length){alert('No fields configured.\\nUse the ⚙ Learn Page bookmarklet first.');return;}
+function getVal(sel,attr){if(!sel)return '';try{var el=document.querySelector(sel);if(!el)return '';if(attr==='href')return el.href||el.getAttribute('href')||'';if(attr==='src')return el.src||el.getAttribute('src')||'';if(attr==='datetime')return el.getAttribute('datetime')||el.innerText||'';if(attr==='content')return el.getAttribute('content')||'';return (el.innerText||el.textContent||'').trim().replace(/\\s+/g,' ');}catch(e){return '';}}
+function fmtMd(f,v){if(!v)return '';switch(f.format){case 'heading':return '# '+v;case 'link':return '['+f.label+']('+v+')';case 'plain':return v;default:return '**'+f.label+':** '+v;}}
+var missing=[];
+var lines=fields.map(function(f){var v=getVal(f.selector,f.attribute);if(!v)missing.push(f.label);return fmtMd(f,v);}).filter(Boolean);
+lines.push('**URL:** '+window.location.href);
+var md=lines.join('\\n\\n');
+function copyText(t,ok){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(ok).catch(function(){fbCopy(t);ok();});}else{fbCopy(t);ok();}}
+function fbCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
+function escHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showToast(ok){
+  var ex=document.getElementById('pex-toast');if(ex)ex.remove();
+  var toast=document.createElement('div');
+  toast.id='pex-toast';
+  toast.style.cssText='position:fixed;bottom:28px;right:28px;max-width:420px;min-width:260px;background:${p.bg};border:1px solid ${p.border};border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;z-index:2147483647;overflow:hidden;';
+  var warnHtml=missing.length?'<div style="padding:6px 14px;background:#2d2200;border-bottom:1px solid ${p.subtle};font-size:11px;color:#d4a24a;">⚠ Not found: '+escHtml(missing.join(', '))+'</div>':'';
+  toast.innerHTML=
+    '<div style="background:'+(ok?'#1a3428':'#3a1820')+';color:'+(ok?'#4caf72':'#e05c5c')+';padding:9px 14px;font-weight:600;display:flex;align-items:center;gap:8px;">'+
+    '<span>'+(ok?'✓':'⚠')+'</span>'+
+    '<span>'+(ok?'Copied — paste into a note':'Copy failed — select below')+'</span>'+
+    '</div>'+
+    warnHtml+
+    '<pre style="margin:0;padding:10px 14px;background:${p.inputBg};font-size:10px;color:${p.code};max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace;line-height:1.5;">'+escHtml(md)+'</pre>'+
+    '<div style="padding:7px 14px;background:${p.surface};text-align:right;">'+
+    '<button id="pex-toast-close" style="background:none;border:none;color:${p.muted};cursor:pointer;font-size:12px;">Dismiss</button>'+
+    '</div>';
+  document.body.appendChild(toast);
+  document.getElementById('pex-toast-close').onclick=function(){toast.remove();};
+  setTimeout(function(){if(toast.parentNode){toast.style.transition='opacity 0.4s';toast.style.opacity='0';setTimeout(function(){if(toast.parentNode)toast.remove();},450);}},6000);
+}
+copyText(md,function(){showToast(true);});
+})();`;
+}
+
+function injectBookmarklets(container) {
+  if (window.electronAPI || window.Capacitor?.isNativePlatform()) return;
+
+  // Find the <details> wrapping the "Bookmarklets" h2 (autocollapsed headings
+  // get wrapped in <details> by setupCollapsibleHeadings)
+  let bmSection = null;
+  for (const details of container.querySelectorAll('details')) {
+    const h = details.querySelector('summary h2');
+    if (h && h.textContent.includes('Bookmarklets')) { bmSection = details; break; }
+  }
+  if (!bmSection) {
+    for (const h of container.querySelectorAll('h2')) {
+      if (h.textContent.includes('Bookmarklets')) { bmSection = h.parentElement; break; }
+    }
+  }
+  if (!bmSection) return;
+  if (bmSection.querySelector('.bookmarklet-controls')) return; // already injected
+
+  // ── Build the UI ──────────────────────────────────────────────────────────
+  const wrap = document.createElement('div');
+  wrap.className = 'bookmarklet-controls';
+
+  const row = document.createElement('div');
+  row.className = 'bookmarklet-row';
+
+  const learnLink = document.createElement('a');
+  learnLink.className = 'bookmarklet-btn';
+  learnLink.textContent = '⚙ Learn Page';
+  learnLink.draggable = true;
+  learnLink.addEventListener('click', e => e.preventDefault());
+
+  const extractLink = document.createElement('a');
+  extractLink.className = 'bookmarklet-btn';
+  extractLink.textContent = '📋 Extract';
+  extractLink.draggable = true;
+  extractLink.addEventListener('click', e => e.preventDefault());
+
+  // Rebuild hrefs from the current theme palette.  Called once on inject and
+  // again whenever the user adjusts a colour picker in the Theme section.
+  function updateHrefs() {
+    const theme = getCurrentTheme();
+    const p = _deriveBookmarkletPalette(theme.background, theme.accent);
+    learnLink.href   = 'javascript:' + encodeURIComponent(_buildLearnSrc(p));
+    extractLink.href = 'javascript:' + encodeURIComponent(_buildExtractSrc(p));
+  }
+  updateHrefs();
+
+  // Re-derive whenever the colour pickers fire (live preview updates theme
+  // synchronously via applyTheme, so getCurrentTheme() reflects the new value)
+  for (const picker of container.querySelectorAll('.theme-color-picker')) {
+    picker.addEventListener('input', updateHrefs);
+  }
+
+  row.appendChild(learnLink);
+  row.appendChild(extractLink);
+  wrap.appendChild(row);
+
+  const hint = document.createElement('p');
+  hint.className = 'bookmarklet-hint';
+  hint.textContent = 'Drag to your bookmarks bar. Show it with Ctrl+Shift+B (⌘+Shift+B on Mac).';
+  wrap.appendChild(hint);
+
+  _appendControls(bmSection, wrap);
 }
 
 // ── Refresh Settings note UI after sync ───────────────────────────────────
