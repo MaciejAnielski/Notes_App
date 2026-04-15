@@ -301,6 +301,9 @@ function saveChain() {
 // Smoothly animate the pill to its new natural width after a content change.
 // Only animates when the pill is explicitly visible (style.opacity === '1').
 let _pillResizeTimer = null;
+// In-flight cross-fade delay for updateStatus content swaps.
+let _crossFadeTimer = null;
+
 function _animatePillResize(pillEl, changeFn) {
   if (!pillEl || pillEl.style.opacity !== '1') { changeFn(); return; }
 
@@ -334,36 +337,49 @@ function _animatePillResize(pillEl, changeFn) {
 // persistent=true: message stays visible until next updateStatus call
 function updateStatus(message, success, persistent = false) {
   const pillEl = document.getElementById('bottom-status-area');
-  // Remove any active scroll-fade first so its !important opacity override cannot
-  // mask the restore below, then make the pill live so _animatePillResize sees it.
+
+  // Cancel any in-flight cross-fade and auto-hide timers so a rapid sequence
+  // of calls always converges on the latest message without stale side-effects.
+  if (_crossFadeTimer) { clearTimeout(_crossFadeTimer); _crossFadeTimer = null; }
+  if (statusTimeout)   { clearTimeout(statusTimeout);   statusTimeout   = null; }
+
+  // Remove any active scroll-fade so its !important opacity cannot mask the
+  // restore below, then make the pill live so _animatePillResize can see it.
   if (pillEl) { pillEl.classList.remove('scroll-faded'); pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
 
-  // Cross-fade the label when a message is already showing: dip text opacity to 0,
-  // change content while invisible, then fade back in via double-rAF so the browser
-  // commits the new text node before the transition reverses.
-  const wasVisible = statusDiv.style.opacity === '1';
-  if (wasVisible) statusDiv.style.opacity = '0';
-
-  _animatePillResize(pillEl, () => {
-    statusDiv.textContent = toTitleCase(message);
-    statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
-    if (!wasVisible) statusDiv.style.opacity = '1';
-  });
-
-  if (wasVisible) {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => { statusDiv.style.opacity = '1'; });
+  // Inner helper: swap text content, animate pill width, then fade text in.
+  // Also schedules the auto-hide timer (unless persistent).
+  function applyMessage() {
+    _animatePillResize(pillEl, () => {
+      statusDiv.textContent = toTitleCase(message);
+      statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
     });
+    // Fade text in on the next frame so the browser has committed the new
+    // text node and the CSS transition fires cleanly.
+    requestAnimationFrame(() => { statusDiv.style.opacity = '1'; });
+
+    if (!persistent) {
+      statusTimeout = setTimeout(() => {
+        statusDiv.style.opacity = '0';
+        if (pillEl) { pillEl.style.opacity = '0'; pillEl.style.pointerEvents = 'none'; }
+      }, 3000);
+    }
   }
 
-  if (statusTimeout) clearTimeout(statusTimeout);
-  if (persistent) {
-    statusTimeout = null;
+  // Cross-fade when a message is already visible: fade the text out fully
+  // first (150 ms — matches #status-message transition in toolbar.css), then
+  // swap the content and animate the pill to its new size.  This avoids the
+  // brief "empty-pill" artefact of the old double-rAF approach and gives a
+  // clear sequential animation: out → resize + in.
+  const wasVisible = statusDiv.style.opacity === '1';
+  if (wasVisible) {
+    statusDiv.style.opacity = '0';
+    _crossFadeTimer = setTimeout(() => {
+      _crossFadeTimer = null;
+      applyMessage();
+    }, 150);
   } else {
-    statusTimeout = setTimeout(() => {
-      statusDiv.style.opacity = '0';
-      if (pillEl) { pillEl.style.opacity = '0'; pillEl.style.pointerEvents = 'none'; }
-    }, 3000);
+    applyMessage();
   }
 }
 

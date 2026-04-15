@@ -17,13 +17,19 @@
   white-space: nowrap;
   z-index: 5;
   box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
-  will-change: opacity, transform;
+  /* Include width so the browser promotes the pill to its own compositor
+     layer, keeping width animations smooth across all platforms (including
+     iOS where position:fixed + width transition can otherwise stutter). */
+  will-change: opacity, transform, width;
 }
 
 /* Suppress position (left/width) transitions when pin state changes while
-   the panel is already visible — pill repositions instantly. */
+   the panel is already visible — pill repositions instantly.
+   Width transition is intentionally preserved so content changes still
+   animate smoothly even when position transitions are suppressed. */
 #bottom-status-area.no-position-transition {
-  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
+  transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
+              width 0.25s ease !important;
 }
 
 #bottom-status-area[style*="cursor: pointer"]:hover {
@@ -40,7 +46,9 @@
   white-space: nowrap;
   color: var(--muted);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  /* 150ms matches the JS cross-fade delay in updateStatus() so the text fully
+     fades out before the new content and pill-resize animation begin. */
+  transition: opacity 0.15s ease;
   padding: 1.5px 0;
 }
 

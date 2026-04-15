@@ -60,11 +60,15 @@
   height: auto;
 }
 
-/* Pan/zoom toggle button — top-left corner, always visible */
+/* Pan/zoom toggle button — aligned with note text content (left: --gap matches
+   the margin-left applied to regular preview elements). This stays correct even
+   when the diagram is expanded to full-area, because the expanded wrapper is
+   fixed to the editor-section's left edge and --gap pushes the button to the
+   same visual column as all other content. */
 .mermaid-panzoom-btn {
   position: absolute;
   top: 5px;
-  left: 5px;
+  left: var(--gap, 10px);
   z-index: 5;
   display: flex;
   align-items: center;

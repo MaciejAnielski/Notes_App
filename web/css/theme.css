@@ -2,6 +2,7 @@
 .calendar-color-picker,
 .theme-color-picker {
   -webkit-appearance: none;
+  -moz-appearance: none;
   appearance: none;
   border: none;
   border-radius: 50%;
@@ -12,7 +13,17 @@
   margin-left: 6px;
   flex-shrink: 0;
   outline: none;
-  overflow: hidden; /* clip browser's default square swatch border to the circle shape */
+  /* overflow:hidden clips the browser's default square-cornered swatch frame to
+     our circular shape on all platforms */
+  overflow: hidden;
+  /* Suppress any lingering focus ring — the box-shadow ring is the only border */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Suppress focus indicator; the box-shadow ring communicates the shape */
+.calendar-color-picker:focus,
+.theme-color-picker:focus {
+  outline: none;
 }
 
 /* Calendar picker: smaller circle */
@@ -30,19 +41,31 @@
   box-shadow: 0 0 0 2px var(--border);
 }
 
+/* Chromium / Electron / Safari WebKit —————————————————————————————————————
+   The swatch-wrapper defaults to padding:2px and has its own border, which
+   produces a visible gap (inner ring) between the colour fill and the
+   box-shadow outline ring.  Force it to fill the full input circle. */
 .calendar-color-picker::-webkit-color-swatch-wrapper,
 .theme-color-picker::-webkit-color-swatch-wrapper {
   padding: 0;
+  border: none;
   border-radius: 50%;
+  width: 100%;
+  height: 100%;
 }
 
 .calendar-color-picker::-webkit-color-swatch,
-.calendar-color-picker::-moz-color-swatch {
+.theme-color-picker::-webkit-color-swatch {
   border: none;
   border-radius: 50%;
+  /* Ensure the colour fill covers the full circle, no inner padding gap */
+  width: 100%;
+  height: 100%;
+  min-height: unset;
 }
 
-.theme-color-picker::-webkit-color-swatch,
+/* Firefox ————————————————————————————————————————————————————————————————— */
+.calendar-color-picker::-moz-color-swatch,
 .theme-color-picker::-moz-color-swatch {
   border: none;
   border-radius: 50%;
