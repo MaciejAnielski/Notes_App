@@ -12,10 +12,12 @@
   pointer-events: none;
   transition: opacity 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
               left 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
-              width 0.25s ease;
+              width 0.25s ease,
+              transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
   white-space: nowrap;
   z-index: 5;
   box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
+  will-change: opacity, transform;
 }
 
 /* Suppress position (left/width) transitions when pin state changes while

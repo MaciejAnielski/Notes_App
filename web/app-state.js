@@ -328,21 +328,34 @@ function _animatePillResize(pillEl, changeFn) {
   _pillResizeTimer = setTimeout(() => {
     pillEl.style.width = '';
     _pillResizeTimer = null;
-  }, 350);
+  }, 280);
 }
 
 // persistent=true: message stays visible until next updateStatus call
 function updateStatus(message, success, persistent = false) {
   const pillEl = document.getElementById('bottom-status-area');
-  // Restore visibility before measuring so _animatePillResize always sees the
-  // pill as live — this lets consecutive messages animate smoothly even if the
-  // previous one had already started fading out.
-  if (pillEl) { pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
+  // Remove any active scroll-fade first so its !important opacity override cannot
+  // mask the restore below, then make the pill live so _animatePillResize sees it.
+  if (pillEl) { pillEl.classList.remove('scroll-faded'); pillEl.style.opacity = '1'; pillEl.style.pointerEvents = ''; }
+
+  // Cross-fade the label when a message is already showing: dip text opacity to 0,
+  // change content while invisible, then fade back in via double-rAF so the browser
+  // commits the new text node before the transition reverses.
+  const wasVisible = statusDiv.style.opacity === '1';
+  if (wasVisible) statusDiv.style.opacity = '0';
+
   _animatePillResize(pillEl, () => {
     statusDiv.textContent = toTitleCase(message);
     statusDiv.style.color = success ? 'var(--success)' : 'var(--error)';
-    statusDiv.style.opacity = '1';
+    if (!wasVisible) statusDiv.style.opacity = '1';
   });
+
+  if (wasVisible) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { statusDiv.style.opacity = '1'; });
+    });
+  }
+
   if (statusTimeout) clearTimeout(statusTimeout);
   if (persistent) {
     statusTimeout = null;
