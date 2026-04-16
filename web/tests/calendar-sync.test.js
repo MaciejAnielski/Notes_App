@@ -15,7 +15,7 @@ const {
   syncCalendarToMarkdown,
   _resetForTesting,
   getCalendarsByTitle,
-} = require('../calendar-sync.js');
+} = require('../js/schedule/calendar-sync.js');
 
 // Returns the metadata store object saved to '.calendar_metadata' during the
 // most recent sync, or null if no such call was made.
