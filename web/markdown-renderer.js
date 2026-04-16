@@ -2633,30 +2633,85 @@ function injectBookmarklets(container) {
   }
   updateHrefs();
 
-  // Temporarily swap the page favicon to an emoji SVG while dragging so the
-  // browser captures the emoji as the bookmark icon when dropped on the bar.
+  // Set a per-bookmarklet emoji favicon so the browser captures the right icon
+  // when the link is dragged to the bookmarks bar.
+  //
+  // Strategy (three layers for maximum reliability):
+  //
+  // 1. MOUSEDOWN (not dragstart) — fires before the drag gesture is recognised,
+  //    giving Chrome's favicon service more time to register the change before
+  //    the bookmark is committed on drop.
+  //
+  // 2. Inject a NEW <link rel="icon" type="image/svg+xml"> element rather than
+  //    mutating the existing favicon.ico link.  Chrome 80+ explicitly prefers
+  //    an SVG-typed icon link over a generic one when both are present, and
+  //    inserting a fresh element forces a re-evaluation of icon candidates
+  //    instead of relying on a href mutation being picked up from cache.
+  //
+  // 3. setDragImage() with an emoji canvas — works regardless of favicon cache
+  //    behaviour: the user always sees the emoji following the cursor while
+  //    dragging, giving clear visual feedback about which bookmarklet is in
+  //    flight even if the saved bookmark ends up with the app favicon.
+  //
+  // A shared <link id="_pex-fav"> element is reused across both bookmarklets
+  // (only one drag can be active at a time) to avoid leaving stray nodes.
   function addFaviconSwap(link, emoji) {
-    link.addEventListener('dragstart', () => {
-      let fav = document.querySelector('link[rel~="icon"]') ||
-                document.querySelector('link[rel="shortcut icon"]');
-      if (!fav) {
-        fav = document.createElement('link');
-        fav.rel = 'icon';
-        document.head.appendChild(fav);
-        fav._pexCreated = true;
+    const svgUri = 'data:image/svg+xml,' + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
+      `<text y=".9em" font-size="90">${emoji}</text></svg>`
+    );
+
+    let dragging = false;
+    let restoreTimer = null;
+
+    function setEmoji() {
+      if (restoreTimer) { clearTimeout(restoreTimer); restoreTimer = null; }
+      let el = document.getElementById('_pex-fav');
+      if (!el) {
+        el = document.createElement('link');
+        el.rel = 'icon';
+        el.id  = '_pex-fav';
+        el.type = 'image/svg+xml';
+        document.head.appendChild(el);
       }
-      fav._pexPrev = fav.href;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="26">${emoji}</text></svg>`;
-      fav.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      el.href = svgUri;
+    }
+
+    function restoreOrig(delay) {
+      restoreTimer = setTimeout(() => {
+        const el = document.getElementById('_pex-fav');
+        if (el) el.remove();
+        restoreTimer = null;
+      }, delay);
+    }
+
+    // Layer 1: start as early as possible so Chrome has time to sync.
+    link.addEventListener('mousedown', setEmoji);
+
+    link.addEventListener('dragstart', e => {
+      dragging = true;
+      setEmoji(); // belt-and-suspenders if mousedown missed
+      // Layer 3: emoji canvas follows the cursor — always visible to the user.
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.font = '52px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, 32, 36);
+      e.dataTransfer.setDragImage(c, 32, 32);
     });
+
+    // Restore after a brief pause so Chrome has time to write the icon before
+    // it disappears from the DOM.
     link.addEventListener('dragend', () => {
-      const fav = document.querySelector('link[rel~="icon"]') ||
-                  document.querySelector('link[rel="shortcut icon"]');
-      if (fav && '_pexPrev' in fav) {
-        if (fav._pexCreated) { fav.remove(); }
-        else { fav.href = fav._pexPrev; }
-        delete fav._pexPrev; delete fav._pexCreated;
-      }
+      dragging = false;
+      restoreOrig(200);
+    });
+
+    // If mousedown happened but the user clicked rather than dragged, clean up.
+    link.addEventListener('mouseup', () => {
+      if (!dragging) restoreOrig(50);
     });
   }
   addFaviconSwap(learnLink, '🧠');
