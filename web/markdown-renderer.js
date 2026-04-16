@@ -2360,10 +2360,52 @@ function buildMd(){
 function copyText(t,cb){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(cb).catch(function(){fbCopy(t);if(cb)cb();});}else{fbCopy(t);if(cb)cb();}}
 function fbCopy(t){var ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0;';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);}
 var FMT_OPTS=[['bold','**Bold**'],['plain','Plain'],['h1','# H1'],['h2','## H2'],['h3','### H3'],['h4','#### H4'],['h5','##### H5'],['h6','###### H6'],['link','[Link]()'],['image','![Image]()'],['quote','> Quote'],['italic','*Italic*'],['highlight','==Highlight=='],['ul','- List'],['ol','1. List'],['table','Table']];
-function fmtSelect(i,cur){
-  return '<select data-a="format" data-i="'+i+'" style="background:${p.bg};border:none;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.35);color:${p.muted};padding:3px 6px;font-size:11px;font-family:Arial,sans-serif;cursor:pointer;max-width:95px;">'+
-  FMT_OPTS.map(function(o){return '<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+
-  '</select>';
+var ATTR_OPTS=[['text','text'],['href','href'],['src','src'],['datetime','datetime'],['content','content']];
+function makeSelect(name,i,opts,curVal,maxW){
+  var lbl=(opts.find(function(o){return o[0]===curVal;})||opts[0]||['','—'])[1];
+  return '<div style="position:relative;display:inline-flex;vertical-align:middle;flex-shrink:0;">'+
+    '<button data-a="dd-trg" data-sel="'+name+'" data-i="'+i+'" '+
+      'style="background:transparent;border:none;border-radius:6px;color:${p.muted};padding:3px 8px;font-size:11px;font-family:Arial,sans-serif;cursor:pointer;white-space:nowrap;max-width:'+(maxW||90)+'px;overflow:hidden;text-overflow:ellipsis;display:block;">'+
+      esc(lbl)+' &#9662;'+
+    '</button>'+
+    '<div class="pex-dd-pn" id="pex-dd-'+name+'-'+i+'" '+
+      'style="display:none;position:fixed;z-index:2147483648;background:${p.bg};border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.45);overflow:hidden;min-width:110px;">'+
+      opts.map(function(o){var sel=(o[0]===curVal);
+        return '<div data-a="dd-opt" data-sel="'+name+'" data-i="'+i+'" data-v="'+o[0]+'" '+
+          'style="padding:5px 12px;font-size:11px;cursor:pointer;white-space:nowrap;color:'+(sel?'${p.accent}':'${p.muted}')+';">'+
+          (sel?'&#10003; ':'\u00a0\u00a0 ')+o[1]+'</div>';
+      }).join('')+
+    '</div>'+
+  '</div>';
+}
+var ddTimer=null;
+function showDd(trg){
+  clearTimeout(ddTimer);ddTimer=null;
+  var id='pex-dd-'+trg.getAttribute('data-sel')+'-'+trg.getAttribute('data-i');
+  document.querySelectorAll('.pex-dd-pn').forEach(function(el){if(el.id!==id)el.style.display='none';});
+  var pn=document.getElementById(id);if(!pn)return;
+  var r=trg.getBoundingClientRect();
+  pn.style.left=r.left+'px';pn.style.top=(r.bottom+3)+'px';pn.style.display='block';
+}
+function hideDds(){
+  ddTimer=setTimeout(function(){
+    document.querySelectorAll('.pex-dd-pn').forEach(function(el){el.style.display='none';});
+    ddTimer=null;
+  },120);
+}
+function onDdOver(e){
+  var t=e.target;
+  var trg=t.closest?t.closest('[data-a="dd-trg"]'):null;
+  if(trg){showDd(trg);return;}
+  if(t.closest&&t.closest('.pex-dd-pn')){clearTimeout(ddTimer);ddTimer=null;}
+}
+function onDdOut(e){
+  var rt=e.relatedTarget;
+  var inTrg=e.target.closest&&e.target.closest('[data-a="dd-trg"]');
+  var inPn=e.target.closest&&e.target.closest('.pex-dd-pn');
+  if(!inTrg&&!inPn)return;
+  if(rt&&rt.closest&&(rt.closest('[data-a="dd-trg"]')||rt.closest('.pex-dd-pn')))return;
+  hideDds();
 }
 function renderPreview(){
   var preview=document.getElementById(PREVIEW_ID);
@@ -2386,7 +2428,7 @@ function renderPreview(){
   preview.innerHTML=
     '<div id="pex-preview-drag" style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;">'+
     '<span style="font-size:11px;color:${p.dim};">Markdown Preview</span>'+
-    '<button data-a="copy" style="background:${p.bg};border:none;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.35);color:${p.accent};padding:3px 9px;cursor:pointer;font-size:11px;">&#128203; Copy</button>'+
+    '<button data-a="copy" style="background:transparent;border:none;border-radius:6px;color:${p.accent};padding:3px 9px;cursor:pointer;font-size:11px;">&#128203; Copy</button>'+
     '</div>'+
     '<pre style="margin:0;padding:4px 14px 12px;font-size:10px;color:${p.code};max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace;line-height:1.5;">'+esc(mdOut)+'</pre>';
   setupDrag(preview,document.getElementById('pex-preview-drag'));
@@ -2406,19 +2448,13 @@ function renderPanel(){
     return '<div style="padding:8px 0;'+(isLast?'':'border-bottom:1px solid rgba(128,128,128,0.1);')+'">'+
       '<div style="display:flex;gap:4px;margin-bottom:5px;align-items:center;">'+
       '<input data-a="label" data-i="'+i+'" value="'+esc(f.label)+'" placeholder="Label" style="flex:1;min-width:0;background:transparent;border:none;color:${p.text};padding:4px 6px;font-size:12px;font-family:Arial,sans-serif;">'+
-      '<select data-a="attribute" data-i="'+i+'" style="background:${p.bg};border:none;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.35);color:${p.muted};padding:3px 6px;font-size:11px;font-family:Arial,sans-serif;cursor:pointer;">'+
-      '<option value="text"'+(f.attribute==='text'?' selected':'')+'>text</option>'+
-      '<option value="href"'+(f.attribute==='href'?' selected':'')+'>href</option>'+
-      '<option value="src"'+(f.attribute==='src'?' selected':'')+'>src</option>'+
-      '<option value="datetime"'+(f.attribute==='datetime'?' selected':'')+'>datetime</option>'+
-      '<option value="content"'+(f.attribute==='content'?' selected':'')+'>content</option>'+
-      '</select>'+
-      fmtSelect(i,fmt)+
+      makeSelect('attribute',i,ATTR_OPTS,f.attribute,70)+
+      makeSelect('format',i,FMT_OPTS,fmt,90)+
       '<button data-a="delete" data-i="'+i+'" style="background:transparent;border:none;color:${p.muted};padding:4px 7px;cursor:pointer;font-size:12px;line-height:1;flex-shrink:0;">&#x2715;</button>'+
       '</div>'+
       '<div style="display:flex;gap:5px;align-items:center;">'+
       '<input data-a="selector" data-i="'+i+'" value="'+esc(f.selector||'')+'" placeholder="CSS selector" style="flex:1;min-width:0;background:transparent;border:none;color:${p.code};padding:4px 6px;font-size:11px;font-family:monospace;">'+
-      '<button data-a="pick" data-i="'+i+'" style="background:'+(isP?'${p.accentBg}':'${p.bg}')+';border:none;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.35);color:'+(isP?'${p.accent}':'${p.muted}')+';padding:4px 8px;cursor:pointer;font-size:11px;white-space:nowrap;flex-shrink:0;">'+(isP?'&#x1F3AF; Picking\u2026':'&#x1F5B1; Pick')+'</button>'+
+      '<button data-a="pick" data-i="'+i+'" style="background:'+(isP?'${p.accentBg}':'transparent')+';border:none;border-radius:6px;color:'+(isP?'${p.accent}':'${p.muted}')+';padding:4px 8px;cursor:pointer;font-size:11px;white-space:nowrap;flex-shrink:0;">'+(isP?'&#x1F3AF; Picking\u2026':'&#x1F5B1; Pick')+'</button>'+
       '</div>'+
       '<div style="margin-top:4px;font-size:11px;color:${p.dim};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+
       (prev?'<span style="color:#4caf72;">&#8594; </span>'+esc(prev.substring(0,80))+(prev.length>80?'&#8230;':''):'<span style="color:${p.subtle};font-style:italic;">No Match</span>')+
@@ -2454,8 +2490,12 @@ function onClick(e){
   else if(a==='pick'){if(pickIdx===i){pickIdx=null;stopPick();}else{if(pickIdx!==null)stopPick();pickIdx=i;startPick();}renderPanel();}
   else if(a==='clear'){if(confirm('Remove all '+fields.length+' field(s)?')){fields=[];if(pickIdx!==null){pickIdx=null;stopPick();}save();renderPanel();}}
   else if(a==='toggle-preview'){previewVisible=!previewVisible;if(!previewVisible){var pv=document.getElementById(PREVIEW_ID);if(pv)pv.remove();}renderPanel();}
+  else if(a==='dd-opt'){
+    var sel=e.target.getAttribute('data-sel'),optI=parseInt(e.target.getAttribute('data-i'),10),v=e.target.getAttribute('data-v');
+    if(!isNaN(optI)){if(sel==='format'){fields[optI].format=v;save();renderPanel();}else if(sel==='attribute'){fields[optI].attribute=v;save();renderPanel();}}
+    document.querySelectorAll('.pex-dd-pn').forEach(function(el){el.style.display='none';});
+  }
 }
-function onChange(e){var a=e.target.getAttribute('data-a'),i=parseInt(e.target.getAttribute('data-i'),10);if(isNaN(i))return;if(a==='attribute'){fields[i].attribute=e.target.value;save();renderPanel();}else if(a==='format'){fields[i].format=e.target.value;save();renderPanel();}}
 var debT=null;
 function onInput(e){var a=e.target.getAttribute('data-a'),i=parseInt(e.target.getAttribute('data-i'),10);if(isNaN(i))return;if(a==='label'){fields[i].label=e.target.value;save();}else if(a==='selector'){fields[i].selector=e.target.value;save();clearTimeout(debT);debT=setTimeout(renderPanel,550);}}
 function startPick(){document.addEventListener('mouseover',onHov,true);document.addEventListener('click',onPickEl,true);document.addEventListener('keydown',onKey,true);document.body.style.cursor='crosshair';}
@@ -2485,15 +2525,16 @@ function cleanup(){
 }
 var pexStyle=document.createElement('style');
 pexStyle.id=STYLE_ID;
-pexStyle.textContent='#pex-panel input,#pex-panel select,#pex-panel button,#pex-preview button{transition:background-color 0.1s;}#pex-panel select,#pex-panel button,#pex-preview button{border-radius:6px;}#pex-panel input:hover,#pex-panel select:hover,#pex-panel button:hover,#pex-preview button:hover{background-color:${p.surface}!important;}#pex-panel input:focus,#pex-panel select:focus{outline:none;}';
+pexStyle.textContent='#pex-panel input,#pex-panel button,#pex-preview button{transition:background-color 0.15s,box-shadow 0.15s;}#pex-panel button,#pex-preview button{border-radius:6px;box-shadow:none;}#pex-panel button:hover,#pex-preview button:hover{background-color:${p.surface}!important;box-shadow:0 2px 8px rgba(0,0,0,0.35)!important;}#pex-panel input:focus{outline:none;}[data-a="dd-trg"]:hover{background-color:${p.surface}!important;box-shadow:0 2px 8px rgba(0,0,0,0.35)!important;}.pex-dd-pn [data-a="dd-opt"]:hover{background-color:${p.surface}!important;}';
 document.head.appendChild(pexStyle);
 var panel=document.createElement('div');
 panel.id=PANEL_ID;
 panel.style.cssText='position:fixed;top:20px;right:20px;width:370px;background:${p.bg};border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:Arial,sans-serif;font-size:13px;z-index:2147483647;overflow:hidden;display:flex;flex-direction:column;';
 panel.addEventListener('mousedown',function(){bringToFront(panel);});
 panel.addEventListener('click',onClick);
-panel.addEventListener('change',onChange);
 panel.addEventListener('input',onInput);
+panel.addEventListener('mouseover',onDdOver);
+panel.addEventListener('mouseout',onDdOut);
 document.body.appendChild(panel);
 renderPanel();
 if(!fields.length){fields.push({label:'Field 1',selector:'',attribute:'text',format:'plain'});save();pickIdx=0;startPick();renderPanel();}
@@ -2633,30 +2674,85 @@ function injectBookmarklets(container) {
   }
   updateHrefs();
 
-  // Temporarily swap the page favicon to an emoji SVG while dragging so the
-  // browser captures the emoji as the bookmark icon when dropped on the bar.
+  // Set a per-bookmarklet emoji favicon so the browser captures the right icon
+  // when the link is dragged to the bookmarks bar.
+  //
+  // Strategy (three layers for maximum reliability):
+  //
+  // 1. MOUSEDOWN (not dragstart) — fires before the drag gesture is recognised,
+  //    giving Chrome's favicon service more time to register the change before
+  //    the bookmark is committed on drop.
+  //
+  // 2. Inject a NEW <link rel="icon" type="image/svg+xml"> element rather than
+  //    mutating the existing favicon.ico link.  Chrome 80+ explicitly prefers
+  //    an SVG-typed icon link over a generic one when both are present, and
+  //    inserting a fresh element forces a re-evaluation of icon candidates
+  //    instead of relying on a href mutation being picked up from cache.
+  //
+  // 3. setDragImage() with an emoji canvas — works regardless of favicon cache
+  //    behaviour: the user always sees the emoji following the cursor while
+  //    dragging, giving clear visual feedback about which bookmarklet is in
+  //    flight even if the saved bookmark ends up with the app favicon.
+  //
+  // A shared <link id="_pex-fav"> element is reused across both bookmarklets
+  // (only one drag can be active at a time) to avoid leaving stray nodes.
   function addFaviconSwap(link, emoji) {
-    link.addEventListener('dragstart', () => {
-      let fav = document.querySelector('link[rel~="icon"]') ||
-                document.querySelector('link[rel="shortcut icon"]');
-      if (!fav) {
-        fav = document.createElement('link');
-        fav.rel = 'icon';
-        document.head.appendChild(fav);
-        fav._pexCreated = true;
+    const svgUri = 'data:image/svg+xml,' + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
+      `<text y=".9em" font-size="90">${emoji}</text></svg>`
+    );
+
+    let dragging = false;
+    let restoreTimer = null;
+
+    function setEmoji() {
+      if (restoreTimer) { clearTimeout(restoreTimer); restoreTimer = null; }
+      let el = document.getElementById('_pex-fav');
+      if (!el) {
+        el = document.createElement('link');
+        el.rel = 'icon';
+        el.id  = '_pex-fav';
+        el.type = 'image/svg+xml';
+        document.head.appendChild(el);
       }
-      fav._pexPrev = fav.href;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="26">${emoji}</text></svg>`;
-      fav.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      el.href = svgUri;
+    }
+
+    function restoreOrig(delay) {
+      restoreTimer = setTimeout(() => {
+        const el = document.getElementById('_pex-fav');
+        if (el) el.remove();
+        restoreTimer = null;
+      }, delay);
+    }
+
+    // Layer 1: start as early as possible so Chrome has time to sync.
+    link.addEventListener('mousedown', setEmoji);
+
+    link.addEventListener('dragstart', e => {
+      dragging = true;
+      setEmoji(); // belt-and-suspenders if mousedown missed
+      // Layer 3: emoji canvas follows the cursor — always visible to the user.
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.font = '52px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, 32, 36);
+      e.dataTransfer.setDragImage(c, 32, 32);
     });
+
+    // Restore after a brief pause so Chrome has time to write the icon before
+    // it disappears from the DOM.
     link.addEventListener('dragend', () => {
-      const fav = document.querySelector('link[rel~="icon"]') ||
-                  document.querySelector('link[rel="shortcut icon"]');
-      if (fav && '_pexPrev' in fav) {
-        if (fav._pexCreated) { fav.remove(); }
-        else { fav.href = fav._pexPrev; }
-        delete fav._pexPrev; delete fav._pexCreated;
-      }
+      dragging = false;
+      restoreOrig(200);
+    });
+
+    // If mousedown happened but the user clicked rather than dragged, clean up.
+    link.addEventListener('mouseup', () => {
+      if (!dragging) restoreOrig(50);
     });
   }
   addFaviconSwap(learnLink, '🧠');
