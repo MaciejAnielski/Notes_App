@@ -207,6 +207,9 @@
     }
   </script>
 
+  <!-- Shared low-level utilities (must load before encryption + core state) -->
+  <script defer src="js/utils/binary.js"></script>
+
   <!-- Storage (IndexedDB note store + E2E encryption) -->
   <script defer src="js/storage/storage.js"></script>
   <script defer src="js/encryption/crypto-engine.js"></script>

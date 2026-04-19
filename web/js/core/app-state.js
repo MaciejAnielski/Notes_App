@@ -424,13 +424,7 @@ function mimeForExtension(ext) {
 }
 
 function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
+  return window.BinaryUtil.arrayBufferToBase64(buffer);
 }
 
 function insertAtCursor(text) {

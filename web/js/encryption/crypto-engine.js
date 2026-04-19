@@ -300,17 +300,12 @@ window.CryptoEngine = {
   }
 };
 
-// ── Base64 helpers (binary-safe, no padding issues) ──────────────────────
+// ── Base64 helpers — delegate to the shared utils/binary.js module ───────
 
 function _uint8ToBase64(bytes) {
-  let binary = '';
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
+  return window.BinaryUtil.uint8ToBase64(bytes);
 }
 
 function _base64ToUint8(b64) {
-  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return window.BinaryUtil.base64ToUint8(b64);
 }
