@@ -444,7 +444,7 @@ async function updateTodoList(cachedNotes) {
           todoLi.appendChild(checkbox);
           const span = document.createElement('span');
           span.className = 'task-text';
-          span.innerHTML = marked.parseInline(text);
+          span.innerHTML = safeRenderMarkdownInline(text);
           span.style.cursor = 'pointer';
           span.addEventListener('click', (e) => {
             if (e.target.closest('a')) return;

@@ -151,8 +151,10 @@ window.CryptoEngine = {
   /**
    * Derive a wrapping key from an ECDH shared secret.
    * Uses deriveBits → HKDF → AES-GCM-256.
+   * salt binds the derivation to the specific pairing session so the same
+   * shared secret can never unwrap keys across sessions.
    */
-  async deriveWrappingKey(privateKey, publicKey) {
+  async deriveWrappingKey(privateKey, publicKey, salt) {
     const sharedBits = await crypto.subtle.deriveBits(
       { name: 'ECDH', public: publicKey },
       privateKey,
@@ -165,14 +167,20 @@ window.CryptoEngine = {
       {
         name: 'HKDF',
         hash: 'SHA-256',
-        salt: new Uint8Array(32), // fixed empty salt (authenticated via pairing code)
-        info: new TextEncoder().encode('notesapp-pairing-v1')
+        salt: salt instanceof Uint8Array ? salt : new Uint8Array(32),
+        info: new TextEncoder().encode('notesapp-pairing-v2')
       },
       hkdfKey,
       { name: 'AES-GCM', length: 256 },
       false,
       ['encrypt', 'decrypt']
     );
+  },
+
+  /** SHA-256 hash raw bytes. Returns a Uint8Array(32). */
+  async sha256Bytes(bytes) {
+    const buf = await crypto.subtle.digest('SHA-256', bytes);
+    return new Uint8Array(buf);
   },
 
   /**

@@ -240,7 +240,7 @@ async function generateHtmlContent(title, markdown, noteName) {
   const processedMarkdown = preEvaluateOpenEquations(markdown);
 
   const container = document.createElement('div');
-  container.innerHTML = marked.parse(preprocessMarkdown(processedMarkdown));
+  container.innerHTML = safeRenderMarkdown(preprocessMarkdown(processedMarkdown));
   styleTaskListItems(container);
   if (noteName) await embedAttachmentsInHtml(container, noteName);
   alignTableColumns(container);
@@ -288,7 +288,7 @@ async function generateNotebookHtml(noteEntries) {
   for (const { name, content } of noteEntries) {
     const processedContent = preEvaluateOpenEquations(content);
     const container = document.createElement('div');
-    container.innerHTML = marked.parse(preprocessMarkdown(processedContent));
+    container.innerHTML = safeRenderMarkdown(preprocessMarkdown(processedContent));
     styleTaskListItems(container);
     await embedAttachmentsInHtml(container, name);
     container.querySelectorAll('a').forEach(a => {

@@ -353,8 +353,8 @@ async function renderNoteGraph() {
     // Render snippet as markdown HTML using the same pipeline as the preview pane
     const processed = (typeof preprocessMarkdown === 'function')
       ? preprocessMarkdown(snippet) : snippet;
-    const renderedHtml = (typeof marked !== 'undefined')
-      ? marked.parse(processed) : `<pre>${_escHtml(snippet)}</pre>`;
+    const renderedHtml = (typeof safeRenderMarkdown === 'function')
+      ? safeRenderMarkdown(processed) : `<pre>${_escHtml(snippet)}</pre>`;
     tooltip.innerHTML =
       `<div class="graph-tooltip-title">${_escHtml(nodeId)}</div>` +
       `<div class="graph-tooltip-body">${renderedHtml}</div>`;
