@@ -219,10 +219,7 @@ body.panel-pinned {
 
   /* Content top-padding must clear the notch AND the toolbar pill */
   body:not(.electron) textarea,
-  body:not(.electron) #editor-highlight {
-    padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
-  }
-
+  body:not(.electron) #editor-highlight,
   body:not(.electron) #preview {
     padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
   }

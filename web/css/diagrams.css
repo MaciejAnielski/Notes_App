@@ -129,41 +129,57 @@
   outline: 1px solid var(--border);
 }
 
-/* Ensure all Mermaid text inherits legible colour from theme */
-.mermaid-diagram svg text {
+/* ── Mermaid text legibility ──────────────────────────────────────────────
+   Every diagram variant funnels its text into --mermaid-text (which falls
+   back to --text).  Grouped here to avoid repeating the same declaration
+   a dozen times. */
+
+/* SVG <text> elements and tspans (sequence, gantt, pie, class, ER, journey,
+   requirement, mindmap, timeline, quadrant). */
+.mermaid-diagram svg text,
+.mermaid-diagram .messageText,
+.mermaid-diagram .loopText tspan,
+.mermaid-diagram .labelText tspan,
+.mermaid-diagram .section,
+.mermaid-diagram .pieTitleText,
+.mermaid-diagram .legend text,
+.mermaid-diagram .classTitle,
+.mermaid-diagram .classText,
+.mermaid-diagram .er.entityLabel,
+.mermaid-diagram .journey .taskText,
+.mermaid-diagram .journey .taskTextOutsideRight,
+.mermaid-diagram .journey .taskTextOutsideLeft,
+.mermaid-diagram .journey .sectionTitle,
+.mermaid-diagram .reqLabelBox text,
+.mermaid-diagram .mindmap-node text,
+.mermaid-diagram .timeline-text,
+.mermaid-diagram .quadrant text {
   fill: var(--mermaid-text, var(--text));
 }
 
-/* Flowchart node labels — inherit from theme, override Mermaid inline fills
-   only when the text would otherwise be invisible against its node background */
+/* HTML-in-SVG (foreignObject divs and edge-label spans) needs `color`,
+   not `fill`.  Grouped for the same reason. */
 .mermaid-diagram .node .label,
-.mermaid-diagram .node foreignObject div {
+.mermaid-diagram .node foreignObject div,
+.mermaid-diagram .edgeLabel span,
+.mermaid-diagram .edgeLabel p,
+.mermaid-diagram .stateLabel .nodeLabel,
+.mermaid-diagram .statediagram-state .nodeLabel {
   color: var(--mermaid-text, var(--text));
 }
 
-/* Edge / arrow labels */
+/* Edge / arrow label backgrounds */
 .mermaid-diagram .edgeLabel,
 .mermaid-diagram .edgeLabel rect {
   fill: var(--surface) !important;
 }
-.mermaid-diagram .edgeLabel span,
-.mermaid-diagram .edgeLabel p {
-  color: var(--mermaid-text, var(--text));
-}
 
-/* Sequence diagram — actor boxes and messages */
-.mermaid-diagram .actor {
+/* Accent strokes */
+.mermaid-diagram .actor,
+.mermaid-diagram .er.attributeBoxOdd,
+.mermaid-diagram .er.attributeBoxEven,
+.mermaid-diagram .reqBox {
   stroke: var(--accent);
-}
-.mermaid-diagram .messageText,
-.mermaid-diagram .loopText tspan,
-.mermaid-diagram .labelText tspan {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* Gantt — section labels and task text legibility */
-.mermaid-diagram .section {
-  fill: var(--mermaid-text, var(--text));
 }
 
 /* Gantt — active tasks use amber (like done tasks but amber instead of green) */
@@ -171,70 +187,6 @@
 .mermaid-diagram rect.task.active {
   fill: var(--warning) !important;
   stroke: var(--warning) !important;
-}
-
-/* Pie chart — title and legend text */
-.mermaid-diagram .pieTitleText {
-  fill: var(--mermaid-text, var(--text));
-}
-.mermaid-diagram .legend text {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* Class diagram — class title and member text */
-.mermaid-diagram .classTitle {
-  fill: var(--mermaid-text, var(--text));
-}
-.mermaid-diagram .classText {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* State diagram — state labels and descriptions */
-.mermaid-diagram .stateLabel .nodeLabel,
-.mermaid-diagram .statediagram-state .nodeLabel {
-  color: var(--mermaid-text, var(--text));
-}
-
-/* ER diagram — entity and attribute text */
-.mermaid-diagram .er.entityLabel {
-  fill: var(--mermaid-text, var(--text));
-}
-.mermaid-diagram .er.attributeBoxOdd,
-.mermaid-diagram .er.attributeBoxEven {
-  stroke: var(--accent);
-}
-
-/* Journey — task and section text */
-.mermaid-diagram .journey .taskText,
-.mermaid-diagram .journey .taskTextOutsideRight,
-.mermaid-diagram .journey .taskTextOutsideLeft {
-  fill: var(--mermaid-text, var(--text));
-}
-.mermaid-diagram .journey .sectionTitle {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* Requirement diagram — labels */
-.mermaid-diagram .reqBox {
-  stroke: var(--accent);
-}
-.mermaid-diagram .reqLabelBox text {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* Mindmap — node text */
-.mermaid-diagram .mindmap-node text {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* Timeline — period and event text */
-.mermaid-diagram .timeline-text {
-  fill: var(--mermaid-text, var(--text));
-}
-
-/* Quadrant chart — axis labels and title */
-.mermaid-diagram .quadrant text {
-  fill: var(--mermaid-text, var(--text));
 }
 
 /* Ensure Mermaid lines/arrows use theme line colour */

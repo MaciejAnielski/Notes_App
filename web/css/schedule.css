@@ -373,9 +373,9 @@ body.schedule-dragging * {
 /* Hide resize handle inside the all-day section (those items are not resizable) */
 .schedule-allday-section .schedule-resize-handle { display: none; }
 
-/* Prevent scroll-hijacking on draggable items (touch) */
+/* Prevent scroll-hijacking on draggable items (touch).
+   The all-day items are also .schedule-item, so this rule covers them too. */
 .schedule-item { touch-action: pan-y; }
-.schedule-allday-section .schedule-item { touch-action: pan-y; }
 
 /* Drop-target highlight when a timed item is dragged over the all-day section */
 .schedule-allday-section.schedule-allday-drop-target {
