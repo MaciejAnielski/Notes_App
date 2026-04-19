@@ -214,3 +214,66 @@ body.platform-darwin #panel-arrow {
   display: none;
 }
 
+/* ── Respect prefers-reduced-motion ───────────────────────────────────────
+   Users who have requested reduced motion get near-instant transitions and
+   no decorative animations.  We still allow tiny (~10ms) transitions so
+   state-driven styles (e.g. visibility toggles) still apply — fully zeroing
+   them out can break interactions that depend on transitionend events. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Print stylesheet ─────────────────────────────────────────────────────
+   Strip the app chrome (toolbar, panels, status bar, search overlay) and
+   print only the rendered note content.  The preview pane stretches to the
+   full page; long notes paginate naturally. */
+@media print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  #button-container,
+  #tools-overflow-row,
+  #bottom-status-area,
+  #panel-lists,
+  #panel-arrow,
+  #mobile-right-panel,
+  #mobile-overlay,
+  #global-search-panel,
+  #wikilink-dropdown,
+  #window-drag-region,
+  #traffic-lights {
+    display: none !important;
+  }
+
+  /* Prefer the rendered preview over the raw textarea when printing. */
+  textarea,
+  #editor-highlight {
+    display: none !important;
+  }
+
+  #preview {
+    position: static !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  /* Avoid breaking headings or code blocks across pages where possible */
+  #preview h1, #preview h2, #preview h3,
+  #preview pre, #preview table, #preview figure {
+    break-inside: avoid;
+  }
+}

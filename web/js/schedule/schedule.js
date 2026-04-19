@@ -278,6 +278,25 @@ async function renderWeekRow() {
 function _makeScheduleBlock(item, extraClass) {
   const block = document.createElement('div');
   block.className = 'schedule-item' + (extraClass ? ' ' + extraClass : '');
+  // Screen-reader label: "Task: <title> at <time>, in <note>" or
+  // "Event: <title> at <time>, in <note>".
+  {
+    const kind = item.isTask ? 'Task' : 'Event';
+    const note = item.fileName || 'note';
+    const fmt = m => {
+      if (typeof m !== 'number') return '';
+      const hh = String(Math.floor(m / 60)).padStart(2, '0');
+      const mm = String(m % 60).padStart(2, '0');
+      return `${hh}:${mm}`;
+    };
+    const when = item.allDay
+      ? 'all day'
+      : (typeof item.startMin === 'number' && typeof item.endMin === 'number'
+        ? `${fmt(item.startMin)}–${fmt(item.endMin)}`
+        : '');
+    block.setAttribute('aria-label',
+      `${kind}: ${item.text || ''}${when ? ' at ' + when : ''}, in ${note}`);
+  }
 
   // Apply calendar colour if set
   if (item.calendarTag) {
@@ -297,6 +316,7 @@ function _makeScheduleBlock(item, extraClass) {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = item.isCompleted;
+    cb.setAttribute('aria-label', `Mark task "${item.text || ''}" as ${item.isCompleted ? 'not completed' : 'completed'}`);
     cb.addEventListener('change', () => {
       // Optimistically update visual state immediately for instant feedback,
       // without waiting for the async re-render to complete.

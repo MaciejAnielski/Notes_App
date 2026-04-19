@@ -438,6 +438,7 @@ async function updateTodoList(cachedNotes) {
             const href = encodeURIComponent(inner.trim());
             return `[${display}](${href})`;
           });
+          checkbox.setAttribute('aria-label', `Task: ${rawText || '(empty)'} in ${fileName}`);
           checkbox.addEventListener('change', () => {
             toggleTaskStatus(fileName, t.idx);
           });
