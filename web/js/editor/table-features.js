@@ -519,10 +519,10 @@ function _fallbackCopy(text, glowTarget) {
   // Remove the ghost span from the pre.  Synchronous — safe to call in input handler.
   function _trHide() {
     if (typeof _highlightPre !== 'undefined' && _highlightPre) {
-      _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => {
-        while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
-        s.parentNode.removeChild(s);
-      });
+      // Remove the span AND its text content — unwrapping (hoisting children
+      // out) leaves the ghost text as plain text in the pre, which then shows
+      // as a duplicate once the next ghost is injected at the same offset.
+      _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
     }
     _ghostInsertPos = null;
     _ghostText      = '';
@@ -534,11 +534,8 @@ function _fallbackCopy(text, glowTarget) {
   // has already updated the pre with the current textarea content.
   function _applyGhostToPre() {
     if (_ghostInsertPos === null || typeof _highlightPre === 'undefined' || !_highlightPre) return;
-    // Remove any stale ghost span.
-    _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => {
-      while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
-      s.parentNode.removeChild(s);
-    });
+    // Remove any stale ghost span (including its text content — see _trHide).
+    _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
     // Walk text nodes to find the character offset.
     const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
     let remaining = _ghostInsertPos;
