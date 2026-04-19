@@ -146,6 +146,12 @@ input::placeholder {
 /* Horizontal rule lines */
 .hl-hr { color: var(--hr); }
 
+/* Table syntax in edit mode */
+.hl-tbl-pipe  { color: var(--list-marker); }
+.hl-tbl-sep   { color: var(--hr); }
+.hl-tbl-sep .hl-tbl-pipe { color: inherit; }
+.hl-tbl-align { color: var(--accent); }
+
 /* Schedule syntax at end of line */
 .hl-schedule { color: var(--schedule); }
 
