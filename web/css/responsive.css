@@ -300,7 +300,7 @@ body.panel-pinned {
    devices have any-pointer:coarse and hover:none so they never match here.
    JS state (panel-visible / panel-pinned) is preserved; the panel reappears
    when the window widens. */
-@media (max-width: 650px) and (hover: hover) {
+@media (max-width: 650px) and (hover: hover) and (not (any-pointer: coarse)) {
   #panel-lists.visible,
   #panel-lists.pinned {
     transform: translateX(100%) !important;

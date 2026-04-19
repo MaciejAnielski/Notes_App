@@ -288,7 +288,7 @@
   flex-shrink: 0;
   /* Align with the first text line, mirroring the checkbox alignment */
   align-self: flex-start;
-  margin-top: calc((1lh - 7px) / 2);
+  margin-top: 0.2em;
 }
 
 /* In markdown preview, dot sits inline at the end of the task text */

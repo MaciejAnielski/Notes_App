@@ -1,11 +1,10 @@
 /* ── Base ── */
 html {
-  height: 100%;
   margin: 0;
   overflow: hidden;
-  /* Prevent iOS Safari from scrolling the page / rubber-banding */
-  position: fixed;
-  width: 100%;
+  /* Rubber-band suppression lives on <body> via overscroll-behavior:none.
+     position:fixed used to live here but traps the iOS viewport when the
+     keyboard opens or the address bar retracts. */
 }
 
 body {

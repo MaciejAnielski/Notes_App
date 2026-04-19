@@ -111,7 +111,7 @@
 
 /* ── Checkbox theming — override browser defaults ── */
 input[type="checkbox"] {
-  accent-color: var(--checkbox-accent);
+  accent-color: var(--checkbox-accent, currentColor);
 }
 
 /* ── Custom checkbox base — all interactive contexts.
