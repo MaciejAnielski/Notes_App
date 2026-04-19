@@ -145,6 +145,12 @@ const _RE_FOOTNOTE   = /\[\^([^\]\n]+)\]/g;
 const _RE_SCHEDULE   = /(\s*&gt;\s*\d{6}(?:\s+(?:\d{6}|\d{4}\s+\d{4}))?(?:\s+@\S+)?\s*)$/;
 const _RE_SLOT       = /\x00(\d+)\x00/g;
 const _RE_TASK_MARKER = /hl-task-marker/;
+// Table: any line whose first non-whitespace char is '|' followed by another '|'.
+const _RE_TABLE_LINE     = /^\s*\|.*\|/;
+// A separator cell is whitespace + optional :, one or more -, optional :, whitespace.
+const _RE_TABLE_SEP_CELL = /^\s*:?-+:?\s*$/;
+// Split a table line on unescaped pipes (lookbehind excludes "\|").
+const _RE_TABLE_SPLIT    = /(?<!\\)\|/;
 
 // ── Inline token highlighter ─────────────────────────────────────────────
 // Processes a single already-HTML-escaped line.
@@ -214,6 +220,27 @@ function _applyInline(line) {
   return line;
 }
 
+// ── Table line highlighter ───────────────────────────────────────────────
+// Wraps each unescaped `|` in a pipe span. If every inner cell matches the
+// separator pattern (`:?-+:?`) the whole line is wrapped in `.hl-tbl-sep`
+// and each `:` alignment marker gets `.hl-tbl-align`. Body/header rows run
+// each cell through `_applyInline` so nested markdown (bold, code, links)
+// still lights up inside cells.
+function _applyTableLine(line) {
+  const parts = line.split(_RE_TABLE_SPLIT);
+  const inner = parts.slice(1, -1);
+  const isSep = inner.length > 0 && inner.every(c => _RE_TABLE_SEP_CELL.test(c));
+  const pipeSpan = '<span class="hl-tbl-pipe">|</span>';
+  if (isSep) {
+    const body = parts.map(p =>
+      p.replace(/:/g, '<span class="hl-tbl-align">:</span>')
+    ).join(pipeSpan);
+    return `<span class="hl-tbl-sep">${body}</span>`;
+  }
+  const body = parts.map(p => _applyInline(p)).join(pipeSpan);
+  return `<span class="hl-tbl-row">${body}</span>`;
+}
+
 // ── Main markdown highlighter ─────────────────────────────────────────────
 // Converts raw textarea text → HTML for the highlight pre element.
 
@@ -240,6 +267,14 @@ function highlightMarkdown(rawText) {
     }
     if (inFence) {
       return `<span class="hl-code-block">${line}</span>`;
+    }
+
+    // ── Table rows and separators ──
+    // Must come before the horizontal-rule check so a separator like "| --- |"
+    // that might otherwise look dash-heavy stays classified as a table row.
+    // Bare "---" (no pipes) still falls through to the HR branch below.
+    if (_RE_TABLE_LINE.test(line)) {
+      return _applyTableLine(line);
     }
 
     // ── Horizontal rule (--- *** ___) ──

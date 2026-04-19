@@ -2310,7 +2310,20 @@ function getTableMd(el){
     var cells=Array.from(row.querySelectorAll('th,td')).map(function(c){return (c.innerText||c.textContent||'').trim().replace(/\\|/g,'\\\\|').replace(/\\n/g,' ');});
     return '| '+cells.join(' | ')+' |';
   });
-  if(tbl.length>1){var cols=rows[0].querySelectorAll('th,td').length;tbl.splice(1,0,'| '+Array(cols).fill('---').join(' | ')+' |');}
+  if(tbl.length>1){
+    var headCells=Array.from(rows[0].querySelectorAll('th,td'));
+    var probeCells=rows.length>1?Array.from(rows[1].querySelectorAll('th,td')):headCells;
+    var sep=headCells.map(function(_,i){
+      var c=probeCells[i]||headCells[i];
+      var a=c&&c.getAttribute&&c.getAttribute('align');
+      if(!a){try{a=(window.getComputedStyle(c).textAlign||'').toLowerCase();}catch(e){a='';}}
+      if(a==='center')return ':---:';
+      if(a==='right'||a==='end')return '---:';
+      if(a==='left'||a==='start')return ':---';
+      return '---';
+    });
+    tbl.splice(1,0,'| '+sep.join(' | ')+' |');
+  }
   return tbl.join('\\n');
 }
 function getListMd(el,ordered){
@@ -2554,7 +2567,20 @@ function getTableMd(el){
     var cells=Array.from(row.querySelectorAll('th,td')).map(function(c){return (c.innerText||c.textContent||'').trim().replace(/\\|/g,'\\\\|').replace(/\\n/g,' ');});
     return '| '+cells.join(' | ')+' |';
   });
-  if(tbl.length>1){var cols=rows[0].querySelectorAll('th,td').length;tbl.splice(1,0,'| '+Array(cols).fill('---').join(' | ')+' |');}
+  if(tbl.length>1){
+    var headCells=Array.from(rows[0].querySelectorAll('th,td'));
+    var probeCells=rows.length>1?Array.from(rows[1].querySelectorAll('th,td')):headCells;
+    var sep=headCells.map(function(_,i){
+      var c=probeCells[i]||headCells[i];
+      var a=c&&c.getAttribute&&c.getAttribute('align');
+      if(!a){try{a=(window.getComputedStyle(c).textAlign||'').toLowerCase();}catch(e){a='';}}
+      if(a==='center')return ':---:';
+      if(a==='right'||a==='end')return '---:';
+      if(a==='left'||a==='start')return ':---';
+      return '---';
+    });
+    tbl.splice(1,0,'| '+sep.join(' | ')+' |');
+  }
   return tbl.join('\\n');
 }
 function getListMd(el,ordered){

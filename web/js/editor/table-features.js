@@ -17,19 +17,29 @@ function alignTableColumns(container) {
 
     const firstRow = bodyRows[0];
     const firstCells = Array.from(firstRow.querySelectorAll('td'));
+    const headerCells = Array.from(table.querySelectorAll('thead tr th'));
 
     firstCells.forEach((cell, colIndex) => {
-      const text = cell.textContent.trim();
-      const cleaned = text.replace(/[,$€£¥%+ ]/g, '');
-      const numeric = cleaned !== '' && !isNaN(Number(cleaned));
-      const align = numeric ? 'right' : 'left';
+      const th = headerCells[colIndex];
+      // Honor explicit markdown alignment emitted by marked as <th align="..."> /
+      // <td align="..."> — only fall back to the numeric heuristic when no
+      // alignment was specified in the source separator row.
+      const explicit = th?.getAttribute('align') || cell.getAttribute('align');
+
+      let align;
+      if (explicit) {
+        align = explicit;
+      } else {
+        const text = cell.textContent.trim();
+        const cleaned = text.replace(/[,$€£¥%+ ]/g, '');
+        const numeric = cleaned !== '' && !isNaN(Number(cleaned));
+        align = numeric ? 'right' : 'left';
+      }
 
       bodyRows.forEach(row => {
         const td = row.querySelectorAll('td')[colIndex];
         if (td) td.style.textAlign = align;
       });
-
-      const th = table.querySelectorAll('thead tr th')[colIndex];
       if (th) th.style.textAlign = align;
     });
   });
@@ -160,7 +170,15 @@ function _normalizeTableRow(line) {
 function _normalizeTableSeparator(line) {
   const raw = line.trim();
   const cells = raw.slice(1, raw.lastIndexOf('|')).split('|');
-  return '|' + cells.map(() => ' - ').join('|') + '|';
+  return '|' + cells.map(cell => {
+    const t = cell.trim();
+    const left = t.startsWith(':');
+    const right = t.endsWith(':') && t.length > 1;
+    if (left && right) return ' :-: ';
+    if (right) return ' -: ';
+    if (left) return ' :- ';
+    return ' - ';
+  }).join('|') + '|';
 }
 
 // Rewrite textarea.value so that sorted tables are persisted to the markdown source.
@@ -887,13 +905,16 @@ function _fallbackCopy(text, glowTarget) {
       rows.unshift(lines[i]);
       i--;
     }
-    if (rows.length < 2) return null;
+    if (rows.length < 3) return null; // need header + separator + ≥1 body
     // Find the separator line (cells = :?-+:? only)
     const sepIdx = rows.findIndex(row => {
       const cells = _parseCells(row);
       return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
     });
-    if (sepIdx < 0) return null; // no separator → not a real table
+    // Require at least one header row above the separator — otherwise the
+    // "table" has no header and the detected pipe-lines are something else
+    // (e.g. a stray fragment or a body row that happens to look like a separator).
+    if (sepIdx < 1) return null;
     const bodyRows = rows.slice(sepIdx + 1);
     return bodyRows.length >= 2 ? bodyRows : null;
   }
@@ -978,4 +999,225 @@ function _fallbackCopy(text, glowTarget) {
   // Expose ghost-reapply hook so _updateHighlight in syntax-highlight.js can
   // re-inject the ghost span after every innerHTML refresh without a fixed delay.
   window._tableGhostApply = _applyGhostToPre;
+}
+
+// ── Tab cell navigation + row/column shortcuts ───────────────────────────
+// Registered on `document` at capture phase so these handlers run before the
+// textarea-local Tab=insert-tab listener in app-init.js. When the caret is
+// inside a table row, Tab/Shift-Tab walk cells, and Ctrl+Shift+Arrow adds or
+// removes rows and columns. Outside of tables the events fall through and the
+// default editor behaviour applies.
+{
+  // Returns { line, lineStart, lineEnd, pipes } for the caret's current line,
+  // where `pipes` lists absolute textarea offsets of every unescaped '|'.
+  // Returns null if the line is not a table row (needs leading '|' and ≥ 2 pipes).
+  function _currentTableLine() {
+    const pos       = textarea.selectionStart;
+    const text      = textarea.value;
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    const lineEndRaw = text.indexOf('\n', pos);
+    const lineEnd   = lineEndRaw === -1 ? text.length : lineEndRaw;
+    const line      = text.slice(lineStart, lineEnd);
+    if (!/^\s*\|/.test(line)) return null;
+    const pipes = [];
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '|' && line[i - 1] !== '\\') pipes.push(lineStart + i);
+    }
+    if (pipes.length < 2) return null;
+    return { pos, text, line, lineStart, lineEnd, pipes };
+  }
+
+  // Number of cells in a row = pipes.length - 1 (one cell between each pair).
+  function _cellCount(pipes) {
+    return Math.max(0, pipes.length - 1);
+  }
+
+  // Build a blank row with `cols` empty cells using the project's '|  |' convention.
+  function _blankRow(cols) {
+    return '|' + '  |'.repeat(cols);
+  }
+
+  // Move caret to the first cell of a newly inserted row (offset 2 past '|').
+  function _setCaret(pos) {
+    textarea.setSelectionRange(pos, pos);
+  }
+
+  // Replace a range of the textarea atomically using execCommand so undo works.
+  function _replaceRange(start, end, insert) {
+    textarea.setSelectionRange(start, end);
+    document.execCommand('insertText', false, insert);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (document.activeElement !== textarea) return;
+
+    // Only intercept keys we care about.
+    const isTab   = e.key === 'Tab';
+    const isArrow = (e.ctrlKey || e.metaKey) && e.shiftKey &&
+                    (e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
+                     e.key === 'ArrowLeft' || e.key === 'ArrowRight');
+    if (!isTab && !isArrow) return;
+
+    // Defer to the wiki-link autocomplete dropdown when it's visible —
+    // its Tab/Enter completes the highlighted entry.
+    const wikidrop = document.getElementById('wikilink-dropdown');
+    if (wikidrop && wikidrop.style.display !== 'none') return;
+
+    const ctx = _currentTableLine();
+    if (!ctx) return;
+    const { pos, text, line, lineStart, lineEnd, pipes } = ctx;
+
+    // ── Tab / Shift-Tab: move between cells ────────────────────────────────
+    if (isTab) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      if (e.shiftKey) {
+        // Previous cell: last pipe strictly before caret.
+        let prev = -1;
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          if (pipes[i] < pos) { prev = pipes[i]; break; }
+        }
+        if (prev < 0) return; // caret before first pipe — nowhere to go
+        // If the previous pipe is the opening pipe of the row, there is no
+        // earlier cell on this line — bail without moving.
+        if (prev === pipes[0]) return;
+        let target = prev + 1;
+        if (text[target] === ' ') target++;
+        _setCaret(target);
+        return;
+      }
+
+      // Next cell: first pipe at-or-after caret.
+      const next = pipes.find(p => p >= pos);
+      const isLast = next === undefined || next === pipes[pipes.length - 1];
+      if (isLast) {
+        // End-of-row Tab → insert a blank row below with matching column count
+        // and park the caret in its first cell.
+        const cols = _cellCount(pipes);
+        const blank = '\n' + _blankRow(cols);
+        _replaceRange(lineEnd, lineEnd, blank);
+        _setCaret(lineEnd + 3); // '\n|_' → caret at offset 3 (first cell)
+        refreshHighlight();
+        return;
+      }
+      let target = next + 1;
+      if (text[target] === ' ') target++;
+      _setCaret(target);
+      return;
+    }
+
+    // ── Ctrl+Shift+Arrow: add/delete rows and columns ──────────────────────
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (e.key === 'ArrowDown') {
+      // Add blank row below current.
+      const cols = _cellCount(pipes);
+      _replaceRange(lineEnd, lineEnd, '\n' + _blankRow(cols));
+      _setCaret(lineEnd + 3);
+      refreshHighlight();
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      // Delete current row (only if it's a body row — never drop header/separator).
+      // The table's header is the FIRST line of the contiguous pipe-block we
+      // belong to; the separator is the second. Walk up to find them.
+      const lines = text.split('\n');
+      const curLineIdx = text.slice(0, lineStart).split('\n').length - 1;
+      // Walk up while lines start with '|'.
+      let topIdx = curLineIdx;
+      while (topIdx > 0 && /^\s*\|/.test(lines[topIdx - 1])) topIdx--;
+      // topIdx = header, topIdx+1 = separator; refuse to delete those.
+      if (curLineIdx <= topIdx + 1) return;
+      const delStart = lineStart;
+      const delEnd   = lineEnd < text.length ? lineEnd + 1 : lineEnd; // swallow the '\n'
+      _replaceRange(delStart, delEnd, '');
+      refreshHighlight();
+      return;
+    }
+
+    if (e.key === 'ArrowRight') {
+      // Add an empty column immediately AFTER the one containing the caret.
+      // Identify the target pipe: the first pipe at-or-after caret. Every row
+      // in the same table gets an extra '  |' inserted after the pipe at that
+      // column index. Walk the contiguous pipe-block (header + separator + body).
+      let colIdx = pipes.findIndex(p => p >= pos);
+      if (colIdx < 0) colIdx = pipes.length - 1;
+      const lines = text.split('\n');
+      const curLineIdx = text.slice(0, lineStart).split('\n').length - 1;
+      let topIdx = curLineIdx;
+      while (topIdx > 0 && /^\s*\|/.test(lines[topIdx - 1])) topIdx--;
+      let botIdx = curLineIdx;
+      while (botIdx < lines.length - 1 && /^\s*\|/.test(lines[botIdx + 1])) botIdx++;
+      // Rebuild each row with the extra column inserted.
+      for (let i = topIdx; i <= botIdx; i++) {
+        const rowPipes = [];
+        for (let j = 0; j < lines[i].length; j++) {
+          if (lines[i][j] === '|' && lines[i][j - 1] !== '\\') rowPipes.push(j);
+        }
+        // If this row has fewer pipes, clamp to its last pipe.
+        const insertAfter = Math.min(colIdx, rowPipes.length - 1);
+        if (insertAfter < 0) continue;
+        const cut = rowPipes[insertAfter] + 1;
+        const isSep = rowPipes.slice(0, -1).every((p, k) => {
+          const cell = lines[i].slice(p + 1, rowPipes[k + 1]).trim();
+          return /^:?-+:?$/.test(cell);
+        });
+        const inject = isSep ? ' - |' : '  |';
+        lines[i] = lines[i].slice(0, cut) + inject + lines[i].slice(cut);
+      }
+      const newText = lines.join('\n');
+      const caretTarget = pos; // caret stays in place; user can Tab to new column
+      textarea.setSelectionRange(0, text.length);
+      document.execCommand('insertText', false, newText);
+      _setCaret(caretTarget);
+      refreshHighlight();
+      return;
+    }
+
+    if (e.key === 'ArrowLeft') {
+      // Delete the column containing the caret across the whole table.
+      let colIdx = pipes.findIndex(p => p >= pos);
+      if (colIdx < 0) colIdx = pipes.length - 1;
+      if (colIdx === 0) colIdx = 1; // caret before first pipe → target first cell
+      const lines = text.split('\n');
+      const curLineIdx = text.slice(0, lineStart).split('\n').length - 1;
+      let topIdx = curLineIdx;
+      while (topIdx > 0 && /^\s*\|/.test(lines[topIdx - 1])) topIdx--;
+      let botIdx = curLineIdx;
+      while (botIdx < lines.length - 1 && /^\s*\|/.test(lines[botIdx + 1])) botIdx++;
+      // Refuse to delete the last remaining column.
+      const minCells = Math.min(...Array.from({ length: botIdx - topIdx + 1 }, (_, k) => {
+        const rp = [];
+        const ln = lines[topIdx + k];
+        for (let j = 0; j < ln.length; j++) {
+          if (ln[j] === '|' && ln[j - 1] !== '\\') rp.push(j);
+        }
+        return Math.max(0, rp.length - 1);
+      }));
+      if (minCells <= 1) return;
+      for (let i = topIdx; i <= botIdx; i++) {
+        const rowPipes = [];
+        for (let j = 0; j < lines[i].length; j++) {
+          if (lines[i][j] === '|' && lines[i][j - 1] !== '\\') rowPipes.push(j);
+        }
+        // Target cell: between rowPipes[colIdx-1] and rowPipes[colIdx].
+        const left  = rowPipes[colIdx - 1];
+        const right = rowPipes[colIdx];
+        if (left === undefined || right === undefined) continue;
+        // Cut from `left` (inclusive) to `right` (exclusive) so the trailing
+        // pipe remains, closing the row.
+        lines[i] = lines[i].slice(0, left) + lines[i].slice(right);
+      }
+      const newText = lines.join('\n');
+      textarea.setSelectionRange(0, text.length);
+      document.execCommand('insertText', false, newText);
+      // Best-effort: park caret at start of the previous column on the same line.
+      _setCaret(Math.max(lineStart, pos - 4));
+      refreshHighlight();
+      return;
+    }
+  }, true);
 }
