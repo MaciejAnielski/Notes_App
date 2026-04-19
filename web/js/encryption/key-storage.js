@@ -82,7 +82,7 @@ window.KeyStorage = {
 
     // Electron: use safeStorage via IPC
     if (window.electronAPI?.saveEncryptedKey) {
-      const b64 = btoa(String.fromCharCode(...rawBytes));
+      const b64 = window.BinaryUtil.uint8ToBase64(rawBytes);
       await window.electronAPI.saveEncryptedKey(id, b64);
       return;
     }
@@ -103,7 +103,7 @@ window.KeyStorage = {
     if (window.electronAPI?.loadEncryptedKey) {
       const b64 = await window.electronAPI.loadEncryptedKey(id);
       if (!b64) return null;
-      return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      return window.BinaryUtil.base64ToUint8(b64);
     }
 
     // Web / iOS: IndexedDB

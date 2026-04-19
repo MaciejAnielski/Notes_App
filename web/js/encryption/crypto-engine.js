@@ -151,8 +151,10 @@ window.CryptoEngine = {
   /**
    * Derive a wrapping key from an ECDH shared secret.
    * Uses deriveBits → HKDF → AES-GCM-256.
+   * salt binds the derivation to the specific pairing session so the same
+   * shared secret can never unwrap keys across sessions.
    */
-  async deriveWrappingKey(privateKey, publicKey) {
+  async deriveWrappingKey(privateKey, publicKey, salt) {
     const sharedBits = await crypto.subtle.deriveBits(
       { name: 'ECDH', public: publicKey },
       privateKey,
@@ -165,14 +167,20 @@ window.CryptoEngine = {
       {
         name: 'HKDF',
         hash: 'SHA-256',
-        salt: new Uint8Array(32), // fixed empty salt (authenticated via pairing code)
-        info: new TextEncoder().encode('notesapp-pairing-v1')
+        salt: salt instanceof Uint8Array ? salt : new Uint8Array(32),
+        info: new TextEncoder().encode('notesapp-pairing-v2')
       },
       hkdfKey,
       { name: 'AES-GCM', length: 256 },
       false,
       ['encrypt', 'decrypt']
     );
+  },
+
+  /** SHA-256 hash raw bytes. Returns a Uint8Array(32). */
+  async sha256Bytes(bytes) {
+    const buf = await crypto.subtle.digest('SHA-256', bytes);
+    return new Uint8Array(buf);
   },
 
   /**
@@ -292,17 +300,12 @@ window.CryptoEngine = {
   }
 };
 
-// ── Base64 helpers (binary-safe, no padding issues) ──────────────────────
+// ── Base64 helpers — delegate to the shared utils/binary.js module ───────
 
 function _uint8ToBase64(bytes) {
-  let binary = '';
-  const chunk = 8192;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
+  return window.BinaryUtil.uint8ToBase64(bytes);
 }
 
 function _base64ToUint8(b64) {
-  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return window.BinaryUtil.base64ToUint8(b64);
 }

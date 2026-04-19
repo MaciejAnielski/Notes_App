@@ -1,6 +1,6 @@
 /* Push all body content left to make room for the fixed pinned panel */
 body.panel-pinned {
-  padding-right: 300px;
+  padding-right: var(--panel-width);
   box-sizing: border-box;
 }
 
@@ -17,19 +17,19 @@ body.panel-pinned {
     transform: none;
   }
 
-  /* Cap max-width so the pill doesn't run under the 300px side panel. */
+  /* Cap max-width so the pill doesn't run under the side panel. */
   body.panel-visible:not(.panel-pinned) #button-container,
   body.panel-pinned #button-container {
     left: 5px;
-    max-width: calc(100% - 300px - var(--gap) - 6px);
+    max-width: calc(100% - var(--panel-width) - var(--gap) - 6px);
   }
 
   /* Shift the status pill left by half the panel width so it stays centred
      in the visible content area when the panel is revealed (floating). When
-     pinned, body.panel-pinned adds padding-right:300px so #editor-section
-     already shrinks — no extra offset is needed for that case. */
+     pinned, body.panel-pinned adds padding-right:var(--panel-width) so
+     #editor-section already shrinks — no extra offset is needed for that case. */
   body.panel-visible:not(.panel-pinned) #bottom-status-area {
-    left: calc(50% - 150px);
+    left: calc(50% - (var(--panel-width) / 2));
   }
 }
 
@@ -219,10 +219,7 @@ body.panel-pinned {
 
   /* Content top-padding must clear the notch AND the toolbar pill */
   body:not(.electron) textarea,
-  body:not(.electron) #editor-highlight {
-    padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
-  }
-
+  body:not(.electron) #editor-highlight,
   body:not(.electron) #preview {
     padding-top: calc(var(--toolbar-h) + env(safe-area-inset-top));
   }
@@ -300,7 +297,7 @@ body.panel-pinned {
    devices have any-pointer:coarse and hover:none so they never match here.
    JS state (panel-visible / panel-pinned) is preserved; the panel reappears
    when the window widens. */
-@media (max-width: 650px) and (hover: hover) {
+@media (max-width: 650px) and (hover: hover) and (not (any-pointer: coarse)) {
   #panel-lists.visible,
   #panel-lists.pinned {
     transform: translateX(100%) !important;

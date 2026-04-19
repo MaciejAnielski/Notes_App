@@ -438,13 +438,14 @@ async function updateTodoList(cachedNotes) {
             const href = encodeURIComponent(inner.trim());
             return `[${display}](${href})`;
           });
+          checkbox.setAttribute('aria-label', `Task: ${rawText || '(empty)'} in ${fileName}`);
           checkbox.addEventListener('change', () => {
             toggleTaskStatus(fileName, t.idx);
           });
           todoLi.appendChild(checkbox);
           const span = document.createElement('span');
           span.className = 'task-text';
-          span.innerHTML = marked.parseInline(text);
+          span.innerHTML = safeRenderMarkdownInline(text);
           span.style.cursor = 'pointer';
           span.addEventListener('click', (e) => {
             if (e.target.closest('a')) return;

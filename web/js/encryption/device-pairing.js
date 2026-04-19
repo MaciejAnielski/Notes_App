@@ -40,6 +40,10 @@ window.DevicePairing = {
     // Generate pairing code
     const code = CryptoEngine.generatePairingCode();
     const codeHash = await CryptoEngine.hashPairingCode(code);
+    // HKDF salt binds the wrapping-key derivation to this specific code.
+    const pairingSalt = await CryptoEngine.sha256Bytes(
+      new TextEncoder().encode('notesapp-pairing-salt:' + code)
+    );
 
     // Insert pairing request
     const { data: row, error } = await supabase.from('device_pairing').insert({
@@ -62,7 +66,9 @@ window.DevicePairing = {
       supabase.from('device_pairing')
         .update({ status: 'expired' })
         .eq('id', pairingId)
-        .then(() => {});
+        .then(({ error } = {}) => {
+          if (error) console.warn('[pairing] cancel failed:', error);
+        });
     }
 
     async function waitForCompletion() {
@@ -85,7 +91,7 @@ window.DevicePairing = {
           // Derive shared secret
           const joinerPub = await CryptoEngine.importPublicKey(data.joiner_ecdh_public);
           const wrappingKey = await CryptoEngine.deriveWrappingKey(
-            ecdhKeyPair.privateKey, joinerPub
+            ecdhKeyPair.privateKey, joinerPub, pairingSalt
           );
 
           // Wrap and upload the master key
@@ -117,6 +123,9 @@ window.DevicePairing = {
     if (!supabase) throw new Error('Supabase client not available');
 
     const codeHash = await CryptoEngine.hashPairingCode(code);
+    const pairingSalt = await CryptoEngine.sha256Bytes(
+      new TextEncoder().encode('notesapp-pairing-salt:' + code)
+    );
 
     // Look up pairing request
     const { data: rows, error } = await supabase.from('device_pairing')
@@ -160,7 +169,7 @@ window.DevicePairing = {
       if (data.encrypted_master_key && data.status === 'completed') {
         // Derive the same shared secret
         const wrappingKey = await CryptoEngine.deriveWrappingKey(
-          ecdhKeyPair.privateKey, initiatorPub
+          ecdhKeyPair.privateKey, initiatorPub, pairingSalt
         );
 
         // Unwrap the master key
@@ -168,11 +177,22 @@ window.DevicePairing = {
           data.encrypted_master_key, wrappingKey
         );
 
-        // Mark as consumed
-        await supabase.from('device_pairing')
-          .update({ status: 'consumed' })
-          .eq('id', pairing.id)
-          .then(() => {});
+        // Mark as consumed so the wrapped key cannot be replayed.
+        // Retry a handful of times before giving up — failure here means the
+        // wrapped-key row remains live, which would let an attacker who later
+        // obtains it replay the exchange.
+        let consumedError = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { error: consumeErr } = await supabase.from('device_pairing')
+            .update({ status: 'consumed' })
+            .eq('id', pairing.id);
+          if (!consumeErr) { consumedError = null; break; }
+          consumedError = consumeErr;
+          await _sleep(500 * (attempt + 1));
+        }
+        if (consumedError) {
+          console.warn('[pairing] failed to mark pairing consumed:', consumedError);
+        }
 
         return masterKeyBytes;
       }

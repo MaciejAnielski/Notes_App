@@ -207,6 +207,9 @@
     }
   </script>
 
+  <!-- Shared low-level utilities (must load before encryption + core state) -->
+  <script defer src="js/utils/binary.js"></script>
+
   <!-- Storage (IndexedDB note store + E2E encryption) -->
   <script defer src="js/storage/storage.js"></script>
   <script defer src="js/encryption/crypto-engine.js"></script>
@@ -216,6 +219,7 @@
 
   <!-- Core app state (DOM refs, shared variables) -->
   <script defer src="js/core/app-state.js"></script>
+  <script defer src="js/utils/sanitize.js"></script>
 
   <!-- Editor / preview rendering -->
   <script defer src="js/editor/markdown-renderer.js"></script>
@@ -240,5 +244,7 @@
   <!-- Wires everything up (must run after all of the above) -->
   <script defer src="js/core/app-init.js"></script>
   <script defer src="js/editor/table-features.js"></script>
+  <!-- Stable top-level namespace for external consumers (loads last). -->
+  <script defer src="js/core/app-facade.js"></script>
 </body>
 </html>

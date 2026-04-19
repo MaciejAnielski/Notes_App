@@ -120,11 +120,9 @@ window.CryptoStorage = {
 
     wrapped.writeAttachment = async function (noteName, filename, base64data) {
       try {
-        const raw = Uint8Array.from(atob(base64data), c => c.charCodeAt(0));
+        const raw = window.BinaryUtil.base64ToUint8(base64data);
         const enc = await CryptoEngine.encryptBytes(raw, masterKey);
-        const encB64 = btoa(String.fromCharCode.apply(null, enc.length <= 8192
-          ? enc
-          : _chunkedToString(enc)));
+        const encB64 = window.BinaryUtil.uint8ToBase64(enc);
         return storage.writeAttachment(noteName, filename, encB64);
       } catch (e) {
         console.error('[crypto-storage] Attachment encrypt failed:', e);
@@ -137,16 +135,11 @@ window.CryptoStorage = {
       const b64 = await storage.readAttachment(noteName, filename);
       if (!b64) return b64;
       try {
-        const raw = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        const raw = window.BinaryUtil.base64ToUint8(b64);
         // Check if this looks like encrypted data (at least IV + 1 byte + tag)
         if (raw.length > 28) {
           const dec = await CryptoEngine.decryptBytes(raw, masterKey);
-          let binary = '';
-          const chunk = 8192;
-          for (let i = 0; i < dec.length; i += chunk) {
-            binary += String.fromCharCode.apply(null, dec.subarray(i, i + chunk));
-          }
-          return btoa(binary);
+          return window.BinaryUtil.uint8ToBase64(dec);
         }
         return b64; // too short to be encrypted, return as-is
       } catch {
@@ -189,13 +182,3 @@ window.CryptoStorage = {
     return done;
   }
 };
-
-// Helper for large Uint8Array → string conversion
-function _chunkedToString(arr) {
-  let binary = '';
-  const chunk = 8192;
-  for (let i = 0; i < arr.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
-  }
-  return binary;
-}

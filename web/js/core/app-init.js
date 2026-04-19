@@ -22,6 +22,16 @@ function setupMobileButtonGroup(button, action) {
   }
 
   let expanded = false;
+  let currentHide = null;
+
+  function collapse() {
+    group.classList.remove('active');
+    expanded = false;
+    if (currentHide) {
+      document.removeEventListener('click', currentHide);
+      currentHide = null;
+    }
+  }
 
   button.addEventListener('click', e => {
     const isMobileTouch = mobileMediaQuery.matches;
@@ -30,18 +40,13 @@ function setupMobileButtonGroup(button, action) {
         e.preventDefault();
         expanded = true;
         group.classList.add('active');
-        const hide = evt => {
-          if (!group.contains(evt.target)) {
-            group.classList.remove('active');
-            expanded = false;
-            document.removeEventListener('click', hide);
-          }
+        currentHide = evt => {
+          if (!group.contains(evt.target)) collapse();
         };
-        document.addEventListener('click', hide);
+        document.addEventListener('click', currentHide);
         return;
       }
-      group.classList.remove('active');
-      expanded = false;
+      collapse();
     }
     action(e);
   });
@@ -529,7 +534,120 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !globalSearchPanel.classList.contains('gs-hidden')) {
     closeGlobalSearch();
   }
+  if (e.key === 'Escape') {
+    _closeHelpOverlay();
+  }
+  // Ctrl+S / Cmd+S — flush the autosave debounce so the note is persisted
+  // immediately.  Prevents the browser's default "Save Page" dialog.
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    clearTimeout(autoSaveTimer);
+    try {
+      Promise.resolve(autoSaveNote()).then(
+        () => updateStatus('Saved.', true),
+        (err) => {
+          console.error('[app-init] Ctrl+S save failed:', err);
+          updateStatus('Save failed.', false);
+        }
+      );
+    } catch (err) {
+      console.error('[app-init] Ctrl+S save threw:', err);
+      updateStatus('Save failed.', false);
+    }
+  }
+  // `?` — keyboard help overlay.  Ignore when typing in any editable field.
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+    const t = e.target;
+    const typing = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable);
+    if (!typing) {
+      e.preventDefault();
+      _toggleHelpOverlay();
+    }
+  }
 });
+
+// ── Keyboard help overlay ─────────────────────────────────────────────────
+
+const _HELP_SHORTCUTS = [
+  ['Ctrl/Cmd + S',       'Save current note immediately'],
+  ['Ctrl/Cmd + N',       'Create a new note'],
+  ['Ctrl/Cmd + Shift+N', 'Open a new window (desktop)'],
+  ['Ctrl/Cmd + P',       'Toggle preview / edit mode'],
+  ['Ctrl/Cmd + F',       'Open global search & replace'],
+  ['?',                  'Show this help'],
+  ['Escape',             'Close any open overlay']
+];
+
+function _buildHelpOverlay() {
+  if (document.getElementById('help-overlay')) return;
+  const backdrop = document.createElement('div');
+  backdrop.id = 'help-overlay';
+  backdrop.setAttribute('role', 'dialog');
+  backdrop.setAttribute('aria-modal', 'true');
+  backdrop.setAttribute('aria-label', 'Keyboard shortcuts and syntax reference');
+
+  const panel = document.createElement('div');
+  panel.id = 'help-overlay-panel';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Keyboard shortcuts';
+  panel.appendChild(title);
+
+  const kbTable = document.createElement('table');
+  kbTable.className = 'help-shortcuts';
+  for (const [keys, desc] of _HELP_SHORTCUTS) {
+    const tr = document.createElement('tr');
+    const k = document.createElement('td');
+    const kbd = document.createElement('kbd');
+    kbd.textContent = keys;
+    k.appendChild(kbd);
+    const d = document.createElement('td');
+    d.textContent = desc;
+    tr.appendChild(k); tr.appendChild(d);
+    kbTable.appendChild(tr);
+  }
+  panel.appendChild(kbTable);
+
+  const syntaxTitle = document.createElement('h2');
+  syntaxTitle.textContent = 'Markdown syntax';
+  panel.appendChild(syntaxTitle);
+
+  const syntaxWrap = document.createElement('div');
+  syntaxWrap.className = 'help-syntax';
+  // SYNTAX_REFERENCE_TABLE is a markdown table; render via the sanitized
+  // markdown pipeline.  safeRenderMarkdown is defined in utils/sanitize.js.
+  if (typeof window.safeRenderMarkdown === 'function' &&
+      typeof SYNTAX_REFERENCE_TABLE !== 'undefined') {
+    syntaxWrap.innerHTML = window.safeRenderMarkdown(SYNTAX_REFERENCE_TABLE);
+  }
+  panel.appendChild(syntaxWrap);
+
+  const hint = document.createElement('p');
+  hint.className = 'help-hint';
+  hint.textContent = 'Press ? again or Escape to close.';
+  panel.appendChild(hint);
+
+  backdrop.appendChild(panel);
+  backdrop.addEventListener('click', (ev) => {
+    if (ev.target === backdrop) _closeHelpOverlay();
+  });
+  document.body.appendChild(backdrop);
+}
+
+function _toggleHelpOverlay() {
+  const existing = document.getElementById('help-overlay');
+  if (existing && !existing.classList.contains('hidden')) {
+    _closeHelpOverlay();
+  } else {
+    _buildHelpOverlay();
+    document.getElementById('help-overlay').classList.remove('hidden');
+  }
+}
+
+function _closeHelpOverlay() {
+  const el = document.getElementById('help-overlay');
+  if (el) el.classList.add('hidden');
+}
 
 // ── Wiki-link autocomplete ────────────────────────────────────────────────
 // Shows a floating dropdown of note names when the user types [[ or [ in the editor.

@@ -1211,7 +1211,7 @@ async function renderPreview() {
   const _renderTarget = currentFileName;
   const _renderGen = _loadNoteGeneration;
 
-  _lastRenderedHTML = marked.parse(preprocessMarkdown(_currentContent));
+  _lastRenderedHTML = safeRenderMarkdown(preprocessMarkdown(_currentContent));
   _lastRenderedFile = currentFileName;
   _lastRenderedContent = _currentContent;
   previewDiv.innerHTML = _lastRenderedHTML;

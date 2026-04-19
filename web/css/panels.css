@@ -167,7 +167,7 @@ body.panel-visible #panel-open-btn {
   position: fixed;
   top: 0;
   right: 0;
-  width: 300px;
+  width: var(--panel-width);
   height: calc(100% - 20px);
   z-index: 50;
   background-color: var(--bg);
@@ -183,7 +183,7 @@ body.panel-visible #panel-open-btn {
   transform: translateX(100%);
   visibility: hidden;
   pointer-events: none;
-  transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
+  transition: transform 0.3s var(--easing-bounce),
               visibility 0.3s ease,
               box-shadow 0.3s ease,
               border-radius 0.3s ease;
