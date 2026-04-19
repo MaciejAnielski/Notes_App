@@ -118,9 +118,9 @@ Goal: close the functional gaps users have asked for.
 
 6.1 **Ctrl+S save** — explicit save shortcut in `web/js/core/app-init.js` that flushes `NoteStorage.setNote` immediately and shows a "Saved" toast.
 
-6.2 **Undo/redo beyond the textarea** — maintain a stack in `app-state.js` tied to note id; bind Ctrl+Z / Ctrl+Shift+Z. Keep it small (50 entries) and drop on note switch.
+6.2 **Undo/redo beyond the textarea** — _deferred_. The `<textarea>` already gives native Ctrl+Z / Ctrl+Shift+Z. A second custom stack tied to the note id risks desyncing with the browser's native undo history (which also tracks selection and IME composition) and the behaviour users would want (does undoing cross a note switch?) needs product sign-off before writing code. Revisit when the product team has a clear answer.
 
-6.3 **Sync conflict detection** — in `app-state.js:91-104`, compare `_lastSavedContent` with `_lastRemoteContent` before overwrite; surface a diff modal letting the user pick local, remote, or merge.
+6.3 **Sync conflict detection** — _deferred_. The data plumbing (`_lastSavedContent` vs `_lastRemoteContent`) exists, but the UX copy (modal title, button labels, what "merge" means for markdown) needs design input. The current behaviour (Stage 2 hardened it to "remote change detected — keeping your unsaved edits") is a safe fallback until the modal is specified.
 
 6.4 **Keyboard help overlay** — expose the existing `SYNTAX_REFERENCE_TABLE` (`note-manager.js:6-23`) through a `?`-key modal that also lists all shortcuts.
 

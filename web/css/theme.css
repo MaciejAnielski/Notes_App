@@ -119,6 +119,88 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
+/* ── Keyboard help overlay (triggered by `?`) ─────────────────────────────
+   Modal-style backdrop + centred card.  Hidden by default via the `.hidden`
+   class the JS adds on close. */
+#help-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--shadow);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gap);
+  box-sizing: border-box;
+}
+
+#help-overlay.hidden {
+  display: none;
+}
+
+#help-overlay-panel {
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 18px 22px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px var(--shadow);
+  font-size: 14px;
+}
+
+#help-overlay-panel h2 {
+  margin: 0.6em 0 0.4em;
+  font-size: 1.05em;
+}
+
+#help-overlay-panel h2:first-child {
+  margin-top: 0;
+}
+
+#help-overlay-panel table.help-shortcuts {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#help-overlay-panel table.help-shortcuts td {
+  padding: 4px 8px;
+  vertical-align: top;
+}
+
+#help-overlay-panel kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.9em;
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+#help-overlay-panel .help-syntax table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#help-overlay-panel .help-syntax th,
+#help-overlay-panel .help-syntax td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--surface);
+  text-align: left;
+}
+
+#help-overlay-panel .help-hint {
+  margin: 1em 0 0;
+  font-size: 0.85em;
+  color: var(--muted);
+  text-align: center;
+}
+
 /* ── Windows High-Contrast / forced-colors mode ───────────────────────────
    Some custom components (checkbox, focus ring, buttons) draw themselves
    with background-image or box-shadow, which forced-colors hides.  Ask the
