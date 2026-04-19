@@ -43,36 +43,48 @@ if (typeof marked !== 'undefined') {
 }
 
 // ── DOM element references ────────────────────────────────────────────────
-const textarea = document.getElementById('editor');
-const previewDiv = document.getElementById('preview');
-const toggleViewBtn = document.getElementById('toggle-view');
-const newNoteBtn = document.getElementById('new-note');
-const downloadAllBtn = document.getElementById('download-all');
-const exportNoteBtn = document.getElementById('export-note');
-const exportAllHtmlBtn = document.getElementById('export-all-html');
-const deleteBtn = document.getElementById('delete-note');
-const deleteAllBtn = document.getElementById('delete-all');
-const importZipBtn = document.getElementById('import-zip');
-const importZipInput = document.getElementById('import-zip-input');
-const searchBox = document.getElementById('searchBox');
-const searchTasksBox = document.getElementById('searchTasksBox');
-const fileList = document.getElementById('fileList');
-const todoList = document.getElementById('todoList');
-const statusDiv = document.getElementById('status-message');
-const deleteSelectedBtn = document.getElementById('delete-selected');
-const exportSelectedBtn = document.getElementById('export-selected');
-const findBtn = document.getElementById('find-btn');
-const panelLists = document.getElementById('panel-lists');
-const panelArrow = document.getElementById('panel-arrow');
-const panelPin = document.getElementById('panel-pin');
-const panelOpenBtn = document.getElementById('panel-open-btn');
-const filesContainer = document.getElementById('files-container');
-const todosContainer = document.getElementById('todo-container');
-const scheduleContainer = document.getElementById('schedule-container');
-const scheduleGrid = document.getElementById('scheduleGrid');
-const scheduleDateLabel = document.getElementById('schedule-date-label');
-const schedulePrevBtn = document.getElementById('schedule-prev');
-const scheduleNextBtn = document.getElementById('schedule-next');
+// Resolve every required element through a single helper that fails fast and
+// reports the full list of missing IDs. Silent undefineds here used to surface
+// later as cryptic "cannot read property … of null" stack traces.
+function _requireEl(id) {
+  const el = document.getElementById(id);
+  if (!el) _missingEls.push(id);
+  return el;
+}
+const _missingEls = [];
+const textarea = _requireEl('editor');
+const previewDiv = _requireEl('preview');
+const toggleViewBtn = _requireEl('toggle-view');
+const newNoteBtn = _requireEl('new-note');
+const downloadAllBtn = _requireEl('download-all');
+const exportNoteBtn = _requireEl('export-note');
+const exportAllHtmlBtn = _requireEl('export-all-html');
+const deleteBtn = _requireEl('delete-note');
+const deleteAllBtn = _requireEl('delete-all');
+const importZipBtn = _requireEl('import-zip');
+const importZipInput = _requireEl('import-zip-input');
+const searchBox = _requireEl('searchBox');
+const searchTasksBox = _requireEl('searchTasksBox');
+const fileList = _requireEl('fileList');
+const todoList = _requireEl('todoList');
+const statusDiv = _requireEl('status-message');
+const deleteSelectedBtn = _requireEl('delete-selected');
+const exportSelectedBtn = _requireEl('export-selected');
+const findBtn = _requireEl('find-btn');
+const panelLists = _requireEl('panel-lists');
+const panelArrow = _requireEl('panel-arrow');
+const panelPin = _requireEl('panel-pin');
+const panelOpenBtn = _requireEl('panel-open-btn');
+const filesContainer = _requireEl('files-container');
+const todosContainer = _requireEl('todo-container');
+const scheduleContainer = _requireEl('schedule-container');
+const scheduleGrid = _requireEl('scheduleGrid');
+const scheduleDateLabel = _requireEl('schedule-date-label');
+const schedulePrevBtn = _requireEl('schedule-prev');
+const scheduleNextBtn = _requireEl('schedule-next');
+if (_missingEls.length > 0) {
+  throw new Error('app-state: required DOM elements missing: ' + _missingEls.join(', '));
+}
 
 // ── Cached media queries ──────────────────────────────────────────────────
 // On Electron the window can be narrowed below 650 px without entering mobile

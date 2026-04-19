@@ -140,8 +140,13 @@ async function gsSelectResult(index) {
   const caseSensitive = gsCaseCheckbox.checked;
   const occurrenceIndex = gsCurrentResults.slice(0, index).filter(r => r.noteName === result.noteName).length;
 
+  // Snapshot state at selection time. Without this, a delayed highlight
+  // would read isPreview/currentFileName after the user switched notes.
+  const targetNote = result.noteName;
+  const wasPreview = isPreview;
   const applyHighlight = () => {
-    if (isPreview) {
+    if (currentFileName !== targetNote) return;
+    if (wasPreview) {
       highlightTextInPreview(query, caseSensitive, occurrenceIndex);
     } else {
       const idx = result.matchIndex;

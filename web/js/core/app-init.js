@@ -22,6 +22,16 @@ function setupMobileButtonGroup(button, action) {
   }
 
   let expanded = false;
+  let currentHide = null;
+
+  function collapse() {
+    group.classList.remove('active');
+    expanded = false;
+    if (currentHide) {
+      document.removeEventListener('click', currentHide);
+      currentHide = null;
+    }
+  }
 
   button.addEventListener('click', e => {
     const isMobileTouch = mobileMediaQuery.matches;
@@ -30,18 +40,13 @@ function setupMobileButtonGroup(button, action) {
         e.preventDefault();
         expanded = true;
         group.classList.add('active');
-        const hide = evt => {
-          if (!group.contains(evt.target)) {
-            group.classList.remove('active');
-            expanded = false;
-            document.removeEventListener('click', hide);
-          }
+        currentHide = evt => {
+          if (!group.contains(evt.target)) collapse();
         };
-        document.addEventListener('click', hide);
+        document.addEventListener('click', currentHide);
         return;
       }
-      group.classList.remove('active');
-      expanded = false;
+      collapse();
     }
     action(e);
   });

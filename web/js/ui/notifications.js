@@ -141,13 +141,14 @@ async function checkScheduleNotifications() {
     const eventMinutes = startH * 60 + startM;
     const diff = eventMinutes - nowMinutes;
 
+    const tagText = item.text || 'event';
     if (diff > 0 && diff <= NOTIF_ADVANCE_MINUTES) {
       const label = item.isTask ? 'Task' : 'Event';
       const cleanText = stripMarkdownText(item.text || '') || 'Upcoming scheduled item';
       sendNotification(
         `${label} in ${diff} minute${diff > 1 ? 's' : ''}`,
         cleanText,
-        `advance-${todayStr}-${item.startTime}-${item.text}`
+        `advance-${todayStr}-${item.startTime}-${tagText}`
       );
     }
 
@@ -159,7 +160,7 @@ async function checkScheduleNotifications() {
       sendNotification(
         `${label} starting now`,
         cleanText,
-        `start-${todayStr}-${item.startTime}-${item.text}`
+        `start-${todayStr}-${item.startTime}-${tagText}`
       );
     }
   }

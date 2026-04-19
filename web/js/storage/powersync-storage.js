@@ -43,9 +43,32 @@
       'writeAttachment', 'readAttachment', 'renameAttachment',
       'removeAttachmentDir', 'renameAttachmentDir', 'listAttachments', 'deleteAttachment',
     ];
+    // Primary-window may be slow or crashed; cap each IPC call so UI doesn't hang.
+    const IPC_TIMEOUT_MS = 5000;
+    function _withTimeout(method, promise) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error(`[powersync] IPC timeout on ${method} (primary window unavailable)`));
+        }, IPC_TIMEOUT_MS);
+        promise.then(v => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(v);
+        }, e => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(e);
+        });
+      });
+    }
     const proxy = {};
     for (const method of PROXY_METHODS) {
-      proxy[method] = (...args) => window.electronAPI.proxyNoteStorage(method, args);
+      proxy[method] = (...args) => _withTimeout(method, window.electronAPI.proxyNoteStorage(method, args));
     }
     window.PowerSyncNoteStorage = proxy;
     // Re-dispatch powersync:change locally whenever the primary window broadcasts

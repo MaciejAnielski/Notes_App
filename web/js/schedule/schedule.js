@@ -106,8 +106,13 @@ async function getScheduleItems(dateStr) {
   const cache = await getScheduleCache();
   const timedAndAllDay = cache[dateStr] || [];
   // Include multi-day items that span this date
+  const target = parseInt(dateStr, 10);
   const multiday = (cache._multiday || [])
-    .filter(item => item.startDate <= dateStr && dateStr <= item.endDate)
+    .filter(item => {
+      const start = parseInt(item.startDate, 10);
+      const end = parseInt(item.endDate, 10);
+      return Number.isFinite(start) && Number.isFinite(end) && start <= target && target <= end;
+    })
     .sort((a, b) => {
       if (!a.isTask && b.isTask) return -1;
       if (a.isTask && !b.isTask) return 1;
