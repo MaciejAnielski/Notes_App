@@ -12,6 +12,12 @@
   margin: var(--gap) 0;
   font-size: 16px;
   font-family: Arial, sans-serif;
+}
+
+/* Suppress the default outline on mouse focus; keyboard focus still
+   triggers the theme.css :focus-visible ring. */
+#searchBox:focus:not(:focus-visible),
+#searchTasksBox:focus:not(:focus-visible) {
   outline: none;
 }
 

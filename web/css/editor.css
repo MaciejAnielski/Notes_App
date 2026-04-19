@@ -158,7 +158,9 @@ input::placeholder {
 /* Image syntax ![alt](url) */
 .hl-image { color: var(--image-syntax); }
 
-textarea:focus {
+/* textarea focus: plain clicks stay un-ringed, but keyboard focus keeps the
+   theme.css :focus-visible ring for accessibility. */
+textarea:focus:not(:focus-visible) {
   outline: none;
 }
 

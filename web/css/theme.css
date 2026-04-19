@@ -102,6 +102,23 @@
   color: var(--selection-text);
 }
 
+/* ── Keyboard focus rings ─────────────────────────────────────────────────
+   Visible only for keyboard navigation (:focus-visible) so mouse clicks
+   stay un-ringed.  Covers the surfaces a keyboard user reaches most often:
+   textareas, search inputs, toolbar buttons and sub-buttons.  Individual
+   modules (editor.css, file-list.css) already opt out of the default
+   :focus outline for the mouse case, so the ring below is the only one
+   the user sees when tabbing in. */
+textarea:focus-visible,
+#searchBox:focus-visible,
+#searchTasksBox:focus-visible,
+#button-container button:focus-visible,
+#tools-overflow-row button:focus-visible,
+.sub-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ── Missing / broken internal links in preview ── */
 #preview a.internal-link-new {
   color: var(--link-missing);
