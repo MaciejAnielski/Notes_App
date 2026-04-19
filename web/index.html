@@ -244,5 +244,7 @@
   <!-- Wires everything up (must run after all of the above) -->
   <script defer src="js/core/app-init.js"></script>
   <script defer src="js/editor/table-features.js"></script>
+  <!-- Stable top-level namespace for external consumers (loads last). -->
+  <script defer src="js/core/app-facade.js"></script>
 </body>
 </html>
