@@ -519,10 +519,7 @@ function _fallbackCopy(text, glowTarget) {
   // Remove the ghost span from the pre.  Synchronous — safe to call in input handler.
   function _trHide() {
     if (typeof _highlightPre !== 'undefined' && _highlightPre) {
-      _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => {
-        while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
-        s.parentNode.removeChild(s);
-      });
+      _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
     }
     _ghostInsertPos = null;
     _ghostText      = '';
@@ -535,10 +532,7 @@ function _fallbackCopy(text, glowTarget) {
   function _applyGhostToPre() {
     if (_ghostInsertPos === null || typeof _highlightPre === 'undefined' || !_highlightPre) return;
     // Remove any stale ghost span.
-    _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => {
-      while (s.firstChild) s.parentNode.insertBefore(s.firstChild, s);
-      s.parentNode.removeChild(s);
-    });
+    _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
     // Walk text nodes to find the character offset.
     const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
     let remaining = _ghostInsertPos;
