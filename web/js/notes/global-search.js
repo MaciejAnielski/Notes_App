@@ -19,8 +19,10 @@ let gsSelectedIndex  = -1;
 
 function openGlobalSearch() {
   globalSearchPanel.classList.remove('gs-hidden');
-  gsSearchInput.focus();
-  gsSearchInput.select();
+  setTimeout(() => {
+    gsSearchInput.focus();
+    gsSearchInput.select();
+  }, 0);
 }
 
 function closeGlobalSearch() {
