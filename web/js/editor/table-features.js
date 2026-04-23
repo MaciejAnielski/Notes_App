@@ -527,12 +527,20 @@ function _fallbackCopy(text, glowTarget) {
   }
 
   // Inject a .table-ghost-text span into the pre at _ghostInsertPos.
-  // Called ~15 ms after the input event so the 10 ms syntax-highlight debounce
-  // has already updated the pre with the current textarea content.
+  // Skips the walk when _ghostInsertPos is beyond the pre's current text
+  // length — that means the syntax-highlight debounce hasn't caught up to
+  // the textarea yet, and appending at the end would render the ghost on
+  // the wrong line briefly until the next _updateHighlight wipes it.
   function _applyGhostToPre() {
     if (_ghostInsertPos === null || typeof _highlightPre === 'undefined' || !_highlightPre) return;
-    // Remove any stale ghost span.
+    // Remove any stale ghost span before counting text length so the offset
+    // calculation isn't inflated by text still inside a prior ghost span.
     _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
+    // Total text length of the pre after ghost removal — must match the
+    // textarea position that _ghostInsertPos refers to, otherwise the pre
+    // is stale (input fired but the 10 ms highlight debounce hasn't run yet).
+    const preLen = _highlightPre.textContent.length;
+    if (_ghostInsertPos > preLen) return; // wait for _updateHighlight to catch up
     // Walk text nodes to find the character offset.
     const walker = document.createTreeWalker(_highlightPre, NodeFilter.SHOW_TEXT);
     let remaining = _ghostInsertPos;
@@ -554,22 +562,21 @@ function _fallbackCopy(text, glowTarget) {
       }
       remaining -= textNode.length;
     }
-    // Cursor is past all text nodes (end of document) — append.
+    // Exact end of document — append.
     const span = document.createElement('span');
     span.className = 'table-ghost-text';
     span.textContent = _ghostText;
     _highlightPre.appendChild(span);
   }
 
-  // Show a suggestion: schedule injection after 50 ms so the syntax-highlight
-  // debounce (10 ms) reliably completes first, avoiding a race where the pre
-  // innerHTML is rewritten after the ghost span is already injected.
+  // Show a suggestion. The ghost span is injected after the 10 ms
+  // syntax-highlight debounce runs _updateHighlight, which calls
+  // window._tableGhostApply once the pre matches the textarea again.
   function _trShow(pos, suggestion) {
     _trHide();
     _trSuggestion   = suggestion;
     _ghostInsertPos = pos;
     _ghostText      = suggestion.slice(1); // everything after the '|' already typed
-    setTimeout(_applyGhostToPre, 50);
   }
 
   // ── Date / number helpers ────────────────────────────────────────────────
@@ -938,7 +945,13 @@ function _fallbackCopy(text, glowTarget) {
 
     // Keep suggestion visible when user types a space after '|' and a suggestion
     // is already active — just shift the ghost insertion point forward by one.
+    // Remove the stale ghost span synchronously so there is no window where the
+    // old span (at the old offset) overlaps the new cursor position before the
+    // 10 ms _updateHighlight debounce rewrites the pre.
     if (currentLine === '| ' && _trSuggestion !== null) {
+      if (typeof _highlightPre !== 'undefined' && _highlightPre) {
+        _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
+      }
       _ghostInsertPos = pos;
       _ghostText = _trSuggestion.slice(2); // show remaining text after '| '
       return; // ghost will be re-injected by _updateHighlight → _tableGhostApply
@@ -958,12 +971,12 @@ function _fallbackCopy(text, glowTarget) {
     if (!suggestion) { _trHide(); return; }
 
     if (currentLine === '| ') {
-      // Fresh suggestion on a '| ' line (e.g., auto-inserted after accepting a row)
+      // Fresh suggestion on a '| ' line (e.g., auto-inserted after accepting a row).
+      // _updateHighlight's auto-reapply will inject the ghost once the debounce fires.
       _trHide();
       _trSuggestion   = suggestion;
       _ghostInsertPos = pos;
       _ghostText      = suggestion.slice(2); // skip '| ' already typed
-      setTimeout(_applyGhostToPre, 50);
     } else {
       _trShow(pos, suggestion);
     }
