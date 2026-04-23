@@ -508,7 +508,7 @@ async function _doRenderSchedule(cachedNotes) {
     // Approximate pixel heights for SVG sizing
     // Each item: ALLDAY_ITEM_H (28px) + 5px bottom margin (no top margin) = 33px
     const ITEM_ROW_H = ALLDAY_ITEM_H + 5;
-    const expandedSvgH = Math.max(sorted.length * ITEM_ROW_H, 40);
+    const expandedSvgH = sorted.length * ITEM_ROW_H;
     const collapsedSvgH = Math.max(2 * ITEM_ROW_H, 40);
 
     const section = document.createElement('div');
@@ -623,6 +623,7 @@ async function _doRenderSchedule(cachedNotes) {
     const block = _makeScheduleBlock(item, classes);
     block.style.top    = top + 'px';
     block.style.height = height + 'px';
+    if (height <= 20) block.classList.add('schedule-item-short');
     // Store time bounds for conflict detection during drag
     block.dataset.startMins = startMin;
     block.dataset.endMins   = endMin;
