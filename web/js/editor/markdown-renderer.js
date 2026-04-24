@@ -3137,11 +3137,12 @@ async function toggleView() {
     }
     await applyPendingRename();
 
-    // Clean up table formatting before switching to preview.
-    const _cleanedText = _cleanupMarkdownTables(textarea.value);
-    if (_cleanedText !== textarea.value) {
-      textarea.value = _cleanedText;
-      await autoSaveNote();
+    // Drain queued auto-edits (table cleanup, daily date-code insertion,
+    // attachment renames) before rendering preview.  Persist any resulting
+    // textarea changes before rendering.
+    if (window.AutoEditQueue) {
+      await window.AutoEditQueue.flush({ reason: 'toggle-view' });
+      if (textarea.value !== _lastSavedContent) await autoSaveNote();
     }
 
     await renderPreview();
