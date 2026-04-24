@@ -363,6 +363,39 @@ async function checkAttachmentRenames(prevContent, newContent, noteName) {
   }
 }
 
+// ── Daily note: auto-insert date code ────────────────────────────────────
+// When a line in a daily note (YYMMDD Daily Note) ends with > HHMM HHMM
+// (bare time range with no date), insert the note's date code automatically.
+
+const _RE_DAILY_NOTE_NAME = /^(\d{6}) Daily Note$/;
+const _RE_BARE_TIMED = />\s*(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
+
+function _applyDailyDateCode(noteName) {
+  const dm = (noteName || '').match(_RE_DAILY_NOTE_NAME);
+  if (!dm) return false;
+  const dateCode = dm[1];
+  const lines = textarea.value.split('\n');
+  let changed = false;
+  const newLines = lines.map(line => {
+    if (_RE_TS_TIMED.test(line) || _RE_TS_MULTIDAY.test(line) || _RE_TS_ALLDAY.test(line)) return line;
+    const tm = line.match(_RE_BARE_TIMED);
+    if (!tm) return line;
+    const startH = parseInt(tm[1].slice(0, 2), 10), startM = parseInt(tm[1].slice(2), 10);
+    const endH   = parseInt(tm[2].slice(0, 2), 10), endM   = parseInt(tm[2].slice(2), 10);
+    if (startH > 23 || startM > 59 || endH > 23 || endM > 59) return line;
+    changed = true;
+    const tag = tm[3] ? ` @${tm[3]}` : '';
+    return line.replace(_RE_BARE_TIMED, `> ${dateCode} ${tm[1]} ${tm[2]}${tag}`);
+  });
+  if (changed) {
+    const sel = textarea.selectionStart, selEnd = textarea.selectionEnd;
+    textarea.value = newLines.join('\n');
+    textarea.selectionStart = sel;
+    textarea.selectionEnd = selEnd;
+  }
+  return changed;
+}
+
 // ── Auto-save ─────────────────────────────────────────────────────────────
 
 async function autoSaveNote() {
@@ -378,13 +411,17 @@ async function autoSaveNote() {
   // Capture mutable globals at the start to avoid race conditions while
   // async operations yield to other event handlers.
   const capturedFileName = currentFileName;
-  const capturedContent = textarea.value;
+  let capturedContent = textarea.value;
   const prevContent = _lastSavedContent;
 
   const name = getNoteTitle();
   if (!name) {
     updateStatus('File Not Saved. Please Add A Title Starting With "#".', false);
     return;
+  }
+
+  if (_applyDailyDateCode(name)) {
+    capturedContent = textarea.value;
   }
 
   const useSyncStorage = !!window.PowerSyncNoteStorage;
