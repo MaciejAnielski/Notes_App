@@ -231,6 +231,14 @@ function preprocessMarkdown(text) {
     }).join('\n');
   }
 
+  // ── Empty blockquote lines: ensure bare ">" renders as an empty blockquote ──
+  // A ">" with nothing after it (or only spaces/tabs) produces no visible output
+  // from the parser. Appending a zero-width space (U+200B) gives the parser
+  // non-empty content while keeping the rendered line visually blank.
+  {
+    text = text.replace(/^( {0,3}>)[ \t]*$/gm, '$1 ​');
+  }
+
   // ── Indentation: convert leading tabs into padded HTML blocks ──
   {
     const lines = text.split('\n');
@@ -3129,11 +3137,12 @@ async function toggleView() {
     }
     await applyPendingRename();
 
-    // Clean up table formatting before switching to preview.
-    const _cleanedText = _cleanupMarkdownTables(textarea.value);
-    if (_cleanedText !== textarea.value) {
-      textarea.value = _cleanedText;
-      await autoSaveNote();
+    // Drain queued auto-edits (table cleanup, daily date-code insertion,
+    // attachment renames) before rendering preview.  Persist any resulting
+    // textarea changes before rendering.
+    if (window.AutoEditQueue) {
+      await window.AutoEditQueue.flush({ reason: 'toggle-view' });
+      if (textarea.value !== _lastSavedContent) await autoSaveNote();
     }
 
     await renderPreview();

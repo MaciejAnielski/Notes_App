@@ -373,6 +373,10 @@ body.schedule-dragging * {
 /* Hide resize handle inside the all-day section (those items are not resizable) */
 .schedule-allday-section .schedule-resize-handle { display: none; }
 
+/* For very short timed events (≤20px), shrink the resize handle so it doesn't
+   block clicks on the task checkbox or event title. */
+.schedule-item-short .schedule-resize-handle { height: 3px; }
+
 /* Prevent scroll-hijacking on draggable items (touch).
    The all-day items are also .schedule-item, so this rule covers them too. */
 .schedule-item { touch-action: pan-y; }

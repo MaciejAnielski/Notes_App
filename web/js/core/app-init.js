@@ -290,12 +290,26 @@ searchTasksBox.addEventListener('input', () => {
   _taskSearchDebounce = setTimeout(() => updateTodoList(), 200);
 });
 textarea.addEventListener('input', () => {
+  if (window.AutoEditQueue) window.AutoEditQueue.markDirty();
   clearTimeout(autoSaveTimer);
   if (currentFileName === null) {
     const firstNewlineIdx = textarea.value.indexOf('\n');
     if (firstNewlineIdx === -1 || textarea.selectionStart <= firstNewlineIdx) return;
   }
   autoSaveTimer = setTimeout(autoSaveNote, 1000);
+});
+
+// Cursor-line-change trigger for the auto-edit queue.  selectionchange fires
+// for every caret movement (Enter, Arrow keys, Home/End, mouse click) so we
+// filter by the textarea being focused and by line-index actually changing.
+document.addEventListener('selectionchange', () => {
+  if (document.activeElement !== textarea) return;
+  if (window.AutoEditQueue) window.AutoEditQueue.onSelectionChange();
+});
+textarea.addEventListener('focus', () => {
+  if (window.AutoEditQueue) {
+    window.AutoEditQueue.resetLineTracker(window.AutoEditQueue.currentLineIndex());
+  }
 });
 
 // ── Panel management ──────────────────────────────────────────────────────
@@ -500,6 +514,7 @@ async function handleAttachmentPaste(file) {
     insertAtCursor(md);
     updateStatus(`Attached ${safeFilename}.`, true);
     clearTimeout(autoSaveTimer);
+    if (window.AutoEditQueue) await window.AutoEditQueue.flush({ reason: 'attach' });
     await autoSaveNote();
   } catch (err) {
     console.error('Attachment error:', err);
@@ -542,8 +557,11 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
     clearTimeout(autoSaveTimer);
+    const flushPromise = window.AutoEditQueue
+      ? window.AutoEditQueue.flush({ reason: 'manual-save' })
+      : Promise.resolve();
     try {
-      Promise.resolve(autoSaveNote()).then(
+      flushPromise.then(() => autoSaveNote()).then(
         () => updateStatus('Saved.', true),
         (err) => {
           console.error('[app-init] Ctrl+S save failed:', err);
@@ -1374,6 +1392,7 @@ function _setupPowerSyncHandlers() {
       if (autoSaveTimer !== null) {
         clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
+        if (window.AutoEditQueue) await window.AutoEditQueue.flush({ reason: 'manual-save' });
         await autoSaveNote();
       }
       if (_forceSyncCallback) {
@@ -1412,6 +1431,7 @@ if (window.Capacitor?.isNativePlatform()) {
       if (autoSaveTimer !== null) {
         clearTimeout(autoSaveTimer);
         autoSaveTimer = null;
+        if (window.AutoEditQueue) await window.AutoEditQueue.flush({ reason: 'manual-save' });
         await autoSaveNote();
       }
       updateStatus('Syncing\u2026', true, true);

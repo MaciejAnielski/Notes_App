@@ -363,6 +363,33 @@ async function checkAttachmentRenames(prevContent, newContent, noteName) {
   }
 }
 
+// ── Daily note: auto-insert date code ────────────────────────────────────
+// When a line in a daily note (YYMMDD Daily Note) ends with > HHMM HHMM
+// (bare time range with no date), insert the note's date code automatically.
+
+const _RE_DAILY_NOTE_NAME = /^(\d{6}) Daily Note$/;
+const _RE_BARE_TIMED = />\s*(\d{4})\s+(\d{4})(?:\s+@(\S+))?\s*$/;
+
+function applyDailyNoteDateCodes(text, fileName) {
+  const dm = (fileName || '').match(_RE_DAILY_NOTE_NAME);
+  if (!dm) return text;
+  const dateCode = dm[1];
+  const lines = text.split('\n');
+  let changed = false;
+  const newLines = lines.map(line => {
+    if (_RE_TS_TIMED.test(line) || _RE_TS_MULTIDAY.test(line) || _RE_TS_ALLDAY.test(line)) return line;
+    const tm = line.match(_RE_BARE_TIMED);
+    if (!tm) return line;
+    const startH = parseInt(tm[1].slice(0, 2), 10), startM = parseInt(tm[1].slice(2), 10);
+    const endH   = parseInt(tm[2].slice(0, 2), 10), endM   = parseInt(tm[2].slice(2), 10);
+    if (startH > 23 || startM > 59 || endH > 23 || endM > 59) return line;
+    changed = true;
+    const tag = tm[3] ? ` @${tm[3]}` : '';
+    return line.replace(_RE_BARE_TIMED, `> ${dateCode} ${tm[1]} ${tm[2]}${tag}`);
+  });
+  return changed ? newLines.join('\n') : text;
+}
+
 // ── Auto-save ─────────────────────────────────────────────────────────────
 
 async function autoSaveNote() {
@@ -379,7 +406,6 @@ async function autoSaveNote() {
   // async operations yield to other event handlers.
   const capturedFileName = currentFileName;
   const capturedContent = textarea.value;
-  const prevContent = _lastSavedContent;
 
   const name = getNoteTitle();
   if (!name) {
@@ -415,7 +441,6 @@ async function autoSaveNote() {
     if (scheduleContainer.classList.contains('active')) renderSchedule();
     await updateFileList();
     updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
-    await checkAttachmentRenames(prevContent, capturedContent, currentFileName);
     return;
   }
 
@@ -448,7 +473,6 @@ async function autoSaveNote() {
     await updateTodoList();
     await updateFileList();
     updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
-    await checkAttachmentRenames(prevContent, capturedContent, currentFileName);
     return;
   }
 
@@ -465,7 +489,6 @@ async function autoSaveNote() {
   if (scheduleContainer.classList.contains('active')) renderSchedule();
   await updateTodoList();
   updateStatus(useSyncStorage ? 'Saved.' : 'File Saved Successfully.', true);
-  await checkAttachmentRenames(prevContent, capturedContent, capturedFileName);
 }
 
 // ── Apply pending rename ───────────────────────────────────────────────────
@@ -544,6 +567,10 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
     // If in preview mode, commit any active table sort into textarea.value so
     // the save-on-navigate block below picks it up and writes it to storage.
     if (isPreview) _saveAllTableSorts(previewDiv);
+    if (window.AutoEditQueue) {
+      await window.AutoEditQueue.flush({ reason: 'load-note', generation: gen });
+      if (gen !== _loadNoteGeneration) return;
+    }
     if (textarea.value !== _lastSavedContent) {
       try {
         await NoteStorage.setNote(currentFileName, textarea.value);
@@ -619,6 +646,7 @@ async function loadNote(name, fromLink = false, prefetchedContent = null) {
   _cacheNoteContent(name, content);
   currentFileName = name;
   refreshHighlight();
+  if (window.AutoEditQueue) window.AutoEditQueue.resetLineTracker(0);
   localStorage.setItem('current_file', name);
 
   const isReadOnlyNote = name === PROJECTS_NOTE || name === CALENDARS_NOTE || name === GRAPH_NOTE;
@@ -688,6 +716,7 @@ async function newNote() {
   if (currentFileName) {
     // Commit any active table sort into textarea.value before the save check.
     if (isPreview) _saveAllTableSorts(previewDiv);
+    if (window.AutoEditQueue) await window.AutoEditQueue.flush({ reason: 'new-note' });
     if (textarea.value !== _lastSavedContent) {
       try {
         await NoteStorage.setNote(currentFileName, textarea.value);
@@ -730,6 +759,7 @@ async function newNote() {
   _lastSavedContent = textarea.value;
   _lastRemoteContent = null;
   refreshHighlight();
+  if (window.AutoEditQueue) window.AutoEditQueue.resetLineTracker(0);
   const activeItem = fileList.querySelector('.active-file');
   if (activeItem) activeItem.classList.remove('active-file');
   updateStatus('', true);
