@@ -290,24 +290,21 @@ async function updateWebCalendarSettings(allNotes) {
 
   // Ensure Profiles section — placed first so it appears at the top of the
   // injected Settings UI. Available on every platform (profiles work even
-  // when sync is disabled).
+  // when sync is disabled). The Profiles row is the unified entry point:
+  // sync and encryption controls live inside each row, not in standalone
+  // sections.
   if (!content.includes('## 👤 Profiles')) {
     content = _insertSection(
       content,
       '## 👤 Profiles',
-      'Switch between local profiles. Each profile has its own notes, theme, and calendar selections. Optionally link a profile to a Supabase account for sync.'
+      'Each profile has its own notes, theme, and calendar selections. Click a profile to switch; tap Sync or Encryption on a row to manage that profile.'
     );
   }
 
-  // Ensure Sync section (Desktop/iOS only — web has no sync capability)
-  if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## ☁️ Sync')) {
-    content = _insertSection(content, '## ☁️ Sync', 'Sync notes across devices using your email address.', '## 👤 Profiles');
-  }
-
-  // Ensure Encryption section (Desktop/iOS only — requires sync)
-  if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## 🔒 Encryption')) {
-    content = _insertSection(content, '## 🔒 Encryption', 'End-to-end encryption protects your notes so only your devices can read them.', '\n## ☁️ Sync');
-  }
+  // Strip any legacy ## ☁️ Sync / ## 🔒 Encryption sections written by older
+  // versions — those controls now live inside each profile row.
+  content = content.replace(/\n## ☁️ Sync[\s\S]*?(?=\n## |$)/, '');
+  content = content.replace(/\n## 🔒 Encryption[\s\S]*?(?=\n## |$)/, '');
 
   // Ensure Theme section
   if (!content.includes('## 🎨 Theme')) {

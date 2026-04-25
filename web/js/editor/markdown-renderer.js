@@ -1275,9 +1275,11 @@ async function renderPreview() {
 
   // Settings note: inject interactive controls
   if (currentFileName === CALENDARS_NOTE) {
+    // Profiles is the unified entry point — the per-profile row owns sync
+    // and encryption controls and expands them inline on demand. The
+    // dedicated ## ☁️ Sync and ## 🔒 Encryption sections are no longer
+    // injected; legacy headings are stripped on save by file-list.js.
     if (typeof injectProfileSettings === 'function') injectProfileSettings(previewDiv);
-    injectSyncSettings(previewDiv);
-    injectEncryptionSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
     injectThemeColorPickers(previewDiv);
     injectBookmarklets(previewDiv);
@@ -1567,8 +1569,14 @@ function _appendControls(section, wrap) {
   }
 }
 // Exposed for profile-settings-injection.js (loaded later) to reuse the same
-// insertion behaviour as injectSyncSettings/injectEncryptionSettings.
+// insertion behaviour as injectSyncSettings/injectEncryptionSettings, and
+// the four sync/encryption sub-builders so the unified Profiles row can
+// expand them inline.
 window._appendControls = _appendControls;
+window._buildSignInForm = (wrap, helpers) => _buildSignInForm(wrap, helpers);
+window._buildSignedInView = (wrap, helpers) => _buildSignedInView(wrap, helpers);
+window._buildEncryptionActiveView = (wrap, userId, masterKey) => _buildEncryptionActiveView(wrap, userId, masterKey);
+window._buildNeedKeyView = (wrap, userId) => _buildNeedKeyView(wrap, userId);
 
 // ── Encryption settings UI in Settings note preview ──────────────────────
 // Injects device pairing, key backup, and encryption status controls into

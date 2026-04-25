@@ -9,16 +9,19 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
+/* ── Row (horizontal layout, wraps gracefully) ───────────────────────── */
 .profile-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid transparent;
+  flex-wrap: wrap;
 }
 
 .profile-row.active {
@@ -26,52 +29,131 @@
   border-color: var(--border, #444);
 }
 
-.profile-row-namewrap {
-  flex: 1;
-  min-width: 0;
-}
-
+/* Name takes the remaining horizontal slack so chips align to the right */
 .profile-row-label {
-  font-size: 13px;
+  flex: 1 1 auto;
+  min-width: 80px;
+  font-size: 14px;
   color: var(--text, #e8dcf4);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: inline-block;
-  max-width: 100%;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
 }
 
 .profile-row-label:hover {
   text-decoration: underline;
 }
 
-.profile-row-tag {
-  font-size: 11px;
-  color: var(--muted, #888);
-  margin-left: 4px;
-}
-
+/* Active pill */
 .profile-active-pill {
+  display: inline-flex;
+  align-items: center;
   font-size: 11px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--accent, #a272b0);
   color: var(--text-on-accent, #fff);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  line-height: 1;
+  height: 22px;
+  box-sizing: border-box;
 }
 
-.profile-row-remove {
+/* ── Chips (Sync / Encryption / Switch / Remove) ─────────────────────── */
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 0 10px;
+  height: 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  margin: 0;
+  background: var(--surface, #2e2e2e);
+  color: var(--muted, #888);
+  border: 1px solid var(--border, #444);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.profile-chip:disabled,
+.profile-chip-disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
+.profile-chip-on {
+  background: rgba(76, 175, 114, 0.15);
+  color: var(--success, #4caf72);
+  border-color: rgba(76, 175, 114, 0.4);
+}
+
+.profile-chip-off {
+  /* default surface look, no extra colour */
+}
+
+.profile-chip-warn {
+  background: rgba(212, 162, 74, 0.15);
+  color: var(--warning, #d4a24a);
+  border-color: rgba(212, 162, 74, 0.4);
+}
+
+.profile-chip-active {
+  outline: 2px solid var(--accent, #a272b0);
+  outline-offset: 1px;
+}
+
+.profile-chip-switch {
+  background: transparent;
+  color: var(--accent, #a272b0);
+  border-color: var(--accent, #a272b0);
+}
+
+.profile-chip-remove {
   margin-left: auto;
+  color: var(--error, #e05c5c);
+  border-color: rgba(224, 92, 92, 0.4);
+  background: transparent;
 }
 
-.profile-row-managed .sync-btn {
+@media (hover: hover) {
+  .profile-chip:not(:disabled):not(.profile-chip-disabled):hover {
+    filter: brightness(1.15);
+  }
+}
+
+/* ── Inline panel that drops below an active row ─────────────────────── */
+.profile-row-panel {
+  margin: -2px 0 6px 0;
+  padding: 10px 14px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #444);
+  background: var(--surface, #2e2e2e);
+  font-size: 13px;
+}
+
+.profile-row-panel .sync-btn {
+  margin-bottom: 6px;
+  margin-right: 6px;
+}
+
+.profile-row-panel .sync-btn:last-child {
   margin-bottom: 0;
 }
 
-/* ── Avatar (toolbar button + dropdown rows) ─────────────────────────── */
-
+/* ── Avatar (shared: row + dropdown + toolbar) ───────────────────────── */
 .profile-avatar {
   display: inline-flex;
   align-items: center;
@@ -82,26 +164,70 @@
   background-color: var(--accent, #a272b0);
   color: var(--text-on-accent, #fff);
   user-select: none;
-}
-
-#profile-avatar-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  margin: 0 4px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-#profile-avatar-btn:hover {
-  filter: brightness(1.1);
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .profile-avatar-mini {
-  width: 22px;
-  height: 22px;
-  font-size: 11px;
-  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+
+/* Avatar in the row that doubles as a colour picker */
+.profile-avatar-pick {
+  position: relative;
+  cursor: pointer;
+}
+
+.profile-avatar-pick:hover {
+  filter: brightness(1.1);
+}
+
+/* Hide the native colour input visually but keep it interactive over the
+   avatar. Sized to cover the full avatar so any click triggers the picker. */
+.profile-avatar-color-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+}
+.profile-avatar-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.profile-avatar-color-input::-webkit-color-swatch { border: none; }
+
+/* ── Toolbar avatar button — bump specificity over toolbar.css's
+   `#button-container .button-group > button:not(.sub-button)` rule which
+   sets background:none, custom padding, and font-size. The combined
+   `#button-container #profile-avatar-btn` selector beats those. ─────── */
+#button-container #profile-avatar-btn,
+#tools-overflow-row #profile-avatar-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* background-color is set inline by JS to the active profile's colour */
+  border: 1px solid var(--border, #444);
+  line-height: 1;
+}
+
+#button-container #profile-avatar-btn:hover,
+#tools-overflow-row #profile-avatar-btn:hover {
+  filter: brightness(1.15);
+  /* Override the toolbar :hover rule that switches background to var(--surface) */
+  background-color: inherit;
 }
 
 #profile-avatar-group {
@@ -109,38 +235,7 @@
   margin-left: auto;
 }
 
-/* Color picker (matches .theme-color-picker shape) */
-.profile-color-picker {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  border: none;
-  border-radius: 50%;
-  padding: 0;
-  cursor: pointer;
-  background: none;
-  width: 22px;
-  height: 22px;
-  box-shadow: 0 0 0 1.5px var(--border, #444);
-  overflow: hidden;
-  outline: none;
-}
-
-.profile-color-picker::-webkit-color-swatch-wrapper {
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  width: 100%;
-  height: 100%;
-}
-
-.profile-color-picker::-webkit-color-swatch {
-  border: none;
-  border-radius: 50%;
-}
-
 /* ── Dropdown ────────────────────────────────────────────────────────── */
-
 .profile-dropdown {
   position: absolute;
   top: 100%;
@@ -156,9 +251,7 @@
   padding: 4px 0;
 }
 
-.profile-dropdown[hidden] {
-  display: none;
-}
+.profile-dropdown[hidden] { display: none; }
 
 .profile-dropdown .profile-row {
   border-radius: 0;
@@ -166,16 +259,14 @@
   cursor: pointer;
   border: none;
   background: transparent;
+  flex-wrap: nowrap;
 }
 
 .profile-dropdown .profile-row:hover {
   background: var(--hover-overlay, rgba(255,255,255,0.05));
 }
 
-.profile-dropdown .profile-row.active {
-  background: var(--surface, #2e2e2e);
-}
-
+.profile-dropdown .profile-row.active,
 .profile-dropdown .profile-row.active:hover {
   background: var(--surface, #2e2e2e);
 }
@@ -196,12 +287,60 @@
   color: var(--text, #e8dcf4);
 }
 
-/* ── Mobile / narrow viewports ───────────────────────────────────────── */
+.profile-row-tag {
+  font-size: 11px;
+  color: var(--muted, #888);
+  margin-left: 4px;
+}
+
+/* ── Mobile / narrow viewports — stack vertically ────────────────────── */
+@media (max-width: 600px) {
+  .profile-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .profile-row-label {
+    width: 100%;
+    flex: 0 0 auto;
+    white-space: normal;
+    word-break: break-word;
+    font-size: 15px;
+  }
+
+  /* Chips align in a tidy wrapping row beneath the name */
+  .profile-row > .profile-chip,
+  .profile-row > .profile-active-pill {
+    margin-left: 0;
+  }
+
+  .profile-chip-remove {
+    margin-left: 0;
+  }
+
+  /* Row gets a subtle horizontal divider so vertical rows read as cards */
+  .profile-row {
+    border: 1px solid var(--border, #444);
+  }
+  .profile-row.active {
+    border-color: var(--accent, #a272b0);
+  }
+
+  /* The avatar + name appear together at the top of each card. Wrap them
+     with a flex row so the avatar sits next to the name even when other
+     children stack vertically. */
+  .profile-row > .profile-avatar-pick {
+    align-self: flex-start;
+  }
+}
 
 @media (max-width: 400px) {
-  #profile-avatar-btn {
-    width: 22px;
-    height: 22px;
+  #button-container #profile-avatar-btn,
+  #tools-overflow-row #profile-avatar-btn {
+    width: 24px;
+    height: 24px;
     font-size: 11px;
   }
   .profile-dropdown {

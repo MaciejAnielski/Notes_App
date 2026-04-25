@@ -1,7 +1,11 @@
-// profile-settings-injection.js — Renders the ## 👤 Profiles section inside
-// the Settings note preview. Mirrors the structure of injectSyncSettings:
-// finds the section by heading text, bails if .profile-controls is already
-// injected, then builds a controls container and appends via _appendControls.
+// profile-settings-injection.js — Renders the unified ## 👤 Profiles section.
+//
+// Each profile row carries every per-profile control: avatar (click to pick
+// colour), name (click to rename), ACTIVE / inactive status, Sync ON/OFF
+// chip, Encryption ON/OFF chip, Remove button. The active profile's Sync
+// and Encryption chips expand inline panels that reuse the legacy
+// _buildSignInForm / _buildSignedInView / _buildEncryptionActiveView /
+// _buildNeedKeyView builders from markdown-renderer.js.
 
 (function () {
   'use strict';
@@ -28,15 +32,6 @@
     return lum > 0.55 ? '#222' : '#fff';
   }
 
-  function _avatarSpan(profile) {
-    const av = document.createElement('span');
-    av.className = 'profile-avatar profile-avatar-mini';
-    av.textContent = profile.initial || (profile.name?.[0] || '?').toUpperCase();
-    av.style.backgroundColor = profile.color || 'var(--accent)';
-    av.style.color = _contrastingTextColor(profile.color);
-    return av;
-  }
-
   function _refreshSection(section) {
     const oldWrap = section.querySelector('.profile-controls');
     if (oldWrap) oldWrap.remove();
@@ -57,21 +52,238 @@
     return b;
   }
 
+  // ── Per-profile sync state (read-only summary) ─────────────────────────
+  function _syncStateFor(profile, isActive) {
+    if (profile.supabaseEmail) return { on: true, label: 'Sync ON', detail: profile.supabaseEmail };
+    return { on: false, label: 'Sync OFF', detail: null };
+  }
+
+  // ── Per-profile encryption state ────────────────────────────────────────
+  // Encryption is an account-level toggle on the Supabase user, so the live
+  // status is only knowable for the active profile (we hold its session).
+  // For inactive linked profiles we show '—'; for unlinked profiles N/A.
+  function _encryptionStateFor(profile, isActive) {
+    if (!profile.supabaseEmail) return { kind: 'na', label: 'Encryption N/A' };
+    if (!isActive) return { kind: 'unknown', label: 'Encryption —' };
+    const enc = window._encryption;
+    if (!enc) return { kind: 'unknown', label: 'Encryption —' };
+    if (enc.active && enc.key) return { kind: 'on', label: 'Encryption ON' };
+    if (enc.enabled && !enc.key) return { kind: 'pair', label: 'Pair device' };
+    return { kind: 'off', label: 'Encryption OFF' };
+  }
+
+  // ── Chip element ────────────────────────────────────────────────────────
+  // Compact pill that doubles as a state indicator and (when active) a
+  // toggle. Class hooks: profile-chip, profile-chip-on / profile-chip-off /
+  // profile-chip-disabled, profile-chip-active (when expanded panel open).
+  function _chip(label, kindClass, opts = {}) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'profile-chip ' + kindClass;
+    el.textContent = label;
+    if (opts.title) el.title = opts.title;
+    if (opts.disabled) el.disabled = true;
+    return el;
+  }
+
+  // ── Inline panel below a row ────────────────────────────────────────────
+  // Created on demand when a chip is clicked. Reused: clicking the same chip
+  // again removes the panel; clicking a different chip swaps content.
+  function _ensurePanel(row) {
+    let panel = row.nextElementSibling;
+    if (!panel || !panel.classList.contains('profile-row-panel')) {
+      panel = document.createElement('div');
+      panel.className = 'profile-row-panel';
+      row.parentNode.insertBefore(panel, row.nextSibling);
+    }
+    return panel;
+  }
+
+  function _closePanel(row) {
+    const panel = row.nextElementSibling;
+    if (panel && panel.classList.contains('profile-row-panel')) {
+      panel.remove();
+    }
+    row.querySelectorAll('.profile-chip-active').forEach(c => c.classList.remove('profile-chip-active'));
+  }
+
+  function _openSyncPanel(row, profile) {
+    _closePanel(row);
+    const panel = _ensurePanel(row);
+    panel.classList.add('profile-row-panel-sync');
+    const helpers = window._syncHelpers;
+
+    if (!helpers || !helpers.available) {
+      panel.appendChild(_statusMsg('Sync requires the desktop or iOS app.'));
+      return;
+    }
+
+    if (profile.supabaseEmail) {
+      // Already linked — show signed-in state with sign-out / unlink.
+      if (typeof window._buildSignedInView === 'function' && helpers.authenticated) {
+        window._buildSignedInView(panel, helpers);
+      } else {
+        panel.appendChild(_statusMsg(`Linked to ${profile.supabaseEmail}.`));
+      }
+      const unlinkBtn = _btn('Unlink Profile from Supabase', 'secondary');
+      unlinkBtn.addEventListener('click', async () => {
+        if (!window.confirm(`Unlink ${profile.supabaseEmail} from "${profile.name}"? Local notes for this profile remain on this device.`)) return;
+        unlinkBtn.disabled = true;
+        unlinkBtn.textContent = 'Unlinking…';
+        try {
+          await window.ProfileSwitcher.unlinkSupabase(profile.id);
+        } catch (e) {
+          unlinkBtn.disabled = false;
+          unlinkBtn.textContent = 'Unlink Profile from Supabase';
+          if (typeof updateStatus === 'function') updateStatus(e.message || 'Unlink failed.', false);
+        }
+      });
+      panel.appendChild(unlinkBtn);
+      return;
+    }
+
+    // Not linked — show email form. Reuse the legacy magic-link sign-in
+    // form, but mark the pending profile id first so the auth-state listener
+    // attributes the resulting session correctly.
+    const emailWrap = document.createElement('div');
+    emailWrap.className = 'sync-step';
+    emailWrap.appendChild(_statusMsg('Enter your email to receive a sign-in link.'));
+    const emailInput = document.createElement('input');
+    emailInput.type = 'email';
+    emailInput.placeholder = 'you@example.com';
+    emailInput.className = 'sync-email-input';
+    emailInput.autocomplete = 'email';
+    emailWrap.appendChild(emailInput);
+    const sendBtn = _btn('Send Sign-In Link', 'primary');
+    emailWrap.appendChild(sendBtn);
+    const errorEl = document.createElement('p');
+    errorEl.className = 'sync-error';
+    errorEl.style.display = 'none';
+    emailWrap.appendChild(errorEl);
+    panel.appendChild(emailWrap);
+
+    const sendLink = async () => {
+      errorEl.style.display = 'none';
+      const email = emailInput.value.trim();
+      if (!email) {
+        errorEl.textContent = 'Please enter your email address.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        await window.ProfileSwitcher.linkSupabase(profile.id, email);
+        emailWrap.innerHTML = '';
+        emailWrap.appendChild(_statusMsg(`Sign-in link sent to ${email}. Click it from your email and the app will reload.`));
+      } catch (e) {
+        errorEl.textContent = e.message || 'Failed to send link.';
+        errorEl.style.display = 'block';
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send Sign-In Link';
+      }
+    };
+    sendBtn.addEventListener('click', sendLink);
+    emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendLink(); });
+  }
+
+  function _openEncryptionPanel(row, profile, encState) {
+    _closePanel(row);
+    const panel = _ensurePanel(row);
+    panel.classList.add('profile-row-panel-enc');
+    const enc = window._encryption;
+    const userId = enc?.userId;
+
+    if (!profile.supabaseEmail) {
+      panel.appendChild(_statusMsg('Link this profile to Supabase first to enable encryption.'));
+      return;
+    }
+    if (encState.kind === 'unknown') {
+      panel.appendChild(_statusMsg('Switch to this profile to manage its encryption.'));
+      return;
+    }
+    if (!userId) {
+      panel.appendChild(_statusMsg('Sign in to manage encryption.'));
+      return;
+    }
+
+    if (encState.kind === 'on') {
+      if (typeof window._buildEncryptionActiveView === 'function') {
+        window._buildEncryptionActiveView(panel, userId, enc.key);
+      } else {
+        panel.appendChild(_statusMsg('Encryption is on for this profile.'));
+      }
+      return;
+    }
+    if (encState.kind === 'pair') {
+      if (typeof window._buildNeedKeyView === 'function') {
+        window._buildNeedKeyView(panel, userId);
+      } else {
+        panel.appendChild(_statusMsg('This device needs to be paired to read encrypted notes.'));
+      }
+      return;
+    }
+
+    // OFF — same enable flow as the legacy section.
+    panel.appendChild(_statusMsg('Encrypt your notes so only your devices can read them. The server will never see your content.'));
+    const warnP = document.createElement('p');
+    warnP.className = 'encryption-warning';
+    warnP.textContent = 'Warning: If you lose access to all your devices and have no key backup, encrypted notes cannot be recovered.';
+    panel.appendChild(warnP);
+    const enableBtn = _btn('Enable Encryption', 'primary');
+    enableBtn.addEventListener('click', async () => {
+      enableBtn.disabled = true;
+      enableBtn.textContent = 'Setting up…';
+      try {
+        const masterKey = await CryptoEngine.generateMasterKey();
+        const rawBytes = await CryptoEngine.exportKey(masterKey);
+        await KeyStorage.saveMasterKey(rawBytes, userId);
+        await DevicePairing.enableEncryption(userId);
+        await DevicePairing.registerDevice(userId);
+        if (typeof updateStatus === 'function') updateStatus('Encryption enabled. Reloading…', true, true);
+        window.location.reload();
+      } catch (e) {
+        console.error('[profiles] Enable encryption failed:', e);
+        enableBtn.disabled = false;
+        enableBtn.textContent = 'Enable Encryption';
+        if (typeof updateStatus === 'function') updateStatus(e.message || 'Enable failed.', false);
+      }
+    });
+    panel.appendChild(enableBtn);
+  }
+
+  // ── Row builder ─────────────────────────────────────────────────────────
   function _buildRow(profile, isActive, refresh) {
     const row = document.createElement('div');
     row.className = 'profile-row profile-row-managed';
     if (isActive) row.classList.add('active');
 
-    row.appendChild(_avatarSpan(profile));
+    // Avatar — click to pick a colour. Hidden <input type="color"> sits
+    // inside the avatar so the native picker opens on click and the avatar
+    // serves as both visual swatch and trigger.
+    const avWrap = document.createElement('label');
+    avWrap.className = 'profile-avatar profile-avatar-mini profile-avatar-pick';
+    avWrap.textContent = profile.initial || (profile.name?.[0] || '?').toUpperCase();
+    avWrap.style.backgroundColor = profile.color || 'var(--accent)';
+    avWrap.style.color = _contrastingTextColor(profile.color);
+    avWrap.title = 'Click to change colour';
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.className = 'profile-avatar-color-input';
+    colorInput.value = profile.color || '#a272b0';
+    colorInput.addEventListener('change', () => {
+      window.ProfileStore.update(profile.id, { color: colorInput.value });
+      window.ProfileAvatar?.refresh();
+      refresh();
+      if (typeof updateStatus === 'function') updateStatus('Profile colour updated.', true);
+    });
+    avWrap.appendChild(colorInput);
+    row.appendChild(avWrap);
 
-    // Name (click-to-rename)
-    const nameWrap = document.createElement('div');
-    nameWrap.className = 'profile-row-namewrap';
+    // Name (click to rename)
     const nameSpan = document.createElement('span');
     nameSpan.className = 'profile-row-label';
-    nameSpan.textContent = profile.name + (profile.supabaseEmail ? ` (${profile.supabaseEmail})` : '');
-    nameWrap.appendChild(nameSpan);
-
+    nameSpan.textContent = profile.name;
     nameSpan.title = 'Click to rename';
     nameSpan.addEventListener('click', () => {
       const next = window.prompt('Rename profile', profile.name);
@@ -83,29 +295,19 @@
       refresh();
       if (typeof updateStatus === 'function') updateStatus('Profile renamed.', true);
     });
-    row.appendChild(nameWrap);
+    row.appendChild(nameSpan);
 
-    // Color picker
-    const colorInput = document.createElement('input');
-    colorInput.type = 'color';
-    colorInput.className = 'profile-color-picker';
-    colorInput.value = profile.color || '#a272b0';
-    colorInput.addEventListener('change', () => {
-      window.ProfileStore.update(profile.id, { color: colorInput.value });
-      window.ProfileAvatar?.refresh();
-      refresh();
-      if (typeof updateStatus === 'function') updateStatus('Profile colour updated.', true);
-    });
-    row.appendChild(colorInput);
-
-    // Active pill or Switch button
+    // Status pill — ACTIVE pill or Switch button
     if (isActive) {
       const pill = document.createElement('span');
       pill.className = 'profile-active-pill';
       pill.textContent = 'Active';
       row.appendChild(pill);
     } else {
-      const switchBtn = _btn('Switch', 'secondary');
+      const switchBtn = document.createElement('button');
+      switchBtn.type = 'button';
+      switchBtn.className = 'profile-chip profile-chip-switch';
+      switchBtn.textContent = 'Switch';
       switchBtn.addEventListener('click', async () => {
         switchBtn.disabled = true;
         switchBtn.textContent = 'Switching…';
@@ -114,54 +316,76 @@
       row.appendChild(switchBtn);
     }
 
-    // Link / Unlink Supabase
     const supportsSync = !!(window.electronAPI || window.Capacitor?.isNativePlatform());
-    if (supportsSync) {
-      if (profile.supabaseEmail) {
-        const unlinkBtn = _btn('Unlink', 'secondary');
-        unlinkBtn.addEventListener('click', async () => {
-          if (!window.confirm(`Unlink ${profile.supabaseEmail} from "${profile.name}"? Local notes for this profile remain on this device.`)) return;
-          unlinkBtn.disabled = true;
-          unlinkBtn.textContent = 'Unlinking…';
-          try {
-            await window.ProfileSwitcher.unlinkSupabase(profile.id);
-            if (typeof updateStatus === 'function') updateStatus('Profile unlinked.', true);
-            refresh();
-          } catch (e) {
-            unlinkBtn.disabled = false;
-            unlinkBtn.textContent = 'Unlink';
-            if (typeof updateStatus === 'function') updateStatus(e.message || 'Unlink failed.', false);
-          }
-        });
-        row.appendChild(unlinkBtn);
-      } else {
-        const linkBtn = _btn('Link Supabase', 'secondary');
-        linkBtn.addEventListener('click', async () => {
-          const email = window.prompt('Email address to link to this profile:');
-          if (!email) return;
-          linkBtn.disabled = true;
-          linkBtn.textContent = 'Sending…';
-          try {
-            await window.ProfileSwitcher.linkSupabase(profile.id, email);
-            if (typeof updateStatus === 'function') {
-              updateStatus(`Sign-in link sent to ${email}.`, true, true);
-            }
-          } catch (e) {
-            linkBtn.disabled = false;
-            linkBtn.textContent = 'Link Supabase';
-            if (typeof updateStatus === 'function') updateStatus(e.message || 'Link failed.', false);
-          }
-        });
-        row.appendChild(linkBtn);
+
+    // Sync chip
+    const syncState = _syncStateFor(profile, isActive);
+    const syncChip = _chip(
+      syncState.label,
+      syncState.on ? 'profile-chip-on' : 'profile-chip-off',
+      { title: syncState.detail || (supportsSync ? 'Click to manage sync' : 'Sync available on Desktop/iOS only') }
+    );
+    if (!supportsSync) syncChip.classList.add('profile-chip-disabled');
+    syncChip.addEventListener('click', () => {
+      if (!supportsSync) return;
+      if (!isActive) {
+        // For inactive profiles, switching first is required (we can't show
+        // their session). Tell the user.
+        if (typeof updateStatus === 'function') {
+          updateStatus('Switch to this profile to manage its sync.', false);
+        }
+        return;
       }
+      if (syncChip.classList.contains('profile-chip-active')) {
+        syncChip.classList.remove('profile-chip-active');
+        _closePanel(row);
+        return;
+      }
+      syncChip.classList.add('profile-chip-active');
+      _openSyncPanel(row, profile);
+    });
+    row.appendChild(syncChip);
+
+    // Encryption chip
+    const encState = _encryptionStateFor(profile, isActive);
+    let encChipKind;
+    switch (encState.kind) {
+      case 'on': encChipKind = 'profile-chip-on'; break;
+      case 'off': encChipKind = 'profile-chip-off'; break;
+      case 'pair': encChipKind = 'profile-chip-warn'; break;
+      default: encChipKind = 'profile-chip-disabled';
     }
+    const encChip = _chip(encState.label, encChipKind, {
+      title: encState.kind === 'na'
+        ? 'Encryption requires a Supabase-linked profile.'
+        : encState.kind === 'unknown'
+          ? 'Switch to this profile to see live encryption state.'
+          : 'Click to manage encryption'
+    });
+    if (encState.kind === 'na' || encState.kind === 'unknown' || !supportsSync) {
+      encChip.classList.add('profile-chip-disabled');
+    }
+    encChip.addEventListener('click', () => {
+      if (encChip.classList.contains('profile-chip-disabled')) return;
+      if (encChip.classList.contains('profile-chip-active')) {
+        encChip.classList.remove('profile-chip-active');
+        _closePanel(row);
+        return;
+      }
+      encChip.classList.add('profile-chip-active');
+      _openEncryptionPanel(row, profile, encState);
+    });
+    row.appendChild(encChip);
 
     // Remove
-    const removeBtn = _btn('Remove', 'secondary');
-    removeBtn.classList.add('profile-row-remove');
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'profile-chip profile-chip-remove';
+    removeBtn.textContent = 'Remove';
     const profileCount = window.ProfileStore.list().length;
     if (profileCount <= 1 || isActive) {
       removeBtn.disabled = true;
+      removeBtn.classList.add('profile-chip-disabled');
       removeBtn.title = isActive
         ? 'Switch to a different profile first.'
         : 'You must keep at least one profile.';
@@ -184,7 +408,6 @@
     row.appendChild(removeBtn);
 
     if (SECONDARY) {
-      // In secondary windows, profile management is read-only.
       row.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
       row.title = 'Manage profiles from the main window.';
     }
@@ -199,14 +422,10 @@
     const wrap = document.createElement('div');
     wrap.className = 'profile-controls';
 
-    const active = window.ProfileStore.getActive();
-    if (active) {
-      wrap.appendChild(_statusMsg(`Active: ${active.name}${active.supabaseEmail ? ` (${active.supabaseEmail})` : ''}`));
-    }
-
     const list = document.createElement('div');
     list.className = 'profile-list';
     const refresh = () => _refreshSection(section);
+    const active = window.ProfileStore.getActive();
     for (const p of window.ProfileStore.list()) {
       list.appendChild(_buildRow(p, p.id === active?.id, refresh));
     }
