@@ -519,6 +519,9 @@ function _fallbackCopy(text, glowTarget) {
   // Remove the ghost span from the pre.  Synchronous — safe to call in input handler.
   function _trHide() {
     if (typeof _highlightPre !== 'undefined' && _highlightPre) {
+      // Remove the span AND its text content — unwrapping (hoisting children
+      // out) leaves the ghost text as plain text in the pre, which then shows
+      // as a duplicate once the next ghost is injected at the same offset.
       _highlightPre.querySelectorAll('.table-ghost-text').forEach(s => s.remove());
     }
     _ghostInsertPos = null;
