@@ -353,6 +353,13 @@
       if (event === 'SIGNED_IN' && newSession) {
         window._syncHelpers.authenticated = true;
         window._syncHelpers.userEmail = newSession.user?.email || null;
+        // If a profile-link flow is pending, complete it before reload so the
+        // session token is persisted to the right profile.
+        try {
+          await window.ProfileSwitcher?._onSupabaseAuthChange?.(event, newSession);
+        } catch (e) {
+          console.warn('[powersync] profile auth-change hook failed:', e?.message);
+        }
         // Reload so PowerSync can fully initialise with the fresh session
         window.location.reload();
       }
@@ -374,6 +381,12 @@
     if (window._syncHelpers) {
       window._syncHelpers.authenticated = !!newSession;
       window._syncHelpers.userEmail = newSession?.user?.email || null;
+    }
+    // Notify profile switcher so a magic-link sign-in completes the link flow.
+    try {
+      window.ProfileSwitcher?._onSupabaseAuthChange?.(_event, newSession);
+    } catch (e) {
+      console.warn('[powersync] profile auth-change hook failed:', e?.message);
     }
   });
 

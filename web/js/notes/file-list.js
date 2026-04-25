@@ -288,9 +288,20 @@ async function updateWebCalendarSettings(allNotes) {
     return text.slice(0, insertAt) + sep + heading + '\n\n' + body + '\n' + text.slice(insertAt);
   }
 
+  // Ensure Profiles section — placed first so it appears at the top of the
+  // injected Settings UI. Available on every platform (profiles work even
+  // when sync is disabled).
+  if (!content.includes('## 👤 Profiles')) {
+    content = _insertSection(
+      content,
+      '## 👤 Profiles',
+      'Switch between local profiles. Each profile has its own notes, theme, and calendar selections. Optionally link a profile to a Supabase account for sync.'
+    );
+  }
+
   // Ensure Sync section (Desktop/iOS only — web has no sync capability)
   if ((window.electronAPI || window.Capacitor?.isNativePlatform()) && !content.includes('## ☁️ Sync')) {
-    content = _insertSection(content, '## ☁️ Sync', 'Sync notes across devices using your email address.');
+    content = _insertSection(content, '## ☁️ Sync', 'Sync notes across devices using your email address.', '## 👤 Profiles');
   }
 
   // Ensure Encryption section (Desktop/iOS only — requires sync)

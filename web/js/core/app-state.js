@@ -132,6 +132,8 @@ const SEASON_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn'];
 // In-memory encryption key and status. The key is loaded from KeyStorage
 // during app-init and cleared on tab close (never persisted in JS memory
 // beyond the session).
+// userId is the Supabase user ID, so encryption is keyed per Supabase
+// account — i.e. inherently per profile when the active profile is linked.
 window._encryption = {
   key: null,        // CryptoKey (AES-GCM master key) or null
   enabled: false,   // true if this user has encryption enabled (server record)

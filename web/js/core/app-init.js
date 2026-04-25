@@ -252,6 +252,11 @@ window.addEventListener('resize', () => {
 });
 checkToolbarOverflow();
 
+// Mount the profile-switcher avatar on the toolbar (right edge).
+if (window.ProfileAvatar?.mount) {
+  window.ProfileAvatar.mount();
+}
+
 // ── Scroll behaviour — toolbar floats when not at top; status pill fades ─────
 
 (function () {
@@ -1111,6 +1116,16 @@ const _RE_AC_MD   = /\[[^\[\]\n]*\]\(([^)\n]*)$/;
   }
 }
 
+// ── Cross-window profile change channel ────────────────────────────────
+// When the active profile changes (switch / link / unlink / remove) in any
+// window, every other window reloads to pick up the new namespace.
+if (typeof BroadcastChannel !== 'undefined') {
+  const _profileChannel = new BroadcastChannel('notes:profile:change');
+  _profileChannel.addEventListener('message', () => {
+    window.location.reload();
+  });
+}
+
 // ── Cross-tab sync via BroadcastChannel (web / IndexedDB) ────────────────
 // Listens for note changes broadcast by storage.js so that other open tabs
 // update their editor or preview when a note is modified elsewhere.
@@ -1553,6 +1568,21 @@ async function migrateLocalNotesToSync() {
       if (window.PowerSyncNoteStorage) {
         window.NoteStorage = window.PowerSyncNoteStorage;
         await migrateLocalNotesToSync();
+      }
+    }
+
+    // ── Multi-profile bootstrap ───────────────────────────────────────────
+    // Establish the active profile, perform one-time IDB migration of
+    // existing notes into the Default profile namespace, install the
+    // namespacing wrapper, and restore the linked Supabase session if any.
+    // Must run AFTER NoteStorage is final (post-PowerSync) and BEFORE
+    // encryption wraps it, so the wrapper layering is:
+    //   raw → profile-namespace → encryption (outermost)
+    if (window.ProfileSwitcher?.bootstrapActiveProfile) {
+      try {
+        await window.ProfileSwitcher.bootstrapActiveProfile();
+      } catch (e) {
+        console.error('[profiles] bootstrap failed:', e);
       }
     }
 

@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="css/diagrams.css">
     <link rel="stylesheet" href="css/graph.css">
     <link rel="stylesheet" href="css/table.css">
+    <link rel="stylesheet" href="css/profiles.css">
     <!-- responsive last — breakpoints override component defaults -->
     <link rel="stylesheet" href="css/responsive.css">
     <link rel="icon" href="001_Assets/favicon.ico" type="image/x-icon">
@@ -113,6 +114,13 @@
         </div>
         <div class="button-group">
             <button id="toggle-view">View</button>
+        </div>
+
+        <div class="button-group" id="profile-avatar-group">
+            <button id="profile-avatar-btn" class="profile-avatar"
+                    aria-haspopup="true" aria-expanded="false"
+                    title="Switch profile"></button>
+            <div id="profile-dropdown" class="profile-dropdown" role="menu" hidden></div>
         </div>
 
     </div>
@@ -216,6 +224,14 @@
   <script defer src="js/encryption/key-storage.js"></script>
   <script defer src="js/encryption/crypto-storage.js"></script>
   <script defer src="js/encryption/device-pairing.js"></script>
+
+  <!-- Multi-profile support (must load before app-init's bootstrap call) -->
+  <script defer src="js/profiles/profile-store.js"></script>
+  <script defer src="js/profiles/profile-session-vault.js"></script>
+  <script defer src="js/profiles/profile-storage-wrapper.js"></script>
+  <script defer src="js/profiles/profile-switcher.js"></script>
+  <script defer src="js/profiles/profile-toolbar-avatar.js"></script>
+  <script defer src="js/profiles/profile-settings-injection.js"></script>
 
   <!-- Core app state (DOM refs, shared variables) -->
   <script defer src="js/core/app-state.js"></script>

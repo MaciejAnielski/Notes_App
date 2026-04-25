@@ -1275,6 +1275,7 @@ async function renderPreview() {
 
   // Settings note: inject interactive controls
   if (currentFileName === CALENDARS_NOTE) {
+    if (typeof injectProfileSettings === 'function') injectProfileSettings(previewDiv);
     injectSyncSettings(previewDiv);
     injectEncryptionSettings(previewDiv);
     injectCalendarColorPickers(previewDiv);
@@ -1565,6 +1566,9 @@ function _appendControls(section, wrap) {
     section.appendChild(wrap);
   }
 }
+// Exposed for profile-settings-injection.js (loaded later) to reuse the same
+// insertion behaviour as injectSyncSettings/injectEncryptionSettings.
+window._appendControls = _appendControls;
 
 // ── Encryption settings UI in Settings note preview ──────────────────────
 // Injects device pairing, key backup, and encryption status controls into

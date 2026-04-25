@@ -1,0 +1,211 @@
+/* ── Multi-profile UI ────────────────────────────────────────────────── */
+
+/* Settings note injected section */
+.profile-controls {
+  padding: 8px 0 12px;
+}
+
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.profile-row.active {
+  background: var(--surface, #2e2e2e);
+  border-color: var(--border, #444);
+}
+
+.profile-row-namewrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-row-label {
+  font-size: 13px;
+  color: var(--text, #e8dcf4);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.profile-row-label:hover {
+  text-decoration: underline;
+}
+
+.profile-row-tag {
+  font-size: 11px;
+  color: var(--muted, #888);
+  margin-left: 4px;
+}
+
+.profile-active-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent, #a272b0);
+  color: var(--text-on-accent, #fff);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-row-remove {
+  margin-left: auto;
+}
+
+.profile-row-managed .sync-btn {
+  margin-bottom: 0;
+}
+
+/* ── Avatar (toolbar button + dropdown rows) ─────────────────────────── */
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  border: 1px solid var(--border, #444);
+  background-color: var(--accent, #a272b0);
+  color: var(--text-on-accent, #fff);
+  user-select: none;
+}
+
+#profile-avatar-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  margin: 0 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#profile-avatar-btn:hover {
+  filter: brightness(1.1);
+}
+
+.profile-avatar-mini {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+#profile-avatar-group {
+  position: relative;
+  margin-left: auto;
+}
+
+/* Color picker (matches .theme-color-picker shape) */
+.profile-color-picker {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  width: 22px;
+  height: 22px;
+  box-shadow: 0 0 0 1.5px var(--border, #444);
+  overflow: hidden;
+  outline: none;
+}
+
+.profile-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+}
+
+.profile-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* ── Dropdown ────────────────────────────────────────────────────────── */
+
+.profile-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg, #1e1e1e);
+  border: 1px solid var(--border, #444);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px var(--shadow, rgba(0,0,0,0.3)),
+              0 8px 20px var(--shadow-light, rgba(0,0,0,0.2));
+  z-index: 200;
+  min-width: 200px;
+  padding: 4px 0;
+}
+
+.profile-dropdown[hidden] {
+  display: none;
+}
+
+.profile-dropdown .profile-row {
+  border-radius: 0;
+  padding: 6px 12px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.profile-dropdown .profile-row:hover {
+  background: var(--hover-overlay, rgba(255,255,255,0.05));
+}
+
+.profile-dropdown .profile-row.active {
+  background: var(--surface, #2e2e2e);
+}
+
+.profile-dropdown .profile-row.active:hover {
+  background: var(--surface, #2e2e2e);
+}
+
+.profile-dropdown-sep {
+  height: 1px;
+  background: var(--border, #444);
+  margin: 4px 0;
+}
+
+.profile-manage-row {
+  font-size: 12px;
+  color: var(--muted, #888);
+  justify-content: flex-start;
+}
+
+.profile-manage-row:hover {
+  color: var(--text, #e8dcf4);
+}
+
+/* ── Mobile / narrow viewports ───────────────────────────────────────── */
+
+@media (max-width: 400px) {
+  #profile-avatar-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+  .profile-dropdown {
+    right: 8px;
+    min-width: 180px;
+  }
+}

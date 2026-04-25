@@ -9,7 +9,7 @@
 // ── IndexedDB connection singleton ────────────────────────────────────────
 
 const _DB_NAME = 'NotesAppDB';
-const _DB_VERSION = 1;
+const _DB_VERSION = 2;
 let _dbPromise = null;
 
 function _getDB() {
@@ -25,6 +25,9 @@ function _getDB() {
       if (!db.objectStoreNames.contains('attachments')) {
         const store = db.createObjectStore('attachments', { keyPath: ['noteName', 'filename'] });
         store.createIndex('by_note', 'noteName', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('profile_sessions')) {
+        db.createObjectStore('profile_sessions', { keyPath: 'profileId' });
       }
     };
 
@@ -318,7 +321,10 @@ window.NoteStorage = {
       console.error('[storage] listAttachments failed:', e);
       return [];
     }
-  }
+  },
+
+  // Internal handle used by ProfileSessionVault to share the same connection.
+  _getRawDB: _getDB
 };
 
 // ── PowerSync override (Desktop + iOS) ──
