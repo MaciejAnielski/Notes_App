@@ -61,6 +61,7 @@ body.panel-pinned {
     padding: 0.25em 0.35em;
   }
 
+  /* On mobile the toolbar is centred, so let the overflow row centre too. */
   body:not(.electron) #tools-overflow-row {
     justify-content: center;
   }

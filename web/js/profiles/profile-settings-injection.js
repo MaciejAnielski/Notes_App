@@ -38,6 +38,46 @@
     _build(section);
   }
 
+  // Replace the name span with an <input> for inline rename. Commits on
+  // Enter or blur, cancels on Escape. Used by all profile rows including
+  // the auto-created Default profile.
+  function _startInlineRename(nameSpan, profile, refresh) {
+    if (!nameSpan.parentNode) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'profile-row-name-input';
+    input.value = profile.name;
+    input.maxLength = 64;
+    input.spellcheck = false;
+    input.autocomplete = 'off';
+
+    let done = false;
+    const finish = (commit) => {
+      if (done) return;
+      done = true;
+      const trimmed = input.value.trim();
+      if (commit && trimmed && trimmed !== profile.name) {
+        window.ProfileStore.update(profile.id, { name: trimmed });
+        window.ProfileAvatar?.refresh();
+        refresh();
+        if (typeof updateStatus === 'function') updateStatus('Profile renamed.', true);
+      } else {
+        // Restore the original span if no commit happened.
+        if (input.parentNode) input.replaceWith(nameSpan);
+      }
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+
+    nameSpan.replaceWith(input);
+    input.focus();
+    input.select();
+  }
+
   function _statusMsg(text) {
     const el = document.createElement('p');
     el.className = 'sync-status-msg';
@@ -89,6 +129,8 @@
   // ── Inline panel below a row ────────────────────────────────────────────
   // Created on demand when a chip is clicked. Reused: clicking the same chip
   // again removes the panel; clicking a different chip swaps content.
+  // Every panel includes a close (✕) button so the user can dismiss it
+  // even after starting a flow (e.g. typing an email but not submitting).
   function _ensurePanel(row) {
     let panel = row.nextElementSibling;
     if (!panel || !panel.classList.contains('profile-row-panel')) {
@@ -96,6 +138,15 @@
       panel.className = 'profile-row-panel';
       row.parentNode.insertBefore(panel, row.nextSibling);
     }
+    panel.innerHTML = '';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'profile-row-panel-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.title = 'Close';
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => _closePanel(row));
+    panel.appendChild(closeBtn);
     return panel;
   }
 
@@ -281,20 +332,14 @@
     row.appendChild(avWrap);
 
     // Name (click to rename)
+    // Name — click to rename inline. Replaces the span with an <input> on
+    // click; commits on Enter or blur, cancels on Escape. Works for the
+    // Default profile too (no special-casing).
     const nameSpan = document.createElement('span');
     nameSpan.className = 'profile-row-label';
     nameSpan.textContent = profile.name;
     nameSpan.title = 'Click to rename';
-    nameSpan.addEventListener('click', () => {
-      const next = window.prompt('Rename profile', profile.name);
-      if (next == null) return;
-      const trimmed = next.trim();
-      if (!trimmed) return;
-      window.ProfileStore.update(profile.id, { name: trimmed });
-      window.ProfileAvatar?.refresh();
-      refresh();
-      if (typeof updateStatus === 'function') updateStatus('Profile renamed.', true);
-    });
+    nameSpan.addEventListener('click', () => _startInlineRename(nameSpan, profile, refresh));
     row.appendChild(nameSpan);
 
     // Status pill — ACTIVE pill or Switch button

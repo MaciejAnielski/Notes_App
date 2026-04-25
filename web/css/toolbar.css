@@ -91,36 +91,29 @@ button.btn-busy {
   pointer-events: none;
 }
 
-/* ── Tools overflow row: floating centred popup revealed on "…" hover ────── */
+/* ── Tools overflow row: real second row beneath the toolbar, left-aligned
+   to the toolbar. JS sets top/left via _positionOverflowRow() in app-init. */
 #tools-overflow-row {
-  display: flex;
+  display: none;
   position: fixed;
-  /* top and left are set by JS — centered on the "…" button */
+  /* top and left set by JS to anchor under the toolbar's left edge */
+  top: 0;
+  left: 0;
   max-width: calc(100vw - 32px);
   flex-direction: row;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   gap: 2px;
   padding: 4px 8px;
-  z-index: 200;
+  z-index: 99;
   background-color: var(--bg);
   border-radius: 999px;
-  box-shadow: 0 2px 8px var(--shadow), 0 8px 24px var(--shadow-light);
-  /* ── Animated appear ── */
-  opacity: 0;
-  transform: translateY(6px);
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.15s ease-out, transform 0.15s ease-out, visibility 0.15s ease-out;
+  box-shadow: 0 1px 4px var(--shadow), 0 6px 20px var(--shadow-light);
 }
 
-/* Show only when it has content AND the user is hovering the "…" button */
-#tools-overflow-row.has-overflow.visible {
-  opacity: 1;
-  transform: translateY(0);
-  visibility: visible;
-  pointer-events: auto;
+#tools-overflow-row.has-overflow {
+  display: flex;
 }
 
 .button-group {

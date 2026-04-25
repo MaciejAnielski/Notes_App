@@ -136,8 +136,9 @@
 
 /* ── Inline panel that drops below an active row ─────────────────────── */
 .profile-row-panel {
+  position: relative;
   margin: -2px 0 6px 0;
-  padding: 10px 14px 12px;
+  padding: 10px 36px 12px 14px;
   border-radius: 8px;
   border: 1px solid var(--border, #444);
   background: var(--surface, #2e2e2e);
@@ -151,6 +152,51 @@
 
 .profile-row-panel .sync-btn:last-child {
   margin-bottom: 0;
+}
+
+/* Close (X) button — anchored top-right of the panel so the user can dismiss
+   any flow at any time. Matches the toggle behaviour of the chip itself. */
+.profile-row-panel-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted, #888);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-row-panel-close:hover {
+  background: var(--hover-overlay, rgba(255,255,255,0.08));
+  color: var(--text, #e8dcf4);
+}
+
+/* ── Inline rename input — replaces the .profile-row-label span on click */
+.profile-row-name-input {
+  flex: 1 1 auto;
+  min-width: 80px;
+  font-size: 14px;
+  padding: 2px 6px;
+  margin: 0;
+  border: 1px solid var(--accent, #a272b0);
+  border-radius: 4px;
+  background: var(--bg, #1e1e1e);
+  color: var(--text, #e8dcf4);
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  height: 24px;
+  line-height: 1.2;
 }
 
 /* ── Avatar (shared: row + dropdown + toolbar) ───────────────────────── */
@@ -232,14 +278,15 @@
 
 #profile-avatar-group {
   position: relative;
-  margin-left: auto;
 }
 
 /* ── Dropdown ────────────────────────────────────────────────────────── */
+/* Anchored to the LEFT edge of the avatar group since the avatar now lives
+   at the left of the toolbar. */
 .profile-dropdown {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   margin-top: 4px;
   background: var(--bg, #1e1e1e);
   border: 1px solid var(--border, #444);
@@ -344,7 +391,7 @@
     font-size: 11px;
   }
   .profile-dropdown {
-    right: 8px;
+    left: 0;
     min-width: 180px;
   }
 }
