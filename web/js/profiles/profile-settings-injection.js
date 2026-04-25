@@ -103,13 +103,13 @@
   // status is only knowable for the active profile (we hold its session).
   // For inactive linked profiles we show '—'; for unlinked profiles N/A.
   function _encryptionStateFor(profile, isActive) {
-    if (!profile.supabaseEmail) return { kind: 'na', label: 'Encryption N/A' };
-    if (!isActive) return { kind: 'unknown', label: 'Encryption —' };
+    if (!profile.supabaseEmail) return { kind: 'na', label: 'E2E N/A' };
+    if (!isActive) return { kind: 'unknown', label: 'E2E —' };
     const enc = window._encryption;
-    if (!enc) return { kind: 'unknown', label: 'Encryption —' };
-    if (enc.active && enc.key) return { kind: 'on', label: 'Encryption ON' };
+    if (!enc) return { kind: 'unknown', label: 'E2E —' };
+    if (enc.active && enc.key) return { kind: 'on', label: 'E2E ON' };
     if (enc.enabled && !enc.key) return { kind: 'pair', label: 'Pair device' };
-    return { kind: 'off', label: 'Encryption OFF' };
+    return { kind: 'off', label: 'E2E OFF' };
   }
 
   // ── Chip element ────────────────────────────────────────────────────────
@@ -312,6 +312,12 @@
     // Avatar — click to pick a colour. Hidden <input type="color"> sits
     // inside the avatar so the native picker opens on click and the avatar
     // serves as both visual swatch and trigger.
+    // Identity sub-flex: keeps the avatar and name at a fixed gap, decoupled
+    // from the row's gap so chips wrapping on narrow screens cannot affect
+    // the avatar/name spacing.
+    const identity = document.createElement('div');
+    identity.className = 'profile-row-identity';
+
     const avWrap = document.createElement('label');
     avWrap.className = 'profile-avatar profile-avatar-mini profile-avatar-pick';
     avWrap.textContent = profile.initial || (profile.name?.[0] || '?').toUpperCase();
@@ -329,9 +335,8 @@
       if (typeof updateStatus === 'function') updateStatus('Profile colour updated.', true);
     });
     avWrap.appendChild(colorInput);
-    row.appendChild(avWrap);
+    identity.appendChild(avWrap);
 
-    // Name (click to rename)
     // Name — click to rename inline. Replaces the span with an <input> on
     // click; commits on Enter or blur, cancels on Escape. Works for the
     // Default profile too (no special-casing).
@@ -340,7 +345,9 @@
     nameSpan.textContent = profile.name;
     nameSpan.title = 'Click to rename';
     nameSpan.addEventListener('click', () => _startInlineRename(nameSpan, profile, refresh));
-    row.appendChild(nameSpan);
+    identity.appendChild(nameSpan);
+
+    row.appendChild(identity);
 
     // Status pill — ACTIVE pill or Switch button
     if (isActive) {
@@ -422,11 +429,15 @@
     });
     row.appendChild(encChip);
 
-    // Remove
+    // Delete icon — replaces the previous "Remove" text label. Uses the
+    // wastebasket glyph (🗑) for a compact icon button. aria-label preserves
+    // semantics for screen readers.
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'profile-chip profile-chip-remove';
-    removeBtn.textContent = 'Remove';
+    removeBtn.textContent = '🗑';
+    removeBtn.setAttribute('aria-label', 'Delete profile');
+    removeBtn.title = 'Delete profile';
     const profileCount = window.ProfileStore.list().length;
     if (profileCount <= 1 || isActive) {
       removeBtn.disabled = true;
@@ -436,17 +447,17 @@
         : 'You must keep at least one profile.';
     } else {
       removeBtn.addEventListener('click', async () => {
-        if (!window.confirm(`Remove profile "${profile.name}" and all its notes? This cannot be undone.`)) return;
+        if (!window.confirm(`Delete profile "${profile.name}" and all its notes? This cannot be undone.`)) return;
         removeBtn.disabled = true;
-        removeBtn.textContent = 'Removing…';
+        removeBtn.classList.add('profile-chip-busy');
         try {
           await window.ProfileSwitcher.removeProfile(profile.id);
-          if (typeof updateStatus === 'function') updateStatus('Profile removed.', true);
+          if (typeof updateStatus === 'function') updateStatus('Profile deleted.', true);
           refresh();
         } catch (e) {
           removeBtn.disabled = false;
-          removeBtn.textContent = 'Remove';
-          if (typeof updateStatus === 'function') updateStatus(e.message || 'Remove failed.', false);
+          removeBtn.classList.remove('profile-chip-busy');
+          if (typeof updateStatus === 'function') updateStatus(e.message || 'Delete failed.', false);
         }
       });
     }
